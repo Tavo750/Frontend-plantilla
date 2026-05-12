@@ -1,0 +1,205 @@
+/* ========== MENU LINK BASE ========== */
+.menu-link {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  padding: 8px 12px;
+  margin: 2px 0;
+  position: relative;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid transparent;
+}
+
+.menu-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 60%;
+  border-radius: 0 4px 4px 0;
+  transition: width 0.3s ease;
+}
+
+.menu-link:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(74, 122, 255, 0.12)
+  );
+  color: #ffffff !important;
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.menu-link:hover::before {
+  width: 4px;
+}
+
+.menu-link.has-children {
+  font-weight: 600;
+}
+
+.menu-link,
+.menu-link > * {
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease;
+}
+
+/* ========== ICON ========== */
+.menu-icon {
+  font-size: 17px;
+  margin-right: 12px;
+  width: 20px;
+  text-align: center;
+  opacity: 0.9;
+  transition: all 0.3s ease;
+}
+
+.menu-link:hover .menu-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* ========== MENU TEXT ========== */
+.menu-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== CHEVRON ========== */
+.chevron-icon {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-right: 0;
+}
+
+.menu-link:hover .chevron-icon {
+  opacity: 1;
+}
+
+/* ========== SUBMENU ========== */
+.submenu {
+  list-style: none;
+  padding-left: 0;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  border: 0px solid rgba(255, 255, 255, 0.05);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.submenu.expanded {
+  max-height: 1000px;
+  opacity: 1;
+  visibility: visible;
+  padding: 6px 6px 6px 0;
+}
+
+.submenu-item {
+  position: relative;
+  margin-left: calc(var(--depth, 0) * 14px);
+}
+
+.submenu-item::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(74, 122, 255, 0.3),
+    rgba(109, 213, 161, 0.3)
+  );
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+/* ========== ACTIVE STATE ========== */
+.menu-link.active {
+  background: linear-gradient(
+    135deg,
+    rgba(74, 122, 255, 0.2),
+    rgba(109, 213, 161, 0.15)
+  ) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-left: 4px solid var(--color-accent);
+  box-shadow: 0 4px 20px rgba(74, 122, 255, 0.25);
+  transform: translateX(4px);
+}
+
+.menu-link.active .menu-icon {
+  color: var(--color-accent) !important;
+  transform: scale(1.15);
+  text-shadow: 0 0 8px rgba(109, 213, 161, 0.4);
+}
+
+/* ========== ACTIVE CHILD INDICATOR ========== */
+.active-child-indicator {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+}
+
+.menu-link.has-active-child {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ========== ANIMATIONS ========== */
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.menu-link {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+/* ========== FOCUS ========== */
+.menu-link:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  background: rgba(74, 122, 255, 0.15);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .menu-link {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+}

@@ -1,0 +1,35 @@
+<div
+  class="sidebar"
+  [ngClass]="{ 'sidebar-mini': !open }"
+>
+  <!-- Título del sistema -->
+  <div class="titulo-wrapper" [ngClass]="{ 'titulo-wrapper-colapsado': !open }">
+    <span class="titulo">{{ titulo }}</span>
+  </div>
+
+  <!-- Menú principal -->
+  <ul class="menu">
+    <li
+      *ngFor="let item of menuItems; let i = index"
+      class="menu-item"
+    >
+      <app-sidebar-item
+        [item]="item"
+        [depth]="0"
+        [index]="i"
+        [expanded]="currentExpandedItemIndex[0] === i"
+        [currentExpandedItemIndex]="currentExpandedItemIndex"
+        [sidebarCollapsed]="!open"
+        (expandChange)="handleExpandChange($event)"
+      >
+      </app-sidebar-item>
+    </li>
+  </ul>
+
+  <!-- Versión del sistema -->
+  <div class="version-container" *ngIf="open">
+    <div class="version-text">
+      {{ version }}
+    </div>
+  </div>
+</div>

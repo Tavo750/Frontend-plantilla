@@ -1,0 +1,52 @@
+<div class="header-container">
+  <!-- Breadcrumb -->
+  <div class="header-title">
+    <nav aria-label="breadcrumb">
+      <ol class="custom-breadcrumb">
+        <li>
+          <a [routerLink]="home.routerLink" class="breadcrumb-item home-icon">
+            <i class="pi pi-home"></i>
+          </a>
+        </li>
+        <ng-container *ngFor="let item of breadcrumbItems; let last = last">
+          <li>
+            <i class="pi pi-chevron-right breadcrumb-separator"></i>
+            <span
+              class="breadcrumb-item"
+              [class.active]="last"
+              [attr.aria-current]="last ? 'page' : null"
+              [title]="item.label">
+              {{ item.label }}
+            </span>
+          </li>
+        </ng-container>
+      </ol>
+    </nav>
+  </div>
+
+  <!-- Spacer -->
+  <div class="header-spacer"></div>
+
+  <!-- Perfil -->
+  <div class="perfil" (click)="toggleProfileMenu()">
+    <div class="avatar" [title]="usuario?.nombreCompleto || 'Usuario'">
+      <span class="avatar-label">{{ avatarLabel }}</span>
+    </div>
+
+    <!-- Menú de perfil dropdown -->
+    <div class="profile-menu" *ngIf="showProfileMenu">
+      <div class="profile-menu-backdrop" (click)="closeProfileMenu()"></div>
+      <div class="profile-menu-content">
+        <div class="profile-menu-header">
+          <span class="profile-name">{{ usuario?.nombreCompleto || 'Usuario' }}</span>
+          <span class="profile-role" *ngIf="usuario?.puesto">{{ usuario?.puesto }}</span>
+        </div>
+        <div class="profile-menu-divider"></div>
+        <button class="profile-menu-item" (click)="onLogout()">
+          <i class="pi pi-sign-out"></i>
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

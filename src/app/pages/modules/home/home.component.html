@@ -1,0 +1,26 @@
+<div class="home-container">
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-content">
+      <h1 class="hero-title">Bienvenido al Sistema</h1>
+      <p class="hero-subtitle">Panel de control principal. Selecciona una opción del menú lateral para comenzar.</p>
+    </div>
+    <div class="hero-decoration"></div>
+  </div>
+
+  <!-- Cards Grid -->
+  <div class="cards-grid">
+    <div class="card" *ngFor="let card of cards">
+      <div class="card-icon-wrapper" [style.background]="card.color + '15'">
+        <i [class]="card.icon" [style.color]="card.color"></i>
+      </div>
+      <div class="card-content">
+        <h3 class="card-title">{{ card.title }}</h3>
+        <p class="card-description">{{ card.description }}</p>
+      </div>
+      <div class="card-arrow">
+        <i class="pi pi-arrow-right"></i>
+      </div>
+    </div>
+  </div>
+</div>

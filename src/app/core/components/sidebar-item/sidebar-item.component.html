@@ -1,0 +1,52 @@
+<a
+  (click)="toggleExpansion(index, $event)"
+  class="menu-link"
+  [ngClass]="{
+    active: isActive(),
+    'has-children': item.items,
+    'has-active-child': !expanded && hasActiveChild()
+  }"
+  [attr.data-tooltip]="getTooltipText()"
+  [attr.aria-label]="item.label"
+>
+  <!-- Indicador de hijo activo -->
+  <span
+    class="active-child-indicator"
+    *ngIf="!expanded && hasActiveChild()"
+  ></span>
+  <i [class]="item.icon" class="menu-icon"></i>
+  <span class="menu-text">{{ item.label }}</span>
+  <ng-container *ngIf="item.items">
+    <i
+      class="pi pi-chevron-down chevron-icon"
+      [ngStyle]="{
+        transform: isExpanded() ? 'rotate(180deg)' : 'rotate(0deg)'
+      }"
+    ></i>
+  </ng-container>
+</a>
+
+<!-- Submenú recursivo -->
+<ul
+  [ngClass]="{ submenu: true, expanded: expanded }"
+  class="submenu-container"
+  [ngStyle]="{ '--depth': depth }"
+  *ngIf="item.items && expanded"
+>
+  <li
+    *ngFor="let subItem of item.items; let i = index; trackBy: trackBySubItem"
+    class="submenu-item"
+    [ngStyle]="{ '--depth': depth + 1 }"
+  >
+    <app-sidebar-item
+      [item]="subItem"
+      [depth]="depth + 1"
+      [index]="i"
+      [expanded]="currentExpandedItemIndex[depth + 1] === i"
+      [currentExpandedItemIndex]="currentExpandedItemIndex"
+      [sidebarCollapsed]="sidebarCollapsed"
+      (expandChange)="handleExpandChange($event)"
+    >
+    </app-sidebar-item>
+  </li>
+</ul>

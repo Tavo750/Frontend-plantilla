@@ -1,0 +1,54 @@
+<div class="layout">
+  <!-- Sidebar (Desktop) -->
+  <aside
+    class="layout-sidebar"
+    [ngClass]="{ 'layout-sidebar--collapsed': !isSidebarOpen }"
+  >
+    <app-sidebar [open]="isSidebarOpen"></app-sidebar>
+  </aside>
+
+  <!-- Contenido principal -->
+  <div class="layout-main">
+    <!-- Barra superior -->
+    <div class="layout-header">
+      <button
+        class="toggle-btn"
+        (click)="toggleSidebar()"
+        [attr.aria-label]="isSidebarOpen ? 'Colapsar menú' : 'Expandir menú'"
+      >
+        <i
+          class="pi"
+          [ngClass]="{
+            'pi-bars': isMobile,
+            'pi-angle-left': !isMobile && isSidebarOpen,
+            'pi-angle-right': !isMobile && !isSidebarOpen
+          }"
+        ></i>
+      </button>
+      <app-header [usuario]="usuario"></app-header>
+    </div>
+
+    <!-- Content -->
+    <main class="layout-content">
+      <router-outlet></router-outlet>
+    </main>
+
+    <!-- Footer -->
+    <app-footer></app-footer>
+  </div>
+
+  <!-- Mobile Drawer Overlay -->
+  <div
+    class="drawer-overlay"
+    *ngIf="isSidebarOpenMobile"
+    (click)="closeMobileSidebar()"
+  ></div>
+
+  <!-- Mobile Drawer -->
+  <aside
+    class="drawer"
+    [ngClass]="{ 'drawer--open': isSidebarOpenMobile }"
+  >
+    <app-sidebar [open]="true"></app-sidebar>
+  </aside>
+</div>
