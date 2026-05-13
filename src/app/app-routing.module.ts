@@ -20,7 +20,7 @@ const routes: Routes = [
     component: LayoutComponent,
     canActivate: [AuthGuard],
     loadChildren: () =>
-      import('./pages/modules/registro-maletas/registro-maletas-module').then(m => m.RegistroMaletasModule)
+      import('./pages/modules/registro-maletas/registro-maletas.module').then(m => m.RegistroMaletasModule)
   },
 
   // ========== RUTAS PÚBLICAS ==========
