@@ -22,6 +22,13 @@ const routes: Routes = [
     loadChildren: () =>
       import('./pages/modules/registro-maletas/registro-maletas.module').then(m => m.RegistroMaletasModule)
   },
+  {
+    path: 'MonitoreoMapa',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/monitoreo-mapa/monitoreo-mapa.module').then(m => m.MonitoreoMapaModule)
+  },
 
   // ========== RUTAS PÚBLICAS ==========
   {

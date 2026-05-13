@@ -2,8 +2,8 @@ import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-mapa',
-  imports: [],
+  standalone: false,
   templateUrl: './mapa.component.html',
   styleUrl: './mapa.component.css',
 })
-export class Mapa {}
+export class MapaComponent {}

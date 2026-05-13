@@ -106,6 +106,7 @@ export class MenuService {
         id: 'PlanificacionRutas',
         label: 'Planificación de Rutas',
         icon: 'pi pi-wrench',
+        routerLink: ['PlanificacionRutas']
         // items: [
         //   {
         //     id: 'herram-importar',
@@ -125,6 +126,7 @@ export class MenuService {
         id: 'MonitoreoMapa',
         label: 'Monitoreo Mapa',
         icon: 'pi pi-map',
+        routerLink: ['MonitoreoMapa']
       }
     ];
 
