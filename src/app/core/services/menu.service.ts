@@ -80,6 +80,7 @@ export class MenuService {
         id: 'RegistroMaletas',
         label: 'Registro de Maletas',
         icon: 'pi pi-cog',
+        routerLink: ['RegistroMaletas']
         // items: [
         //   {
         //     id: 'config-usuarios',

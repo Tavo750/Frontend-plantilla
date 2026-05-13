@@ -15,6 +15,14 @@ const routes: Routes = [
       import('./pages/modules/home/home.routes').then(m => m.HOME_ROUTES)
   },
 
+  {
+    path: 'RegistroMaletas',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/registro-maletas/registro-maletas-module').then(m => m.RegistroMaletasModule)
+  },
+
   // ========== RUTAS PÚBLICAS ==========
   {
     path: 'error',
