@@ -77,48 +77,53 @@ export class MenuService {
         ]
       },
       {
-        id: 'configuracion',
-        label: 'Configuración',
+        id: 'RegistroMaletas',
+        label: 'Registro de Maletas',
         icon: 'pi pi-cog',
-        items: [
-          {
-            id: 'config-usuarios',
-            label: 'Usuarios',
-            icon: 'pi pi-users',
-            routerLink: ['configuracion', 'usuarios']
-          },
-          {
-            id: 'config-roles',
-            label: 'Roles',
-            icon: 'pi pi-shield',
-            routerLink: ['configuracion', 'roles']
-          },
-          {
-            id: 'config-parametros',
-            label: 'Parámetros',
-            icon: 'pi pi-sliders-h',
-            routerLink: ['configuracion', 'parametros']
-          }
-        ]
+        // items: [
+        //   {
+        //     id: 'config-usuarios',
+        //     label: 'Usuarios',
+        //     icon: 'pi pi-users',
+        //     routerLink: ['configuracion', 'usuarios']
+        //   },
+        //   {
+        //     id: 'config-roles',
+        //     label: 'Roles',
+        //     icon: 'pi pi-shield',
+        //     routerLink: ['configuracion', 'roles']
+        //   },
+        //   {
+        //     id: 'config-parametros',
+        //     label: 'Parámetros',
+        //     icon: 'pi pi-sliders-h',
+        //     routerLink: ['configuracion', 'parametros']
+        //   }
+        // ]
       },
       {
-        id: 'herramientas',
-        label: 'Herramientas',
+        id: 'PlanificacionRutas',
+        label: 'Planificación de Rutas',
         icon: 'pi pi-wrench',
-        items: [
-          {
-            id: 'herram-importar',
-            label: 'Importar datos',
-            icon: 'pi pi-upload',
-            routerLink: ['herramientas', 'importar']
-          },
-          {
-            id: 'herram-exportar',
-            label: 'Exportar datos',
-            icon: 'pi pi-download',
-            routerLink: ['herramientas', 'exportar']
-          }
-        ]
+        // items: [
+        //   {
+        //     id: 'herram-importar',
+        //     label: 'Importar datos',
+        //     icon: 'pi pi-upload',
+        //     routerLink: ['herramientas', 'importar']
+        //   },
+        //   {
+        //     id: 'herram-exportar',
+        //     label: 'Exportar datos',
+        //     icon: 'pi pi-download',
+        //     routerLink: ['herramientas', 'exportar']
+        //   }
+        // ]
+      },
+      {
+        id: 'MonitoreoMapa',
+        label: 'Monitoreo Mapa',
+        icon: 'pi pi-map',
       }
     ];
 
