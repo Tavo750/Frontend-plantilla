@@ -23,6 +23,13 @@ const routes: Routes = [
       import('./pages/modules/registro-maletas/registro-maletas.module').then(m => m.RegistroMaletasModule)
   },
   {
+    path: 'PlanificacionRutas',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/planificacion-rutas/planificacion-rutas.module').then(m => m.PlanificacionRutasModule)
+  },
+  {
     path: 'MonitoreoMapa',
     component: LayoutComponent,
     canActivate: [AuthGuard],
