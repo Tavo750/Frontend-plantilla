@@ -1,0 +1,220 @@
+/* ============================================
+   ESTILOS DE TABLAS
+   Movidos desde src/styles.css
+   ============================================ */
+
+/* Tabla de datos principal */
+.tabla-datos {
+  border-radius: 12px !important;
+  overflow: visible !important;
+  box-shadow: 0 4px 12px rgba(28, 34, 77, 0.08),
+    0 2px 4px rgba(28, 34, 77, 0.04) !important;
+  /* border: 1px solid rgba(28, 34, 77, 0.1) !important; */
+}
+
+/* Aplicar overflow hidden solo al contenedor de la tabla, no al paginador */
+.tabla-datos .p-datatable-table-container {
+  /* overflow: hidden !important; */
+  border-radius: 12px 12px 0 0 !important;
+}
+
+.tabla-datos .p-datatable-wrapper {
+  border-radius: inherit !important;
+}
+
+.tabla-datos .p-datatable-table {
+  border-radius: inherit !important;
+}
+
+.tabla-datos th {
+  line-height: 1;
+  padding: 0.5rem 5px 0.5rem 5px !important;
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  letter-spacing: var(--letter-spacing-wide) !important;
+  color: var(--color-white) !important;
+  background: var(--color-navy-dark) !important;
+  border: none !important;
+  position: relative !important;
+  text-align: center;
+}
+
+.tabla-datos th:first-child {
+  border-top-left-radius: 12px !important;
+}
+
+.tabla-datos th:last-child {
+  border-top-right-radius: 12px !important;
+}
+
+.tabla-datos th::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.tabla-datos td {
+  padding: 0.3rem 5px 0.3rem 5px !important;
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: var(--line-height-normal) !important;
+  border-bottom: 1px solid rgba(28, 34, 77, 0.06) !important;
+  border-left: none !important;
+  border-right: none !important;
+  transition: background-color 0.2s ease, transform 0.1s ease !important;
+}
+
+.tabla-datos tbody tr:hover td {
+  background-color: rgba(74, 122, 255, 0.04) !important;
+  transform: translateY(-1px) !important;
+}
+
+.tabla-datos tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px !important;
+}
+
+.tabla-datos tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px !important;
+}
+
+.tabla-datos tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+.tabla-datos td button {
+  padding: 0.375rem 0.75rem !important;
+  font-size: var(--font-size-small) !important;
+  font-weight: var(--font-weight-medium) !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.tabla-datos td button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Filtros dentro de tabla-datos */
+.tabla-datos .filtro th {
+  padding: 0px !important;
+}
+
+.tabla-datos .filtro th:last-child {
+  border-top-right-radius: 0px !important;
+}
+.tabla-datos .filtro th:first-child {
+  border-top-left-radius: 0px !important;
+}
+
+/* DataTable específico (manteniendo tus overrides) */
+.p-datatable .p-datatable-header {
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  background: linear-gradient(
+    135deg,
+    var(--color-gray-light),
+    var(--color-gray-lighter)
+  ) !important;
+  color: var(--color-navy-dark) !important;
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  color: var(--color-white) !important;
+  text-align: center;
+  background-color: var(--color-navy-dark) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-normal) !important;
+}
+
+/* =====================================================
+   GLOBAL OVERRIDES FOR SELECTED ROWS IN TABLES
+   Prevents hover states from overriding selection styles
+   ===================================================== */
+
+/* Selected row must maintain appearance on hover - GLOBAL OVERRIDE */
+.p-datatable .p-datatable-tbody > tr.selected-row {
+  background: #e3f2fd !important;
+  border-left: 4px solid #2196f3 !important;
+}
+
+/* Override ALL hover states for selected rows */
+.p-datatable .p-datatable-tbody > tr.selected-row:hover,
+.p-datatable .p-datatable-tbody > tr.selected-row.p-selectable-row:hover,
+.p-datatable .p-datatable-tbody > tr.selected-row.p-highlight:hover {
+  background: #e3f2fd !important;
+  border-left: 4px solid #2196f3 !important;
+}
+
+/* Prevent cell backgrounds from changing in selected rows */
+.p-datatable .p-datatable-tbody > tr.selected-row:hover > td,
+.p-datatable .p-datatable-tbody > tr.selected-row.p-selectable-row:hover > td {
+  background: transparent !important;
+}
+
+/* Only apply hover to non-selected rows */
+.p-datatable .p-datatable-tbody > tr:not(.selected-row):hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ===== PAGINATOR MEJORADO ===== */
+.p-paginator {
+  background: rgba(28, 34, 77, 0.02) !important;
+  border: 1px solid rgba(28, 34, 77, 0.08) !important;
+  border-radius: 0 0 12px 12px !important;
+  padding: 0.45rem 1rem !important;
+  overflow: visible !important; /* Permitir que el dropdown del paginador sea visible */
+}
+
+.p-paginator .p-paginator-page,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-last {
+  border-radius: 8px !important;
+  margin: 0 1px !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+}
+
+.p-paginator .p-paginator-page:hover,
+.p-paginator .p-paginator-next:hover,
+.p-paginator .p-paginator-prev:hover,
+.p-paginator .p-paginator-first:hover,
+.p-paginator .p-paginator-last:hover {
+  background: rgba(74, 122, 255, 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+.p-paginator .p-paginator-page.p-highlight {
+  background: linear-gradient(
+    135deg,
+    var(--color-blue-light),
+    var(--color-mint-light)
+  ) !important;
+  color: white !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* === OVERLAY DEL PAGINADOR - ABRIR HACIA ARRIBA === */
+.p-paginator p-select {
+  position: relative !important;
+}
+
+.p-paginator .p-select-overlay {
+  top: auto !important;
+  bottom: 100% !important;
+  margin-bottom: 30px !important;
+  z-index: 10000 !important;
+  max-height: 200px !important;
+}
+.p-datatable .p-datatable-header {
+  padding: 0.25rem 0.5rem !important;
+}

@@ -1,0 +1,63 @@
+/* ============================================
+   ESTILOS PARA TOOLBAR - PRIMENG Y PERSONALIZADOS
+   ============================================ */
+
+/* ===== TOOLBAR PRIMENG MEJORADO ===== */
+.p-toolbar {
+  border: none;
+  padding: 0.75rem 1.5rem !important;
+}
+
+/* ===== TOOLBAR PERSONALIZADO ===== */
+.custom-toolbar {
+  background: linear-gradient(
+    90deg,
+    var(--color-navy-dark) 0%,
+    var(--p-secondary-color) 100%
+  ) !important;
+  color: white !important;
+}
+
+.custom-toolbar-dialog {
+  background: var(--color-light-blue) !important;
+  color: var(--color-navy-dark) !important;
+  padding: 0.75rem 1.5rem !important;
+}
+
+/* ===== RESPONSIVE PARA TOOLBAR ===== */
+/* Tablet: 900px */
+@media (max-width: 900px) {
+  .custom-toolbar {
+    min-width: 300px !important;
+    padding: 0.75rem !important;
+  }
+}
+
+/* Responsive toolbar used by dialogs to preserve desktop-like buttons on small screens */
+@media (max-width: 640px) {
+  .responsive-toolbar {
+    padding: 0.5rem 0.75rem !important;
+    background: var(--layout-main-bg) !important;
+    border-radius: 12px !important;
+    margin: 0.5rem 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .responsive-toolbar .p-toolbar-group-end > div {
+    display: flex !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .responsive-toolbar .p-button .p-button-label,
+  .responsive-toolbar .p-button:not(.p-button-icon-only) .p-button-label {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-left: 0.5rem !important;
+  }
+}
+

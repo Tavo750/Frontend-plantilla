@@ -1,0 +1,146 @@
+/* ============================================
+   ESTILOS PARA CARDS - PRIMENG Y PERSONALIZADOS
+   ============================================ */
+
+/* ===== CARDS PRIMENG - ESTILOS BASE ===== */
+.p-card {
+  border-radius: 12px !important;
+  border: 1px solid rgba(28, 34, 77, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(28, 34, 77, 0.08) !important;
+  background: var(--color-white) !important;
+  overflow: hidden !important;
+}
+
+.p-card .p-card-header {
+  background: var(--color-navy-dark) !important;
+  padding: 0.2rem 1rem !important;
+  border-bottom: none !important;
+  color: var(--color-white) !important;
+}
+
+.p-card .p-card-title {
+  font-size: var(--font-size-h5) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  line-height: var(--line-height-tight) !important;
+  color: var(--color-navy-dark) !important;
+}
+
+.p-card .p-card-header .p-card-title {
+  color: var(--color-white) !important;
+}
+
+.p-card .p-card-subtitle {
+  font-size: var(--font-size-medium) !important;
+  font-weight: var(--font-weight-normal) !important;
+  color: var(--color-gray-medium) !important;
+}
+
+.p-card .p-card-content {
+  font-size: var(--font-size-base) !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/*
+.p-card .p-card-body {
+  padding: 1rem !important;
+}
+*/
+
+/* ===== CARD MODIFICADO PERSONALIZADO ===== */
+.p-card-modified {
+  border-radius: 12px !important;
+  border: 1px solid rgba(28, 34, 77, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(28, 34, 77, 0.08) !important;
+  background: var(--color-light-blue) !important;
+  overflow: hidden !important;
+}
+
+.p-card-modified .header {
+  border-radius: 12px 12px 0 0;
+  background: var(--color-light-blue) !important;
+  color: var(--color-white) !important;
+  font-size: var(--font-size-h5) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  letter-spacing: var(--letter-spacing-normal) !important;
+  padding: 1.5rem 2rem !important;
+  --bs-gutter-x: 0 !important;
+}
+
+/* ===== CARDS SECUNDARIAS (ESTILO SIMPLE) ===== */
+.card {
+  border-radius: 12px !important;
+  border: 1px solid rgba(28, 34, 77, 0.1) !important;
+  box-shadow: 0 2px 8px rgba(28, 34, 77, 0.06) !important;
+  transition: box-shadow 0.3s ease !important;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(28, 34, 77, 0.1) !important;
+}
+
+.card-body {
+  padding: 1.5rem !important;
+}
+
+.card-title {
+  font-weight: 600 !important;
+  font-size: 1.1rem !important;
+  margin-bottom: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+.card-title i {
+  color: var(--color-blue-light) !important;
+  font-size: 1.25rem !important;
+}
+
+/* ===== RESPONSIVE PARA CARDS ===== */
+
+@media (max-width: 767.98px) {
+  /*
+  .p-card {
+    margin: 0.5rem 0 !important;
+  }
+*/
+  .p-card .p-card-header {
+    padding: 1rem 1.5rem !important;
+    font-size: 1.1rem !important;
+  }
+
+  .p-card .p-card-body {
+    padding: 1.5rem !important;
+  }
+
+  .p-card-modified .header {
+    padding: 1rem 1.5rem !important;
+  }
+
+  .card-body {
+    padding: 1.25rem !important;
+  }
+
+  .card-title {
+    font-size: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .p-card .p-card-header {
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+  }
+
+  .p-card .p-card-body {
+    padding: 1rem !important;
+  }
+
+  .card-title {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+}

@@ -1,0 +1,56 @@
+/* ============================================
+   ESTILOS PARA STEPPER - PRIMENG
+   ============================================ */
+
+/* ===== STEPPER - ESTADOS Y COLORES ===== */
+.p-step .p-step-title {
+  color: var(--v2-text-dark) !important;
+  font-weight: 600 !important;
+}
+
+.p-step .p-step-number {
+  color: var(--v2-text-dark) !important;
+  font-weight: 600 !important;
+}
+
+/* ===== STEPPER ACTIVO ===== */
+.p-step-active .p-step-title {
+  color: var(--color-success) !important;
+  font-weight: 600 !important;
+}
+
+.p-step-active .p-step-number {
+  color: var(--color-success) !important;
+  font-weight: 600 !important;
+}
+
+/* ===== STEPPER COMPLETADO (pasos anteriores al activo) ===== */
+.p-step:has(~ .p-step-active) .p-step-title {
+  color: var(--color-success) !important;
+  font-weight: 600 !important;
+}
+
+.p-step:has(~ .p-step-active) .p-step-number {
+  color: var(--color-success) !important;
+  font-weight: 600 !important;
+}
+
+.p-step:has(~ .p-step-active) .p-stepper-separator {
+  background-color: var(--v2-success) !important;
+}
+
+/* ===== TABLIST (relacionado con stepper) ===== */
+.p-tablist-tab-list {
+  background-color: var(--color-secondary-disabled) !important;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+.p-tab-active {
+  color: var( --v2-secondary) !important;
+  border-color: var(--color-primary);
+}
+.p-tablist-active-bar {
+  background-color: var(--v2-secondary) !important;
+  border: 2px solid var(--v2-secondary) !important;
+}
+

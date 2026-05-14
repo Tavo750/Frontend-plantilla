@@ -1,0 +1,146 @@
+.p-select {
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Estilos de color para p-select usando colores de la empresa */
+.p-select:not(.p-disabled):hover {
+  border-color: var(--color-secondary) !important;
+}
+
+.p-select:not(.p-disabled).p-focus {
+  border-color: var(--color-secondary) !important;
+  box-shadow: 0 0 0 0.2rem rgba(8, 40, 83, 0.25) !important;
+  outline: 1px solid var(--color-secondary) !important;
+  outline-offset: 2px !important;
+}
+
+.p-inputtext {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Estilos de color para p-inputtext usando colores de la empresa */
+.p-inputtext:not(.p-disabled):hover,
+.p-inputtext:enabled:hover {
+  border-color: var(--color-secondary) !important;
+}
+
+.p-inputtext:not(.p-disabled):focus,
+.p-inputtext:enabled:focus {
+  border-color: var(--color-secondary) !important;
+  box-shadow: 0 0 0 0.2rem rgba(63, 140, 249, 0.25) !important;
+  outline: 2px solid var(--color-secondary) !important;
+  outline-offset: 2px !important;
+}
+
+/* Sobrescribir variables CSS de PrimeNG para evitar el verde */
+:root {
+  --p-inputtext-focus-border-color: var(--color-secondary) !important;
+  --p-select-focus-border-color: var(--color-secondary) !important;
+  --p-inputtext-focus-ring-color: var(--color-secondary) !important;
+  --p-select-focus-ring-color: var(--color-secondary) !important;
+}
+
+/* Estilos para las opciones del dropdown p-select */
+.p-select-overlay .p-select-option:not(.p-disabled):hover {
+  background-color: var(--color-secondary-disabled) !important;
+  color: var(--color-text-dark) !important;
+}
+
+.p-select-overlay .p-select-option.p-select-option-selected {
+  background-color: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-select-overlay .p-select-option.p-select-option-selected:hover {
+  background-color: var(--color-secondary-hover) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-select-overlay .p-select-option.p-highlight {
+  background-color: var(--color-secondary-disabled) !important;
+  color: var(--color-text-dark) !important;
+}
+
+/* .p-select-label {
+  padding: 0rem !important;
+} */
+
+  /* Igualar altura vertical de p-inputNumber en móviles para coincidir con selects/autocomplete */
+  @media (max-width: 640px) {
+    .p-inputnumber-input,
+    .p-inputnumber .p-inputnumber-input {
+      padding: 0.375rem !important;
+      min-height: 40px !important;
+      font-size: 0.9rem !important;
+      line-height: 1.25 !important;
+      box-sizing: border-box !important;
+    }
+
+    .p-inputnumber {
+      display: flex !important;
+      align-items: center !important;
+    }
+
+    .p-inputnumber .p-inputnumber-button {
+      height: 100% !important;
+      min-height: 40px !important;
+    }
+  }
+
+  /* PRIMENG OVERRIDES moved from component - custom-select/custom-autocomplete rules removed */
+
+  .p-autocomplete-panel {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  /* ===== GLOBAL: CUSTOM SELECT SIZING & TYPOGRAPHY ===== */
+  /* Moved from component: ensures p-select instances using .custom-select
+     match the visual appearance of p-autoComplete inputs (placeholder/value) */
+  .custom-select .p-select-label,
+  .custom-select .p-dropdown-label,
+  .custom-select .p-dropdown .p-dropdown-label {
+    min-height: 40px;
+    height: auto;
+    padding: 0.375rem 0.75rem !important;
+    padding-left: 0.75rem !important;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    line-height: 1;
+    font-size: var(--font-size-input);
+  }
+
+  .custom-select .p-select-label .p-placeholder,
+  .custom-select .p-dropdown-label .p-placeholder {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  .custom-select .p-select-label .p-placeholder,
+  .custom-select .p-select-label .p-value,
+  .custom-select .p-dropdown-label .p-placeholder,
+  .custom-select .p-dropdown-label .p-value {
+    padding-left: 0.5rem !important;
+    font-family: inherit !important;
+    font-size: var(--font-size-input) !important;
+    font-weight: var(--font-weight-normal) !important;
+    line-height: var(--line-height-normal) !important;
+    color: inherit !important;
+  }
+
+  @media (max-width: 640px) {
+    .custom-select .p-select-label,
+    .custom-select .p-dropdown-label {
+      padding: 0.375rem !important;
+      font-size: 0.8rem !important;
+      min-height: 36px !important;
+    }
+  }

@@ -1,0 +1,85 @@
+/* ============================================
+   ESTILOS PARA CALENDAR - PRIMENG
+   ============================================ */
+
+/* ===== CALENDAR INPUT ===== */
+.p-calendar input {
+  font-size: var(--font-size-input) !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+.p-calendar input:focus {
+  border-color: var(--color-secondary) !important;
+  box-shadow: 0 0 0 0.2rem rgba(63, 140, 249, 0.25) !important;
+  outline: 2px solid var(--color-secondary) !important;
+  outline-offset: 2px !important;
+}
+
+/* ===== DATEPICKER MEJORADO ===== */
+.p-calendar .p-datepicker {
+  border-radius: 16px !important;
+  border: 1px solid rgba(28, 34, 77, 0.1) !important;
+  box-shadow: 0 15px 35px rgba(28, 34, 77, 0.15),
+    0 8px 15px rgba(28, 34, 77, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.p-calendar .p-datepicker .p-datepicker-header {
+  background: linear-gradient(
+    135deg,
+    var(--color-navy-dark),
+    var(--color-blue-light)
+  ) !important;
+  color: var(--color-text-light) !important;
+  border-radius: 16px 16px 0 0 !important;
+  padding: 1rem !important;
+}
+
+.p-calendar .p-datepicker table td > span {
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.p-calendar .p-datepicker table td > span:hover {
+  background: var(--color-secondary-disabled) !important;
+  transform: scale(1.1) !important;
+}
+
+.p-calendar .p-datepicker table td > span.p-highlight {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-datepicker-panel .p-icon {
+  color: var(--v2-secondary) !important;
+
+}
+.p-datepicker-day-selected {
+  background: var(--v2-secondary) !important;
+  color: var(--color-white) !important;
+}
+.p-datepicker-day-selected:hover {
+  background: var(--v2-secondary-hover) !important;
+  color: var(--color-white) !important;
+}
+.p-datepicker-day-selected:active {
+  background: var(--v2-secondary-active) !important;
+  color: var(--color-white) !important;
+}
+.p-datepicker-day-selected.p-disabled {
+  background: var(--v2-secondary-disabled) !important;
+  color: var(--color-white) !important;
+}
+.p-calendar .p-datepicker .p-button {
+  background: var(--v2-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+.p-calendar .p-datepicker .p-button:hover {
+  background: var(--v2-secondary-hover) !important;
+  color: var(--color-text-light) !important;
+}
+.p-calendar .p-datepicker .p-button:active {
+  background: var(--v2-secondary-active) !important;
+  color: var(--color-text-light) !important;
+}
