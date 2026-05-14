@@ -1,1 +1,184 @@
-<p>maleta works!</p>
+<p-toast></p-toast>
+<div class="maleta-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">Registro de Maletas</h1>
+    <p class="page-subtitle">Registre nuevos envíos de equipaje entre aeropuertos</p>
+  </div>
+
+  <div class="maleta-grid">
+    <!-- Left Column: Form -->
+    <div class="form-column">
+      <div class="card">
+        <div class="card-title-group">
+          <i class="pi pi-box card-icon"></i>
+          <h2 class="card-title">Nuevo Envío</h2>
+        </div>
+        <p class="card-subtitle">Complete la información del envío de maletas</p>
+
+        <div class="form-content">
+          <!-- Aeropuerto Origen -->
+          <div class="form-group">
+            <label class="form-label">Aeropuerto de Origen</label>
+            <p-select [options]="aeropuertos" [(ngModel)]="aeropuertoOrigen" 
+              (onChange)="onSeleccionCambiada()"
+              optionLabel="codigoOaci" 
+              placeholder="Seleccione el aeropuerto de origen"
+              [filter]="true" filterBy="codigoOaci,ciudad,pais"
+              appendTo="body"
+              styleClass="w-100 p-select-custom">
+              <ng-template pTemplate="selectedItem">
+                <div class="d-flex align-items-center gap-2" *ngIf="aeropuertoOrigen">
+                  <span class="tag tag-light">{{aeropuertoOrigen.codigoOaci || aeropuertoOrigen.codigo}}</span>
+                  <span>{{aeropuertoOrigen.ciudad}}, {{aeropuertoOrigen.pais}}</span>
+                  <span class="tag tag-dark">{{aeropuertoOrigen.continente}}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-airport>
+                <div class="d-flex align-items-center gap-2" style="width: 100%;">
+                  <span class="tag tag-light">{{airport.codigoOaci || airport.codigo}}</span>
+                  <span class="flex-grow-1 text-truncate">{{airport.ciudad}}, {{airport.pais}}</span>
+                  <span class="tag tag-dark ml-auto" style="flex-shrink: 0">{{airport.continente}}</span>
+                </div>
+              </ng-template>
+            </p-select>
+            <span *ngIf="aeropuertoOrigen" class="form-hint">Capacidad de almacenamiento: {{aeropuertoOrigen.capacidad}} maletas</span>
+          </div>
+
+          <!-- Aeropuerto Destino -->
+          <div class="form-group">
+            <label class="form-label">Aeropuerto de Destino</label>
+            <p-select [options]="aeropuertos" [(ngModel)]="aeropuertoDestino" 
+              (onChange)="onSeleccionCambiada()"
+              optionLabel="codigoOaci" 
+              placeholder="Seleccione el aeropuerto de destino"
+              [filter]="true" filterBy="codigoOaci,ciudad,pais"
+              appendTo="body"
+              styleClass="w-100 p-select-custom">
+              <ng-template pTemplate="selectedItem">
+                <div class="d-flex align-items-center gap-2" *ngIf="aeropuertoDestino">
+                  <span class="tag tag-light">{{aeropuertoDestino.codigoOaci || aeropuertoDestino.codigo}}</span>
+                  <span>{{aeropuertoDestino.ciudad}}, {{aeropuertoDestino.pais}}</span>
+                  <span class="tag tag-dark">{{aeropuertoDestino.continente}}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-airport>
+                <div class="d-flex align-items-center gap-2" style="width: 100%;">
+                  <span class="tag tag-light">{{airport.codigoOaci || airport.codigo}}</span>
+                  <span class="flex-grow-1 text-truncate">{{airport.ciudad}}, {{airport.pais}}</span>
+                  <span class="tag tag-dark ml-auto" style="flex-shrink: 0">{{airport.continente}}</span>
+                </div>
+              </ng-template>
+            </p-select>
+            <span *ngIf="aeropuertoDestino" class="form-hint">Capacidad de almacenamiento: {{aeropuertoDestino.capacidad}} maletas</span>
+          </div>
+
+          <!-- Cantidad Maletas -->
+          <div class="form-group">
+            <label class="form-label">Cantidad de Maletas</label>
+            <p-inputNumber [(ngModel)]="cantidadMaletas" [min]="1" [max]="50" styleClass="w-100" class="w-100"></p-inputNumber>
+            <span class="form-hint">Máximo 50 maletas por envío</span>
+          </div>
+
+          <div class="mt-4">
+            <p-button label="Registrar Envío" icon="pi pi-box" styleClass="btn-primary w-100" (onClick)="registrarEnvio()" [loading]="cargandoRegistro"></p-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Info -->
+    <div class="info-column d-flex flex-column gap-3">
+      <!-- Delivery Info Card -->
+      <div class="card card-info-entrega">
+        <h3 class="card-title">Información de Entrega</h3>
+        
+        <!-- Empty state -->
+        <div *ngIf="!aeropuertoOrigen || !aeropuertoDestino" class="empty-state">
+          Seleccione origen y destino para ver información de entrega
+        </div>
+
+        <!-- Selected state -->
+        <div *ngIf="aeropuertoOrigen && aeropuertoDestino" class="info-details mt-3">
+          <div class="info-item">
+            <i class="pi pi-calendar info-icon" style="color: var(--color-primary)"></i>
+            <div>
+              <div class="info-label">Plazo de Entrega</div>
+              <div class="info-value highlight">{{plazoEntregaDias}} días</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <i class="pi pi-send info-icon" style="color: var(--color-success)"></i>
+            <div>
+              <div class="info-label">Tipo de Vuelo</div>
+              <div class="info-value">{{tipoVuelo}}</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <i class="pi pi-map-marker info-icon" style="color: #a855f7"></i>
+            <div>
+              <div class="info-label">Ruta</div>
+              <div class="info-value">{{rutaNombres}}</div>
+              <div class="info-hint">{{rutaContinentes}}</div>
+            </div>
+          </div>
+
+          <div class="alert-info">
+            <i class="pi pi-info-circle"></i>
+            <span>{{mensajeEntrega}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Capacities Card -->
+      <div class="card">
+        <h3 class="card-title mb-3">Capacidades de Vuelo</h3>
+        <div class="capacities-list">
+          <div class="capacity-group">
+            <div class="capacity-title">Intracontinental</div>
+            <div class="capacity-desc">150-250 maletas por vuelo<br>Múltiples vuelos diarios</div>
+          </div>
+          <div class="capacity-group">
+            <div class="capacity-title">Intercontinental</div>
+            <div class="capacity-desc">150-400 maletas por vuelo<br>Al menos un vuelo diario</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: Envíos recientes -->
+  <div class="recent-shipments mt-4" *ngIf="enviosSesion.length > 0">
+    <div class="card">
+      <div class="mb-3">
+        <h3 class="card-title">Envíos Registrados en esta Sesión</h3>
+        <p class="card-subtitle">Últimos envíos registrados</p>
+      </div>
+      
+      <div class="recent-list">
+        <div *ngFor="let envio of enviosSesion" class="recent-item">
+          <div class="recent-item-left">
+            <div class="recent-tags mb-1 d-flex align-items-center gap-1">
+              <span class="tag tag-light">LG{{envio.idEnvio || 'N/A'}}</span>
+              <span class="tag tag-dark">{{envio.aerolinea?.codigo || 'LH'}}</span>
+              <span class="tag tag-light">{{envio.cantidad}} maletas</span>
+            </div>
+            <div class="recent-route font-medium">
+              {{envio.aeropuertoOrigen?.ciudad}} ({{envio.aeropuertoOrigen?.codigoOaci || envio.aeropuertoOrigen?.codigo}}) → {{envio.aeropuertoDestino?.ciudad}} ({{envio.aeropuertoDestino?.codigoOaci || envio.aeropuertoDestino?.codigo}})
+            </div>
+          </div>
+          <div class="recent-item-right text-right">
+            <div class="recent-delivery font-semibold" style="color: var(--color-success)">
+              Entrega: {{envio.politicaEntrega?.diasDistintoContinente || envio.politicaEntrega?.diasMismoContinente || plazoEntregaDias}} días
+            </div>
+            <div class="recent-date" style="color: var(--color-text-secondary); font-size: 0.85rem">
+              {{envio.fechaLimiteEntrega | date:'dd/MM/yyyy'}}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
