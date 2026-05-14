@@ -21,7 +21,7 @@ export class RegistroMaletasServices {
 
   registrarMaletas(body: RegistroMaletaBody): Observable<RegistroMaletaResponse> {
     // Ajusta la ruta del endpoint según corresponda
-    return this.http.post<RegistroMaletaResponse>(`${this.url}api/envio/registrar`, body);
+    return this.http.post<RegistroMaletaResponse>(`${this.url}api/envio/envios-maletas`, body);
   }
 
   listarPoliticasEntrega(): Observable<ListaPoliticasResponse> {
