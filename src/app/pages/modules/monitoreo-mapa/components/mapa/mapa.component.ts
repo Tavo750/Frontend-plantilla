@@ -1,4 +1,37 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
+import { finalize, timeout } from 'rxjs/operators';
+import {
+  EventoSimulacionPeriodo,
+  ResumenSimulacionPeriodo
+} from '../../models/simulacion-periodo.model';
+import { SimulacionPeriodoService } from '../../services/simulacion-periodo.service';
+
+interface CoordenadaAeropuerto {
+  codigo: string;
+  nombre: string;
+  ciudad: string;
+  lat: number;
+  lon: number;
+}
+
+interface AeropuertoVisual {
+  codigo: string;
+  nombre: string;
+  ciudad: string;
+  x: number;
+  y: number;
+}
+
+interface RutaVisual {
+  id: string;
+  origen: string;
+  destino: string;
+  codigoVuelo: string;
+  cantidad: number;
+  path: string;
+  duracion: number;
+  delay: number;
+}
 
 @Component({
   selector: 'app-mapa',
@@ -6,4 +39,392 @@ import { Component } from '@angular/core';
   templateUrl: './mapa.component.html',
   styleUrl: './mapa.component.css',
 })
-export class MapaComponent {}
+export class MapaComponent implements OnDestroy {
+
+  cargando = false;
+  simulacionEjecutada = false;
+  animandoVisual = false;
+  mensajeError = '';
+
+  resumen?: ResumenSimulacionPeriodo;
+  resumenFinal?: ResumenSimulacionPeriodo;
+
+  eventos: EventoSimulacionPeriodo[] = [];
+  eventosBackend: EventoSimulacionPeriodo[] = [];
+
+  aeropuertosMapa: AeropuertoVisual[] = [];
+  rutasMapa: RutaVisual[] = [];
+
+  indiceAnimacion = 0;
+  private intervaloAnimacion: ReturnType<typeof setInterval> | null = null;
+
+  private readonly aeropuertos: Record<string, CoordenadaAeropuerto> = {
+    SBBR: { codigo: 'SBBR', nombre: 'Brasília Intl.', ciudad: 'Brasilia', lat: -15.87, lon: -47.92 },
+    SBGR: { codigo: 'SBGR', nombre: 'São Paulo Guarulhos', ciudad: 'São Paulo', lat: -23.43, lon: -46.47 },
+    SBGL: { codigo: 'SBGL', nombre: 'Rio de Janeiro Galeão', ciudad: 'Rio de Janeiro', lat: -22.81, lon: -43.25 },
+    SAEZ: { codigo: 'SAEZ', nombre: 'Ezeiza Intl.', ciudad: 'Buenos Aires', lat: -34.82, lon: -58.54 },
+    SCEL: { codigo: 'SCEL', nombre: 'Santiago Intl.', ciudad: 'Santiago', lat: -33.39, lon: -70.79 },
+    SPJC: { codigo: 'SPJC', nombre: 'Jorge Chávez', ciudad: 'Lima', lat: -12.02, lon: -77.11 },
+    SKBO: { codigo: 'SKBO', nombre: 'El Dorado', ciudad: 'Bogotá', lat: 4.70, lon: -74.15 },
+    SEQM: { codigo: 'SEQM', nombre: 'Quito Intl.', ciudad: 'Quito', lat: -0.13, lon: -78.36 },
+    MMMX: { codigo: 'MMMX', nombre: 'Benito Juárez', ciudad: 'Ciudad de México', lat: 19.44, lon: -99.07 },
+    KJFK: { codigo: 'KJFK', nombre: 'John F. Kennedy', ciudad: 'Nueva York', lat: 40.64, lon: -73.78 },
+    KLAX: { codigo: 'KLAX', nombre: 'Los Angeles Intl.', ciudad: 'Los Ángeles', lat: 33.94, lon: -118.40 },
+    KMIA: { codigo: 'KMIA', nombre: 'Miami Intl.', ciudad: 'Miami', lat: 25.79, lon: -80.29 },
+
+    EHAM: { codigo: 'EHAM', nombre: 'Amsterdam Schiphol', ciudad: 'Ámsterdam', lat: 52.31, lon: 4.76 },
+    EGLL: { codigo: 'EGLL', nombre: 'Heathrow', ciudad: 'Londres', lat: 51.47, lon: -0.45 },
+    LFPG: { codigo: 'LFPG', nombre: 'Charles de Gaulle', ciudad: 'París', lat: 49.01, lon: 2.55 },
+    LEMD: { codigo: 'LEMD', nombre: 'Madrid Barajas', ciudad: 'Madrid', lat: 40.47, lon: -3.56 },
+    EDDF: { codigo: 'EDDF', nombre: 'Frankfurt Intl.', ciudad: 'Frankfurt', lat: 50.04, lon: 8.56 },
+    LIRF: { codigo: 'LIRF', nombre: 'Roma Fiumicino', ciudad: 'Roma', lat: 41.80, lon: 12.25 },
+    LOWW: { codigo: 'LOWW', nombre: 'Vienna Intl.', ciudad: 'Viena', lat: 48.11, lon: 16.57 },
+    LSZH: { codigo: 'LSZH', nombre: 'Zurich Airport', ciudad: 'Zúrich', lat: 47.46, lon: 8.55 },
+
+    RJTT: { codigo: 'RJTT', nombre: 'Tokyo Haneda', ciudad: 'Tokio', lat: 35.55, lon: 139.78 },
+    ZBAA: { codigo: 'ZBAA', nombre: 'Beijing Capital', ciudad: 'Pekín', lat: 40.08, lon: 116.58 },
+    ZSPD: { codigo: 'ZSPD', nombre: 'Shanghai Pudong', ciudad: 'Shanghái', lat: 31.14, lon: 121.80 },
+    VHHH: { codigo: 'VHHH', nombre: 'Hong Kong Intl.', ciudad: 'Hong Kong', lat: 22.31, lon: 113.92 },
+    WSSS: { codigo: 'WSSS', nombre: 'Singapore Changi', ciudad: 'Singapur', lat: 1.36, lon: 103.99 },
+    VTBS: { codigo: 'VTBS', nombre: 'Bangkok Suvarnabhumi', ciudad: 'Bangkok', lat: 13.69, lon: 100.75 },
+    VIDP: { codigo: 'VIDP', nombre: 'Delhi Intl.', ciudad: 'Delhi', lat: 28.56, lon: 77.10 },
+    OMDB: { codigo: 'OMDB', nombre: 'Dubai Intl.', ciudad: 'Dubái', lat: 25.25, lon: 55.36 },
+    RKSI: { codigo: 'RKSI', nombre: 'Incheon Intl.', ciudad: 'Seúl', lat: 37.46, lon: 126.44 },
+    RPLL: { codigo: 'RPLL', nombre: 'Manila Intl.', ciudad: 'Manila', lat: 14.51, lon: 121.02 },
+  };
+
+  constructor(private simulacionPeriodoService: SimulacionPeriodoService) {}
+
+  iniciarSimulacion5Dias(): void {
+  if (this.cargando || this.animandoVisual) {
+    return;
+  }
+
+  this.limpiarAnimacion();
+
+  this.cargando = true;
+  this.simulacionEjecutada = false;
+  this.animandoVisual = false;
+  this.mensajeError = '';
+
+  this.resumen = undefined;
+  this.resumenFinal = undefined;
+
+  this.eventos = [];
+  this.eventosBackend = [];
+
+  this.aeropuertosMapa = [];
+  this.rutasMapa = [];
+
+  
+
+  this.indiceAnimacion = 0;
+
+  // ESTO HACE QUE EL MAPA EMPIECE A MOVERSE AL TOQUE,
+  // AUNQUE EL BACKEND TODAVÍA ESTÉ CALCULANDO.
+  this.iniciarAnimacionDemoMientrasCalcula();
+
+  this.simulacionPeriodoService
+    .ejecutarSimulacionPeriodo('2026-01-02', 5)
+    .pipe(
+      timeout(30000),
+      finalize(() => {
+        this.cargando = false;
+      })
+    )
+    .subscribe({
+      next: (response) => {
+        console.log('Respuesta backend simulación:', response);
+
+        this.limpiarAnimacion();
+
+        this.resumenFinal = response.data.resumen;
+        this.eventosBackend = response.data.eventos ?? [];
+
+        this.resumen = {
+          ...this.resumenFinal,
+          enviosAsignados: 0,
+          enviosNoAsignados: 0,
+          maletasAsignadas: 0,
+          maletasNoAsignadas: 0,
+          vuelosUtilizados: 0
+        };
+
+        this.eventos = [];
+        this.aeropuertosMapa = [];
+        this.rutasMapa = [];
+        this.indiceAnimacion = 0;
+
+        this.simulacionEjecutada = true;
+        this.iniciarReproduccionVisual();
+      },
+      error: (error) => {
+        this.limpiarAnimacion();
+
+        console.error('Error al ejecutar simulación:', error);
+
+        if (error.name === 'TimeoutError') {
+          this.mensajeError = 'La simulación está demorando demasiado. Revisa si el backend terminó de responder.';
+          return;
+        }
+
+        if (error.status === 0) {
+          this.mensajeError = 'No hay conexión con el backend. Verifica que Spring Boot esté corriendo en http://localhost:3000/api.';
+          return;
+        }
+
+        if (error.status === 401 || error.status === 403) {
+          this.mensajeError = 'La solicitud fue bloqueada por autenticación. Revisa el AuthInterceptor.';
+          return;
+        }
+
+        this.mensajeError = 'No se pudo ejecutar la simulación. Revisa la consola del backend o Swagger.';
+      }
+    });
+}
+
+private iniciarAnimacionDemoMientrasCalcula(): void {
+  const eventosDemo: EventoSimulacionPeriodo[] = [
+    {
+      idEnvio: 0,
+      origen: 'SBBR',
+      destino: 'EHAM',
+      cantidad: 3,
+      estado: 'ASIGNADO',
+      codigoVuelo: 'SIM-DEMO-01',
+      horaSalida: '',
+      horaLlegada: ''
+    },
+    {
+      idEnvio: 0,
+      origen: 'SBBR',
+      destino: 'LEMD',
+      cantidad: 2,
+      estado: 'ASIGNADO',
+      codigoVuelo: 'SIM-DEMO-02',
+      horaSalida: '',
+      horaLlegada: ''
+    },
+    {
+      idEnvio: 0,
+      origen: 'SBBR',
+      destino: 'EGLL',
+      cantidad: 4,
+      estado: 'ASIGNADO',
+      codigoVuelo: 'SIM-DEMO-03',
+      horaSalida: '',
+      horaLlegada: ''
+    },
+    {
+      idEnvio: 0,
+      origen: 'SBBR',
+      destino: 'LFPG',
+      cantidad: 1,
+      estado: 'ASIGNADO',
+      codigoVuelo: 'SIM-DEMO-04',
+      horaSalida: '',
+      horaLlegada: ''
+    },
+    {
+      idEnvio: 0,
+      origen: 'SBBR',
+      destino: 'OMDB',
+      cantidad: 5,
+      estado: 'ASIGNADO',
+      codigoVuelo: 'SIM-DEMO-05',
+      horaSalida: '',
+      horaLlegada: ''
+    }
+  ];
+
+  let indiceDemo = 0;
+
+  this.intervaloAnimacion = setInterval(() => {
+    if (indiceDemo >= eventosDemo.length) {
+      indiceDemo = 0;
+    }
+
+    const evento = eventosDemo[indiceDemo];
+
+    this.agregarAeropuertoAlMapa(evento.origen);
+    this.agregarAeropuertoAlMapa(evento.destino);
+
+    const ruta = this.crearRutaVisual(evento, indiceDemo);
+
+    if (ruta) {
+      this.rutasMapa = [...this.rutasMapa, ruta];
+    }
+
+    indiceDemo++;
+  }, 700);
+}
+
+  private iniciarReproduccionVisual(): void {
+    this.animandoVisual = true;
+    this.indiceAnimacion = 0;
+
+    this.intervaloAnimacion = setInterval(() => {
+      if (this.indiceAnimacion >= this.eventosBackend.length) {
+        this.finalizarReproduccionVisual();
+        return;
+      }
+
+      const evento = this.eventosBackend[this.indiceAnimacion];
+
+      this.eventos = [...this.eventos, evento];
+
+      this.agregarAeropuertoAlMapa(evento.origen);
+      this.agregarAeropuertoAlMapa(evento.destino);
+
+      if (
+        evento.estado === 'ASIGNADO' &&
+        this.aeropuertos[evento.origen] &&
+        this.aeropuertos[evento.destino]
+      ) {
+        const ruta = this.crearRutaVisual(evento, this.indiceAnimacion);
+
+        if (ruta) {
+          this.rutasMapa = [...this.rutasMapa, ruta];
+        }
+      }
+
+      this.actualizarResumenVisual();
+
+      this.indiceAnimacion++;
+    }, 500);
+  }
+
+  private finalizarReproduccionVisual(): void {
+    this.limpiarAnimacion();
+    this.animandoVisual = false;
+
+    if (this.resumenFinal) {
+      this.resumen = this.resumenFinal;
+    }
+  }
+
+  private limpiarAnimacion(): void {
+    if (this.intervaloAnimacion) {
+      clearInterval(this.intervaloAnimacion);
+      this.intervaloAnimacion = null;
+    }
+  }
+
+  private crearRutaVisual(evento: EventoSimulacionPeriodo, index: number): RutaVisual | null {
+    if (!this.aeropuertos[evento.origen] || !this.aeropuertos[evento.destino]) {
+      return null;
+    }
+
+    return {
+      id: `ruta-${index}`,
+      origen: evento.origen,
+      destino: evento.destino,
+      codigoVuelo: evento.codigoVuelo || 'SIN-CODIGO',
+      cantidad: evento.cantidad,
+      path: this.generarPathRuta(evento.origen, evento.destino),
+      duracion: 5 + (index % 5),
+      delay: 0
+    };
+  }
+
+  private agregarAeropuertoAlMapa(codigo: string): void {
+    if (!this.aeropuertos[codigo]) {
+      return;
+    }
+
+    const yaExiste = this.aeropuertosMapa.some(aeropuerto => aeropuerto.codigo === codigo);
+
+    if (yaExiste) {
+      return;
+    }
+
+    const aeropuerto = this.aeropuertos[codigo];
+    const punto = this.proyectar(aeropuerto.lat, aeropuerto.lon);
+
+    this.aeropuertosMapa = [
+      ...this.aeropuertosMapa,
+      {
+        codigo: aeropuerto.codigo,
+        nombre: aeropuerto.nombre,
+        ciudad: aeropuerto.ciudad,
+        x: punto.x,
+        y: punto.y
+      }
+    ];
+  }
+
+  private actualizarResumenVisual(): void {
+    if (!this.resumenFinal) {
+      return;
+    }
+
+    const enviosAsignados = this.eventos.filter(evento => evento.estado === 'ASIGNADO').length;
+    const enviosNoAsignados = this.eventos.filter(evento => evento.estado !== 'ASIGNADO').length;
+
+    const maletasAsignadas = this.eventos
+      .filter(evento => evento.estado === 'ASIGNADO')
+      .reduce((total, evento) => total + evento.cantidad, 0);
+
+    const maletasNoAsignadas = this.eventos
+      .filter(evento => evento.estado !== 'ASIGNADO')
+      .reduce((total, evento) => total + evento.cantidad, 0);
+
+    const vuelosUtilizados = new Set(
+      this.eventos
+        .filter(evento => evento.estado === 'ASIGNADO' && evento.codigoVuelo)
+        .map(evento => evento.codigoVuelo)
+    ).size;
+
+    this.resumen = {
+      ...this.resumenFinal,
+      enviosAsignados,
+      enviosNoAsignados,
+      maletasAsignadas,
+      maletasNoAsignadas,
+      vuelosUtilizados
+    };
+  }
+
+  private generarPathRuta(origen: string, destino: string): string {
+    const aeropuertoOrigen = this.aeropuertos[origen];
+    const aeropuertoDestino = this.aeropuertos[destino];
+
+    const inicio = this.proyectar(aeropuertoOrigen.lat, aeropuertoOrigen.lon);
+    const fin = this.proyectar(aeropuertoDestino.lat, aeropuertoDestino.lon);
+
+    const medioX = (inicio.x + fin.x) / 2;
+    const medioY = (inicio.y + fin.y) / 2;
+
+    const distancia = Math.abs(fin.x - inicio.x);
+    const curva = Math.min(14, Math.max(5, distancia * 0.18));
+
+    return `M ${inicio.x} ${inicio.y} Q ${medioX} ${medioY - curva} ${fin.x} ${fin.y}`;
+  }
+
+  private proyectar(lat: number, lon: number): { x: number; y: number } {
+    const x = ((lon + 180) / 360) * 100;
+    const y = ((90 - lat) / 180) * 100;
+
+    return { x, y };
+  }
+
+  get porcentajeEnviosAsignados(): number {
+    if (!this.resumen || this.resumen.totalEnvios === 0) {
+      return 0;
+    }
+
+    return Math.round((this.resumen.enviosAsignados / this.resumen.totalEnvios) * 100);
+  }
+
+  get porcentajeMaletasAsignadas(): number {
+    if (!this.resumen || this.resumen.totalMaletas === 0) {
+      return 0;
+    }
+
+    return Math.round((this.resumen.maletasAsignadas / this.resumen.totalMaletas) * 100);
+  }
+
+  ngOnDestroy(): void {
+    this.limpiarAnimacion();
+  }
+}

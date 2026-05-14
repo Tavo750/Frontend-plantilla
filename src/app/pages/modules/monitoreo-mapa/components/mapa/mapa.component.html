@@ -1,1 +1,230 @@
-<p>mapa works!</p>
+<div class="page-container">
+
+  <section class="header-section">
+    <div>
+      <h1>Monitoreo de simulación del periodo</h1>
+      <p>
+        Demo integrada entre Angular, Spring Boot y PostgreSQL para ejecutar la simulación de 5 días.
+      </p>
+    </div>
+
+    <button
+      class="btn-primary"
+      type="button"
+      (click)="iniciarSimulacion5Dias()"
+      [disabled]="cargando || animandoVisual">
+      {{
+        cargando
+          ? 'Calculando simulación...'
+          : animandoVisual
+            ? 'Reproduciendo simulación...'
+            : 'Iniciar simulación 5 días'
+      }}
+    </button>
+  </section>
+
+  <section class="map-card">
+    <div class="map-header">
+      <div>
+        <h2>Visualizador / Mapa operativo</h2>
+        <p>
+          Rutas asignadas por el planificador durante la simulación del periodo.
+        </p>
+      </div>
+
+      <div class="map-counter" *ngIf="simulacionEjecutada || animandoVisual">
+        {{ rutasMapa.length }} rutas visualizadas
+      </div>
+    </div>
+
+    <div class="world-map">
+
+      <!-- Overlay mientras el backend calcula -->
+      <div *ngIf="cargando" class="simulation-overlay">
+        <div class="loader-plane">✈</div>
+        <strong>El backend está calculando la simulación...</strong>
+        <span>Esperando respuesta del planificador.</span>
+      </div>
+
+      <!-- Estado mientras Angular reproduce los eventos visualmente -->
+      <div *ngIf="animandoVisual" class="simulation-progress">
+        <span class="pulse-dot"></span>
+        Reproduciendo eventos: {{ eventos.length }} de {{ eventosBackend.length }}
+      </div>
+
+      <!-- Continentes de referencia -->
+      <div class="continent america">AMÉRICA</div>
+      <div class="continent europe">EUROPA</div>
+      <div class="continent asia">ASIA</div>
+
+      <!-- Capa SVG de rutas y aviones -->
+      <svg
+        class="route-layer"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none">
+
+        <path
+          *ngFor="let ruta of rutasMapa"
+          [attr.id]="ruta.id"
+          [attr.d]="ruta.path"
+          class="route-path">
+        </path>
+
+        <g
+          *ngFor="let ruta of rutasMapa"
+          class="plane-group">
+
+          <text class="plane-icon" x="0" y="0">✈</text>
+
+          <animateMotion
+            [attr.dur]="ruta.duracion + 's'"
+            [attr.begin]="ruta.delay + 's'"
+            repeatCount="indefinite"
+            rotate="auto">
+
+            <mpath [attr.href]="'#' + ruta.id"></mpath>
+          </animateMotion>
+        </g>
+      </svg>
+
+      <!-- Aeropuertos -->
+      <div
+        *ngFor="let aeropuerto of aeropuertosMapa"
+        class="airport"
+        [style.left.%]="aeropuerto.x"
+        [style.top.%]="aeropuerto.y">
+
+        <div class="airport-dot"></div>
+
+        <div class="airport-label">
+          <strong>{{ aeropuerto.codigo }}</strong>
+          <span>{{ aeropuerto.ciudad }}</span>
+        </div>
+      </div>
+
+      <!-- Mensaje inicial -->
+      <div *ngIf="!cargando && !simulacionEjecutada && !animandoVisual" class="map-empty">
+        Presiona “Iniciar simulación 5 días” para visualizar rutas, aeropuertos y aviones.
+      </div>
+
+    </div>
+
+    <div class="map-legend">
+      <div>
+        <span class="legend-dot airport-color"></span>
+        Aeropuerto
+      </div>
+
+      <div>
+        <span class="legend-line"></span>
+        Ruta asignada
+      </div>
+
+      <div>
+        <span class="legend-plane">✈</span>
+        Vuelo en movimiento
+      </div>
+    </div>
+  </section>
+
+  <div *ngIf="mensajeError" class="error-box">
+    {{ mensajeError }}
+  </div>
+
+  <section *ngIf="resumen" class="kpi-grid">
+
+    <article class="kpi-card">
+      <span>Total envíos</span>
+      <strong>{{ resumen.totalEnvios }}</strong>
+      <small>Periodo: {{ resumen.fechaInicio }} / {{ resumen.dias }} días</small>
+    </article>
+
+    <article class="kpi-card success">
+      <span>Envíos asignados</span>
+      <strong>{{ resumen.enviosAsignados }}</strong>
+      <small>{{ porcentajeEnviosAsignados }}% del total</small>
+    </article>
+
+    <article class="kpi-card danger">
+      <span>Envíos no asignados</span>
+      <strong>{{ resumen.enviosNoAsignados }}</strong>
+      <small>Pendientes o sin vuelo directo viable</small>
+    </article>
+
+    <article class="kpi-card">
+      <span>Total maletas</span>
+      <strong>{{ resumen.totalMaletas }}</strong>
+      <small>{{ porcentajeMaletasAsignadas }}% asignadas</small>
+    </article>
+
+    <article class="kpi-card success">
+      <span>Maletas asignadas</span>
+      <strong>{{ resumen.maletasAsignadas }}</strong>
+      <small>Dentro del plazo de entrega</small>
+    </article>
+
+    <article class="kpi-card danger">
+      <span>Maletas no asignadas</span>
+      <strong>{{ resumen.maletasNoAsignadas }}</strong>
+      <small>Requieren replanificación</small>
+    </article>
+
+    <article class="kpi-card warning">
+      <span>Vuelos utilizados</span>
+      <strong>{{ resumen.vuelosUtilizados }}</strong>
+      <small>Vuelos con capacidad ocupada</small>
+    </article>
+
+  </section>
+
+  <section *ngIf="simulacionEjecutada || animandoVisual" class="table-section">
+    <div class="table-header">
+      <h2>Eventos de la simulación</h2>
+      <p>{{ eventos.length }} eventos generados por el planificador MVP.</p>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>ID envío</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th>Cantidad</th>
+            <th>Estado</th>
+            <th>Vuelo</th>
+            <th>Salida</th>
+            <th>Llegada</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let evento of eventos">
+            <td>{{ evento.idEnvio }}</td>
+            <td>{{ evento.origen }}</td>
+            <td>{{ evento.destino }}</td>
+            <td>{{ evento.cantidad }}</td>
+            <td>
+              <span
+                class="status"
+                [class.status-ok]="evento.estado === 'ASIGNADO'"
+                [class.status-error]="evento.estado !== 'ASIGNADO'">
+                {{ evento.estado }}
+              </span>
+            </td>
+            <td>{{ evento.codigoVuelo || '-' }}</td>
+            <td>{{ evento.horaSalida || '-' }}</td>
+            <td>{{ evento.horaLlegada || '-' }}</td>
+          </tr>
+
+          <tr *ngIf="eventos.length === 0">
+            <td colspan="8" class="empty-message">
+              Todavía no se han reproducido eventos.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
