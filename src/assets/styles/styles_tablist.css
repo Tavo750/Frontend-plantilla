@@ -1,0 +1,65 @@
+/* =============================
+   TAB LIST STYLES (GLOBAL)
+   ============================= */
+
+/* Tour button container - posicionamiento derecho */
+.tour-button-container {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+/* Tab list flexbox configuration */
+::ng-deep .p-tablist {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-width: 0;
+}
+
+/* Tab panel content - padding overrides */
+.tab-panel-content {
+  padding: 0 !important;
+}
+
+/* =============================
+   RESPONSIVE - MOBILE
+   ============================= */
+@media (max-width: 576px) {
+  /* El celeste (tab header) NO debe crecer más que la pantalla */
+  ::ng-deep .p-tablist {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: row;     /* ✅ importante: NO columna */
+    flex-wrap: nowrap;       /* ✅ una fila */
+    align-items: center;
+
+    overflow-x: auto;        /* ✅ scroll horizontal aquí */
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+
+    min-width: 0;            /* ✅ clave para que no expanda */
+  }
+
+  /* Tabs no deben "empujar" */
+  ::ng-deep .p-tablist .p-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Tu contenedor del botón no debe romper el ancho */
+  .tour-button-container {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0 0.75rem;      /* un poco menos en móvil */
+    margin-left: auto !important;       /* lo manda a la derecha */
+  }
+
+  /* Opcional: para que no se vea gigante el botón */
+  ::ng-deep .button-tour .p-button-label {
+    display: none;           /* ✅ solo icono en móvil */
+  }
+}
