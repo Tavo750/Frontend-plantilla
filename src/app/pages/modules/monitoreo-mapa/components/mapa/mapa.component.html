@@ -1,1 +1,303 @@
-<p>mapa works!</p>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+
+    <div>
+      <h1>Monitoreo en Mapa</h1>
+      <p>Visualización en tiempo real de operaciones globales</p>
+    </div>
+
+    <button class="btn" (click)="toggleRefresh()">
+      {{ autoRefresh ? 'Actualizando...' : 'Actualizar' }}
+    </button>
+
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="card controls">
+
+    <div class="filters">
+
+      <span>🌍 Continente:</span>
+
+      <select [(ngModel)]="selectedContinent">
+
+        <option value="all">Todos los Continentes</option>
+        <option value="America">América</option>
+        <option value="Europe">Europa</option>
+        <option value="Asia">Asia</option>
+
+      </select>
+
+    </div>
+
+    <div class="zoom-buttons">
+
+      <button class="btn-icon">+</button>
+      <button class="btn-icon">−</button>
+
+    </div>
+
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- MAP SECTION -->
+    <div class="map-section">
+
+      <div class="card">
+
+        <div class="card-header">
+
+          <h2>Mapa Global de Operaciones</h2>
+
+          <p>
+            Aeropuertos activos, rutas y vuelos en tiempo real
+          </p>
+
+        </div>
+
+        <div class="map-container">
+
+          <!-- MAP IMAGE -->
+          <img
+            [src]="worldMapUrl"
+            class="world-map"
+            alt="Mapa mundial"
+          >
+
+          <!-- OVERLAY -->
+          <div class="overlay"></div>
+
+          <!-- AIRPORTS -->
+          <div
+            *ngFor="let airport of filteredAirports"
+            class="airport"
+            [style.left.%]="airport.x"
+            [style.top.%]="airport.y"
+          >
+
+            <div
+              class="pulse"
+              *ngIf="airport.active"
+            ></div>
+
+            <div class="marker"></div>
+
+            <span>{{ airport.code }}</span>
+
+          </div>
+
+          <!-- FLIGHT BADGE -->
+          <div class="flight-badge">
+
+            ✈ JFK → LHR | En vuelo
+
+          </div>
+
+          <!-- LEGEND -->
+          <div class="legend">
+
+            <h3>Leyenda</h3>
+
+            <div class="legend-item">
+
+              <div class="legend-dot blue"></div>
+
+              <span>Aeropuerto</span>
+
+            </div>
+
+            <div class="legend-item">
+
+              <div class="legend-dot red"></div>
+
+              <span>Con maletas activas</span>
+
+            </div>
+
+            <div class="legend-item">
+
+              <div class="legend-line"></div>
+
+              <span>Ruta continental</span>
+
+            </div>
+
+          </div>
+
+          <!-- LIVE STATS -->
+          <div class="stats-box">
+
+            <h3>Estadísticas</h3>
+
+            <div class="stat-row">
+
+              <span>Aeropuertos</span>
+
+              <strong>{{ filteredAirports.length }}</strong>
+
+            </div>
+
+            <div class="stat-row">
+
+              <span>Rutas activas</span>
+
+              <strong>{{ flights.length }}</strong>
+
+            </div>
+
+            <div class="stat-row">
+
+              <span>En tránsito</span>
+
+              <strong>{{ activeLuggage.length }}</strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- LUGGAGE -->
+      <div class="card">
+
+        <div class="card-header">
+
+          <h2>Maletas en Tránsito</h2>
+
+        </div>
+
+        <div class="list">
+
+          <div
+            class="luggage-item"
+            *ngFor="let luggage of activeLuggage"
+          >
+
+            <div class="top-row">
+
+              <span class="badge">
+
+                {{ luggage.id }}
+
+              </span>
+
+              <span class="badge active">
+
+                {{ luggage.status }}
+
+              </span>
+
+            </div>
+
+            <p>
+
+              {{ luggage.current }}
+
+            </p>
+
+            <p>
+
+              → {{ luggage.destination }}
+
+            </p>
+
+            <div class="bottom-row">
+
+              <span>{{ luggage.airline }}</span>
+
+              <span>
+
+                {{ luggage.quantity }} maletas
+
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- AIRPORT STATUS -->
+      <div class="card">
+
+        <div class="card-header">
+
+          <h2>Estado de Aeropuertos</h2>
+
+        </div>
+
+        <div class="airport-status">
+
+          <div
+            class="airport-card"
+            *ngFor="let airport of filteredAirports"
+          >
+
+            <div class="airport-top">
+
+              <div>
+
+                <h4>{{ airport.code }}</h4>
+
+                <p>
+
+                  {{ airport.city }},
+                  {{ airport.country }}
+
+                </p>
+
+              </div>
+
+              <span class="badge">
+
+                {{ airport.continent }}
+
+              </span>
+
+            </div>
+
+            <div class="storage">
+
+              <div class="storage-label">
+
+                <span>Almacenamiento</span>
+
+                <span>{{ airport.storage }}%</span>
+
+              </div>
+
+              <div class="progress-bar">
+
+                <div
+                  class="progress-fill"
+                  [style.width.%]="airport.storage"
+                ></div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>

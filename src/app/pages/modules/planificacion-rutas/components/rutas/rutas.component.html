@@ -1,1 +1,349 @@
-<p>rutas works!</p>
+<div class="route-page">
+
+  <!-- HEADER -->
+
+  <div class="page-header">
+
+    <div>
+
+      <h1>Planificación de Rutas</h1>
+
+      <p>
+        Planifique y optimice las rutas de envío de maletas
+      </p>
+
+    </div>
+
+  </div>
+
+  <!-- CONTROLS -->
+
+  <div class="card">
+
+    <div class="card-header">
+
+      <h2>Planificador de Rutas</h2>
+
+      <p>
+        Seleccione un envío para calcular la ruta óptima
+      </p>
+
+    </div>
+
+    <div class="card-body controls">
+
+      <div class="select-container">
+
+        <label>Envío</label>
+
+        <select [(ngModel)]="selectedLuggage">
+
+          <option value="">
+            Seleccione un envío
+          </option>
+
+          <option
+            *ngFor="let luggage of luggageData"
+            [value]="luggage.id"
+          >
+
+            {{ luggage.id }}
+            -
+            {{ getAirportById(luggage.originId)?.code }}
+            →
+            {{ getAirportById(luggage.destinationId)?.code }}
+
+          </option>
+
+        </select>
+
+      </div>
+
+      <button
+        class="primary-btn"
+        (click)="handlePlanRoute()"
+      >
+
+        Planificar Ruta
+
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- STATS -->
+
+  <div class="stats-grid">
+
+    <div class="stat-card">
+
+      <h3>Rutas Planificadas</h3>
+
+      <span>{{ routes.length }}</span>
+
+    </div>
+
+    <div class="stat-card">
+
+      <h3>Rutas Directas</h3>
+
+      <span class="green">
+        {{ routes.filter(r => r.isDirect).length }}
+      </span>
+
+    </div>
+
+    <div class="stat-card">
+
+      <h3>Con Escalas</h3>
+
+      <span class="blue">
+        {{ routes.filter(r => !r.isDirect).length }}
+      </span>
+
+    </div>
+
+    <div class="stat-card">
+
+      <h3>Tiempo Promedio</h3>
+
+      <span>
+        {{
+          routes.length > 0
+          ? (
+            routes.reduce((s, r) => s + r.deliveryTime, 0)
+            / routes.length
+          ).toFixed(1)
+          : 0
+        }}
+        días
+      </span>
+
+    </div>
+
+  </div>
+
+  <!-- ROUTES -->
+
+  <div
+    class="card routes-card"
+    *ngIf="routes.length > 0"
+  >
+
+    <div class="card-header">
+
+      <h2>Rutas Planificadas</h2>
+
+    </div>
+
+    <div class="routes-list">
+
+      <div
+        class="route-item"
+        *ngFor="let route of routes"
+      >
+
+        <div class="route-top">
+
+          <div>
+
+            <div class="badges">
+
+              <span class="badge">
+                {{ route.luggageId }}
+              </span>
+
+              <span
+                class="badge success"
+                *ngIf="route.isDirect"
+              >
+
+                Ruta Directa
+
+              </span>
+
+              <span
+                class="badge warning"
+                *ngIf="!route.isDirect"
+              >
+
+                Escalas
+
+              </span>
+
+            </div>
+
+            <h3>
+
+              {{ route.origin }}
+              →
+              {{ route.destination }}
+
+            </h3>
+
+            <p>
+
+              Ruta:
+              {{ route.route.join(' → ') }}
+
+            </p>
+
+          </div>
+
+          <button class="secondary-btn">
+
+            Replanificar
+
+          </button>
+
+        </div>
+
+        <!-- TABLE -->
+
+        <div class="table-container">
+
+          <table>
+
+            <thead>
+
+              <tr>
+
+                <th>Vuelo</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th>Capacidad</th>
+                <th>Disponible</th>
+                <th>Salida</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              <tr
+                *ngFor="let segment of route.segments"
+              >
+
+                <td>{{ segment.flight }}</td>
+
+                <td>{{ segment.from }}</td>
+
+                <td>{{ segment.to }}</td>
+
+                <td>{{ segment.capacity }}</td>
+
+                <td>
+
+                  <span
+                    [class.red]="segment.available <= 0"
+                    [class.green]="segment.available > 0"
+                  >
+
+                    {{ segment.available }}
+
+                  </span>
+
+                </td>
+
+                <td>
+
+                  {{ segment.departure }}
+
+                </td>
+
+              </tr>
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- FLIGHTS -->
+
+  <div class="card">
+
+    <div class="card-header">
+
+      <h2>Disponibilidad de Vuelos</h2>
+
+    </div>
+
+    <div class="table-container">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>Vuelo</th>
+            <th>Ruta</th>
+            <th>Capacidad</th>
+            <th>Ocupación</th>
+            <th>Disponible</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          <tr
+            *ngFor="let flight of flights"
+          >
+
+            <td>{{ flight.id }}</td>
+
+            <td>
+
+              {{ getAirportById(flight.originId)?.code }}
+              →
+              {{ getAirportById(flight.destinationId)?.code }}
+
+            </td>
+
+            <td>{{ flight.capacity }}</td>
+
+            <td>
+
+              <div class="progress-bar">
+
+                <div
+                  class="progress-fill"
+                  [style.width.%]="
+                    (flight.currentLoad / flight.capacity) * 100
+                  "
+                ></div>
+
+              </div>
+
+            </td>
+
+            <td>
+
+              {{
+                flight.capacity - flight.currentLoad
+              }}
+
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+</div>

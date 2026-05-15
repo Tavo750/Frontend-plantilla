@@ -5,11 +5,10 @@ import { MonitoreoMapaRoutingModule } from './monitoreo-mapa-routing.module';
 import { MapaComponent } from './components/mapa/mapa.component';
 
 @NgModule({
-  declarations: [
-    MapaComponent
-  ],
   imports: [
-    CommonModule, 
-    MonitoreoMapaRoutingModule],
+    CommonModule,
+    MonitoreoMapaRoutingModule,
+    MapaComponent
+  ]
 })
 export class MonitoreoMapaModule {}
