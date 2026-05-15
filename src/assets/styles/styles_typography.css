@@ -1,0 +1,410 @@
+/* ============================================
+   ESTILOS DE TIPOGRAFÍA
+   Sistema completo de tipografía y texto
+   ============================================ */
+
+/* ===== FUENTE BASE ===== */
+body {
+  font-family: "Anek Latin", sans-serif !important;
+}
+
+/* ============================================
+   APLICACIÓN A ELEMENTOS HTML ESTÁNDAR
+   ============================================ */
+
+h1,
+.h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  margin-bottom: 1.5rem;
+  color: var(--texto-content-color);
+}
+
+h2,
+.h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  margin-bottom: 1.25rem;
+  color: var(--texto-content-color);
+}
+
+h3,
+.h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin-bottom: 1rem;
+  color: var(--texto-content-color);
+}
+
+h4,
+.h4 {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  margin-bottom: 0.875rem;
+  color: var(--texto-content-color);
+}
+
+h5,
+.h5 {
+  font-size: var(--font-size-h5);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  margin-bottom: 0.75rem;
+  color: var(--texto-content-color);
+}
+
+h6,
+.h6 {
+  font-size: var(--font-size-h6);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  margin-bottom: 0.625rem;
+  color: var(--texto-content-color);
+}
+
+p {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  margin-bottom: 1rem;
+  color: var(--texto-content-color);
+}
+
+small,
+.small {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-medium);
+}
+
+/* ============================================
+   CLASES DE UTILIDAD TIPOGRÁFICA
+   ============================================ */
+
+/* Tamaños de texto */
+.text-h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+.text-h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+.text-h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+.text-h4 {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+.text-h5 {
+  font-size: var(--font-size-h5);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+.text-h6 {
+  font-size: var(--font-size-h6);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.text-large {
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+.text-base {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+.text-medium {
+  font-size: var(--font-size-medium);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+.text-small {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+.text-xs {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+/* Pesos de fuente */
+.font-light {
+  font-weight: var(--font-weight-light);
+}
+.font-normal {
+  font-weight: var(--font-weight-normal);
+}
+.font-medium {
+  font-weight: var(--font-weight-medium);
+}
+.font-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+.font-bold {
+  font-weight: var(--font-weight-bold);
+}
+.font-extrabold {
+  font-weight: var(--font-weight-extrabold);
+}
+
+/* Espaciado de línea */
+.leading-tight {
+  line-height: var(--line-height-tight);
+}
+.leading-normal {
+  line-height: var(--line-height-normal);
+}
+.leading-relaxed {
+  line-height: var(--line-height-relaxed);
+}
+.leading-loose {
+  line-height: var(--line-height-loose);
+}
+
+/* Espaciado de letras */
+.tracking-tight {
+  letter-spacing: var(--letter-spacing-tight);
+}
+.tracking-normal {
+  letter-spacing: var(--letter-spacing-normal);
+}
+.tracking-wide {
+  letter-spacing: var(--letter-spacing-wide);
+}
+.tracking-wider {
+  letter-spacing: var(--letter-spacing-wider);
+}
+
+/* ============================================
+   COLORES DE TEXTO - CLASES DE UTILIDAD
+   ============================================ */
+
+/* Colores principales de marca */
+.text-navy {
+  color: var(--color-navy-dark) !important;
+}
+.text-navy-light {
+  color: var(--color-navy-lighter) !important;
+}
+.text-navy-dark {
+  color: var(--color-navy-darker) !important;
+}
+
+.text-blue {
+  color: var(--color-blue-light) !important;
+}
+.text-blue-light {
+  color: var(--color-blue-lighter) !important;
+}
+.text-blue-dark {
+  color: var(--color-blue-darker) !important;
+}
+
+.text-mint {
+  color: var(--color-mint-light) !important;
+}
+.text-mint-light {
+  color: var(--color-mint-lighter) !important;
+}
+.text-mint-dark {
+  color: var(--color-mint-darker) !important;
+}
+
+.text-teal {
+  color: var(--color-teal-dark) !important;
+}
+.text-light-blue {
+  color: var(--color-light-blue) !important;
+}
+
+/* Colores neutros */
+.text-white {
+  color: var(--color-white) !important;
+}
+.text-gray {
+  color: var(--color-gray-medium) !important;
+}
+.text-gray-light {
+  color: var(--color-gray-light) !important;
+}
+.text-gray-dark {
+  color: var(--color-gray-dark) !important;
+}
+
+/* Colores de estado */
+.text-success {
+  color: var(--color-success) !important;
+}
+.text-info {
+  color: var(--color-info) !important;
+}
+.text-warning {
+  color: var(--color-warning) !important;
+}
+.text-danger {
+  color: var(--color-danger) !important;
+}
+
+/* Colores contextuales */
+.text-primary {
+  color: var(--color-navy-dark) !important;
+}
+.text-secondary {
+  color: var(--color-blue-light) !important;
+}
+.text-muted {
+  color: var(--color-gray-medium) !important;
+}
+
+/* ============================================
+   GRADIENTES DE TEXTO
+   ============================================ */
+
+.text-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    var(--color-navy-dark),
+    var(--color-blue-light)
+  ) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.text-gradient-secondary {
+  background: linear-gradient(
+    135deg,
+    var(--color-blue-light),
+    var(--color-mint-light)
+  ) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.text-gradient-accent {
+  background: linear-gradient(
+    135deg,
+    var(--color-mint-light),
+    var(--color-teal-dark)
+  ) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+/* ============================================
+   COMBINACIONES COMUNES PARA COMPONENTES
+   ============================================ */
+
+/* Para títulos de sección principales */
+.section-title {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-navy-dark);
+  margin-bottom: 1.5rem;
+}
+
+/* Para subtítulos de componentes */
+.component-title {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--color-navy-dark);
+  margin-bottom: 1rem;
+}
+
+/* Para texto de ayuda y descripciones */
+.help-text {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-gray-medium);
+  font-style: italic;
+}
+
+/* Para labels importantes */
+.label-important {
+  font-size: var(--font-size-medium);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-navy-dark);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Para metadatos y información secundaria */
+.metadata {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-gray-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wider);
+}
+
+/* Para texto destacado */
+.text-highlight {
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-medium);
+  background: linear-gradient(
+    135deg,
+    var(--color-blue-light),
+    var(--color-mint-light)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   RESPONSIVE - AJUSTES POR TAMAÑO DE PANTALLA
+   ============================================ */
+
+/* Mobile First - Reducir tamaños en pantallas pequeñas */
+@media (max-width: 576px) {
+  :root {
+    --font-size-h1: 2rem; /* 32px */
+    --font-size-h2: 1.75rem; /* 28px */
+    --font-size-h3: 1.5rem; /* 24px */
+    --font-size-h4: 1.25rem; /* 20px */
+    --font-size-h5: 1.125rem; /* 18px */
+    --font-size-h6: 1rem; /* 16px */
+  }
+}
+
+/* Tablet */
+@media (min-width: 577px) and (max-width: 768px) {
+  :root {
+    --font-size-h1: 2.25rem; /* 36px */
+    --font-size-h2: 1.875rem; /* 30px */
+  }
+}
+
+/* Desktop grande - Aumentar ligeramente para mejor legibilidad */
+@media (min-width: 1200px) {
+  :root {
+    --font-size-h1: 2.75rem; /* 44px */
+    --font-size-h2: 2.25rem; /* 36px */
+    --font-size-base: 1.125rem; /* 18px */
+  }
+}
+

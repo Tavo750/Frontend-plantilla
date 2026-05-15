@@ -1,0 +1,1127 @@
+/* =====================================================
+   BUTTON STYLES - NETTALCO DESIGN SYSTEM
+   ===================================================== */
+
+:root {
+  /* ====== DESIGN TOKENS ====== */
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-full: 50%;
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Focus Ring */
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.5);
+
+  /* ====== BRAND COLORS - VERSION 1 ====== */
+
+  /* Primary */
+  --color-primary: #082853;
+  --color-primary-hover: #22436F;
+  --color-primary-active: #2B5DA1;
+  --color-primary-disabled: #6B7280;
+
+  /* Secondary */
+  --color-secondary: #3F8CF9;
+  --color-secondary-hover: #5A9FFC;
+  --color-secondary-active: #5398F8;
+  --color-secondary-disabled: #CAD8F1;
+
+  /* Success */
+  --color-success: #2BA5CD;
+  --color-success-hover: #45B1CE;
+  --color-success-active: #3CAAC8;
+  --color-success-disabled: #D6E5FA;
+
+  /* Export */
+  --color-export: #09718A;
+  --color-export-hover: #258FA6;
+  --color-export-active: #1A859D;
+  --color-export-disabled: #8CC3D7;
+
+  /* Warning */
+  --color-warning: #D57952;
+  --color-warning-hover: #D78158;
+  --color-warning-active: #DE956A;
+  --color-warning-disabled: #E4DBE7;
+
+  /* Danger */
+  --color-danger: #DC2626;
+  --color-danger-hover: #EF4444;
+  --color-danger-active: #B91C1C;
+  --color-danger-disabled: #FECACA;
+
+  /* Info */
+  --color-info: #66A6FB;
+  --color-info-hover: #7CB2FA;
+  --color-info-active: #B4D3FD;
+  --color-info-disabled: #ABC9F9;
+
+  /* Text Colors */
+  --color-text-light: #ffffff;
+  --color-text-dark: #082853;
+
+  /* ====== BRAND COLORS - VERSION 2 ====== */
+
+  /* Primary v2 */
+  --v2-primary: #EDF4FF;
+  --v2-primary-hover: #EEF4FF;
+  --v2-primary-active: #336DD9;
+  --v2-primary-disabled: #0A1D49;
+
+  /* Secondary v2 */
+  --v2-secondary: #3A72E0;
+  --v2-secondary-hover: #2B5FBC;
+  --v2-secondary-active: #1F498E;
+  --v2-secondary-disabled: #0C3D5C;
+
+  /* Success v2 */
+  --v2-success: #6ECBCD;
+  --v2-success-hover: #19819D;
+  --v2-success-active: #0C566F;
+  --v2-success-disabled: #0C3D5C;
+
+  /* Warning v2 */
+  --v2-warning: #F4B33C;
+  --v2-warning-hover: #F2A61E;
+  --v2-warning-active: #CA8825;
+  --v2-warning-disabled: #9D6A2D;
+
+  /* Info v2 */
+  --v2-info: #69A7ED;
+  --v2-info-hover: #5389DB;
+  --v2-info-active: #4775BF;
+  --v2-info-disabled: #40609B;
+
+  /* Text helpers v2 */
+  --v2-text-dark: #0A1D49;
+  --v2-text-light: #ffffff;
+}
+
+/* =====================================================
+   BASE PRIMENG BUTTON STYLES
+   ===================================================== */
+
+.p-button {
+  border: 0 !important;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  transition: transform 0.06s ease, box-shadow 0.2s ease, background-color 0.15s ease, color 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.p-button:not(.p-disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.p-button:not(.p-disabled):active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.p-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-md), var(--focus-ring) !important;
+}
+
+.p-button.p-disabled,
+.p-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* =====================================================
+   BUTTON SEVERITIES - FILLED STYLES
+   ===================================================== */
+
+/* Primary */
+.p-button.btn-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-primary:not(.p-disabled):hover {
+  background: var(--color-primary-hover) !important;
+}
+
+.p-button.btn-primary:not(.p-disabled):active {
+  background: var(--color-primary-active) !important;
+}
+
+.p-button.btn-primary.p-disabled,
+.p-button.btn-primary:disabled {
+  background: var(--color-primary-disabled) !important;
+}
+
+/* Secondary */
+.p-button.btn-secondary {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-secondary:not(.p-disabled):hover {
+  background: var(--color-secondary-hover) !important;
+}
+
+.p-button.btn-secondary:not(.p-disabled):active {
+  background: var(--color-secondary-active) !important;
+}
+
+.p-button.btn-secondary.p-disabled,
+.p-button.btn-secondary:disabled {
+  background: var(--color-secondary-disabled) !important;
+}
+
+/* Success */
+.p-button.btn-success {
+  background: var(--color-success) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-success:not(.p-disabled):hover {
+  background: var(--color-success-hover) !important;
+}
+
+.p-button.btn-success:not(.p-disabled):active {
+  background: var(--color-success-active) !important;
+}
+
+.p-button.btn-success.p-disabled,
+.p-button.btn-success:disabled {
+  background: var(--color-success-disabled) !important;
+}
+
+/* Export */
+.p-button.btn-export {
+  background: var(--color-export) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-export:not(.p-disabled):hover {
+  background: var(--color-export-hover) !important;
+}
+
+.p-button.btn-export:not(.p-disabled):active {
+  background: var(--color-export-active) !important;
+}
+
+.p-button.btn-export.p-disabled,
+.p-button.btn-export:disabled {
+  background: var(--color-export-disabled) !important;
+}
+
+/* Warning */
+.p-button.btn-warning {
+  background: var(--color-warning) !important;
+  color: #1a1a1a !important;
+}
+
+.p-button.btn-warning:not(.p-disabled):hover {
+  background: var(--color-warning-hover) !important;
+}
+
+.p-button.btn-warning:not(.p-disabled):active {
+  background: var(--color-warning-active) !important;
+}
+
+.p-button.btn-warning.p-disabled,
+.p-button.btn-warning:disabled {
+  background: var(--color-warning-disabled) !important;
+}
+
+/* Danger */
+.p-button.btn-danger {
+  background: var(--color-danger) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-danger:not(.p-disabled):hover {
+  background: var(--color-danger-hover) !important;
+}
+
+.p-button.btn-danger:not(.p-disabled):active {
+  background: var(--color-danger-active) !important;
+}
+
+.p-button.btn-danger.p-disabled,
+.p-button.btn-danger:disabled {
+  background: var(--color-danger-disabled) !important;
+}
+
+/* Info */
+.p-button.btn-info {
+  background: var(--color-info) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-button.btn-info:not(.p-disabled):hover {
+  background: var(--color-info-hover) !important;
+}
+
+.p-button.btn-info:not(.p-disabled):active {
+  background: var(--color-info-active) !important;
+}
+
+.p-button.btn-info.p-disabled,
+.p-button.btn-info:disabled {
+  background: var(--color-info-disabled) !important;
+}
+
+/* =====================================================
+   BUTTON VARIANTS - OUTLINED, TEXT, GHOST
+   ===================================================== */
+
+/* Outlined Base */
+.p-button.btn-outlined {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Outlined by Severity */
+.p-button.btn-primary.btn-outlined {
+  color: var(--color-primary) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.p-button.btn-secondary.btn-outlined {
+  color: var(--color-secondary) !important;
+  border: 2px solid var(--color-secondary) !important;
+}
+
+.p-button.btn-success.btn-outlined {
+  color: var(--color-success) !important;
+  border: 2px solid var(--color-success) !important;
+}
+
+.p-button.btn-export.btn-outlined {
+  color: var(--color-export) !important;
+  border: 2px solid var(--color-export) !important;
+}
+
+.p-button.btn-warning.btn-outlined {
+  color: var(--color-warning) !important;
+  border: 2px solid var(--color-warning) !important;
+}
+
+.p-button.btn-danger.btn-outlined {
+  color: var(--color-danger) !important;
+  border: 2px solid var(--color-danger) !important;
+}
+
+.p-button.btn-info.btn-outlined {
+  color: var(--color-info) !important;
+  border: 2px solid var(--color-info) !important;
+}
+
+/* Text Variant */
+.p-button.btn-text {
+  background: transparent !important;
+  color: var(--color-secondary) !important;
+  box-shadow: none !important;
+}
+
+.p-button.btn-text:not(.p-disabled):hover {
+  background: rgba(63, 140, 249, 0.08) !important;
+}
+
+/* Ghost Variant */
+.p-button.btn-ghost {
+  background: rgba(8, 40, 83, 0.08) !important;
+  color: var(--color-primary) !important;
+}
+
+.p-button.btn-ghost:not(.p-disabled):hover {
+  background: rgba(8, 40, 83, 0.12) !important;
+}
+
+/* =====================================================
+   BUTTON SIZES
+   ===================================================== */
+
+.p-button.btn-sm {
+  padding: 0.35rem 0.7rem !important;
+  font-size: 0.8rem !important;
+}
+
+.p-button.btn-md {
+  padding: 0.55rem 1rem !important;
+  font-size: 0.95rem !important;
+}
+
+.p-button.btn-lg {
+  padding: 0.8rem 1.25rem !important;
+  font-size: 1.05rem !important;
+}
+
+/* Icon Only Buttons */
+.p-button.p-button-icon-only.btn-sm {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.p-button.p-button-icon-only.btn-md {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.p-button.p-button-icon-only.btn-lg {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  border-radius: var(--radius-full) !important;
+}
+
+/* =====================================================
+   VERSION 2 STYLES (.btn-v2 modifier)
+   ===================================================== */
+
+/* Primary v2 */
+.p-button.btn-primary.btn-v2 {
+  background: var(--v2-primary) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-button.btn-primary.btn-v2:not(.p-disabled):hover {
+  background: var(--v2-primary-hover) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-button.btn-primary.btn-v2:not(.p-disabled):active {
+  background: var(--v2-primary-active) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-button.btn-primary.btn-v2.p-disabled,
+.p-button.btn-primary.btn-v2:disabled {
+  background: var(--v2-primary-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Secondary v2 */
+.p-button.btn-secondary.btn-v2 {
+  background: var(--v2-secondary) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-button.btn-secondary.btn-v2:not(.p-disabled):hover {
+  background: var(--v2-secondary-hover) !important;
+}
+
+.p-button.btn-secondary.btn-v2:not(.p-disabled):active {
+  background: var(--v2-secondary-active) !important;
+}
+
+.p-button.btn-secondary.btn-v2.p-disabled,
+.p-button.btn-secondary.btn-v2:disabled {
+  background: var(--v2-secondary-disabled) !important;
+}
+
+/* Success v2 */
+.p-button.btn-success.btn-v2 {
+  background: var(--v2-success) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-button.btn-success.btn-v2:not(.p-disabled):hover {
+  background: var(--v2-success-hover) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-button.btn-success.btn-v2:not(.p-disabled):active {
+  background: var(--v2-success-active) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-button.btn-success.btn-v2.p-disabled,
+.p-button.btn-success.btn-v2:disabled {
+  background: var(--v2-success-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Warning v2 */
+.p-button.btn-warning.btn-v2 {
+  background: var(--v2-warning) !important;
+  color: #1a1a1a !important;
+}
+
+.p-button.btn-warning.btn-v2:not(.p-disabled):hover {
+  background: var(--v2-warning-hover) !important;
+}
+
+.p-button.btn-warning.btn-v2:not(.p-disabled):active {
+  background: var(--v2-warning-active) !important;
+  color: #1a1a1a !important;
+}
+
+.p-button.btn-warning.btn-v2.p-disabled,
+.p-button.btn-warning.btn-v2:disabled {
+  background: var(--v2-warning-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Info v2 */
+.p-button.btn-info.btn-v2 {
+  background: var(--v2-info) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-button.btn-info.btn-v2:not(.p-disabled):hover {
+  background: var(--v2-info-hover) !important;
+}
+
+.p-button.btn-info.btn-v2:not(.p-disabled):active {
+  background: var(--v2-info-active) !important;
+}
+
+.p-button.btn-info.btn-v2.p-disabled,
+.p-button.btn-info.btn-v2:disabled {
+  background: var(--v2-info-disabled) !important;
+}
+.p-button.btn-cancel{
+  background-color: var(--color-primary-disabled);
+}
+.p-button.btn-cancel:hover{
+  background-color: var(--color-primary-disabled) !important;
+}
+
+/* =====================================================
+   VERSION 2 VARIANTS
+   ===================================================== */
+
+/* Outlined v2 */
+.p-button.btn-outlined.btn-v2 {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-button.btn-primary.btn-outlined.btn-v2 {
+  color: var(--v2-primary-active) !important;
+  border: 2px solid var(--v2-primary-active) !important;
+}
+
+.p-button.btn-secondary.btn-outlined.btn-v2 {
+  color: var(--v2-secondary) !important;
+  border: 2px solid var(--v2-secondary) !important;
+}
+
+.p-button.btn-success.btn-outlined.btn-v2 {
+  color: var(--v2-success-hover) !important;
+  border: 2px solid var(--v2-success-hover) !important;
+}
+
+/* Responsive button helpers moved from dialog local styles */
+@media (max-width: 640px) {
+  .btn-responsive {
+    border-radius: 10px !important;
+    padding: 0.55rem 1rem !important;
+    font-size: 0.95rem !important;
+    min-width: 120px !important;
+    box-shadow: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .btn-responsive .pi {
+    margin-right: 0.5rem !important;
+    font-size: 1.05rem !important;
+  }
+
+  /* Specific small consult-button adjustments (keeps label visible and minimum width) */
+  .btn-responsive.consult-btn {
+    white-space: nowrap !important;
+    min-width: 96px !important;
+  }
+
+  .btn-responsive.consult-btn .p-button-label {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-left: 0.5rem !important;
+  }
+
+  .btn-responsive {
+    height: 40px !important;
+    line-height: 1 !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+.p-button.btn-export.btn-outlined.btn-v2 {
+  color: var(--v2-success-active) !important;
+  border: 2px solid var(--v2-success-active) !important;
+}
+
+.p-button.btn-warning.btn-outlined.btn-v2 {
+  color: var(--v2-warning) !important;
+  border: 2px solid var(--v2-warning) !important;
+}
+
+.p-button.btn-info.btn-outlined.btn-v2 {
+  color: var(--v2-info) !important;
+  border: 2px solid var(--v2-info) !important;
+}
+
+/* Text v2 */
+.p-button.btn-text.btn-v2 {
+  background: transparent !important;
+  color: var(--v2-secondary) !important;
+  box-shadow: none !important;
+}
+
+.p-button.btn-text.btn-v2:not(.p-disabled):hover {
+  background: rgba(58, 114, 224, 0.08) !important;
+}
+
+/* Ghost v2 */
+.p-button.btn-ghost.btn-v2 {
+  background: rgba(237, 244, 255, 0.6) !important;
+  color: var(--v2-primary-active) !important;
+}
+
+.p-button.btn-ghost.btn-v2:not(.p-disabled):hover {
+  background: rgba(237, 244, 255, 0.85) !important;
+}
+
+/* =====================================================
+   SPLIT BUTTON STYLES
+   ===================================================== */
+
+/* Base Split Button Styles */
+.p-splitbutton {
+  display: inline-flex;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.06s ease, box-shadow 0.2s ease;
+}
+
+.p-splitbutton:not(.p-disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.p-splitbutton:not(.p-disabled):active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.p-splitbutton:focus-within {
+  outline: none;
+  box-shadow: var(--shadow-md), var(--focus-ring) !important;
+}
+
+.p-splitbutton.p-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Split Button Main Button */
+.p-splitbutton .p-button {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.p-splitbutton .p-button:first-child {
+  border-top-left-radius: var(--radius-md) !important;
+  border-bottom-left-radius: var(--radius-md) !important;
+}
+
+.p-splitbutton .p-button:last-child {
+  border-top-right-radius: var(--radius-md) !important;
+  border-bottom-right-radius: var(--radius-md) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Split Button Dropdown Button */
+.p-splitbutton .p-splitbutton-defaultbutton {
+  flex: 1;
+}
+
+.p-splitbutton .p-splitbutton-menubutton {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =====================================================
+   SPLIT BUTTON SEVERITIES - FILLED STYLES
+   ===================================================== */
+
+/* Primary Split Button */
+.p-splitbutton.btn-primary .p-button {
+  background: var(--color-primary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-splitbutton.btn-primary:not(.p-disabled):hover .p-button {
+  background: var(--color-primary-hover) !important;
+}
+
+.p-splitbutton.btn-primary:not(.p-disabled):active .p-button {
+  background: var(--color-primary-active) !important;
+}
+
+.p-splitbutton.btn-primary.p-disabled .p-button {
+  background: var(--color-primary-disabled) !important;
+}
+
+/* Secondary Split Button */
+.p-splitbutton.btn-secondary .p-button {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-splitbutton.btn-secondary:not(.p-disabled):hover .p-button {
+  background: var(--color-secondary-hover) !important;
+}
+
+.p-splitbutton.btn-secondary:not(.p-disabled):active .p-button {
+  background: var(--color-secondary-active) !important;
+}
+
+.p-splitbutton.btn-secondary.p-disabled .p-button {
+  background: var(--color-secondary-disabled) !important;
+}
+
+/* Success Split Button */
+.p-splitbutton.btn-success .p-button {
+  background: var(--color-success) !important;
+  color: var(--color-text-dark) !important;
+}
+
+.p-splitbutton.btn-success:not(.p-disabled):hover .p-button {
+  background: var(--color-success-hover) !important;
+}
+
+.p-splitbutton.btn-success:not(.p-disabled):active .p-button {
+  background: var(--color-success-active) !important;
+}
+
+.p-splitbutton.btn-success.p-disabled .p-button {
+  background: var(--color-success-disabled) !important;
+}
+
+/* Export Split Button */
+.p-splitbutton.btn-export .p-button {
+  background: var(--color-export) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-splitbutton.btn-export:not(.p-disabled):hover .p-button {
+  background: var(--color-export-hover) !important;
+}
+
+.p-splitbutton.btn-export:not(.p-disabled):active .p-button {
+  background: var(--color-export-active) !important;
+}
+
+.p-splitbutton.btn-export.p-disabled .p-button {
+  background: var(--color-export-disabled) !important;
+}
+
+/* Warning Split Button */
+.p-splitbutton.btn-warning .p-button {
+  background: var(--color-warning) !important;
+  color: #1a1a1a !important;
+}
+
+.p-splitbutton.btn-warning:not(.p-disabled):hover .p-button {
+  background: var(--color-warning-hover) !important;
+}
+
+.p-splitbutton.btn-warning:not(.p-disabled):active .p-button {
+  background: var(--color-warning-active) !important;
+}
+
+.p-splitbutton.btn-warning.p-disabled .p-button {
+  background: var(--color-warning-disabled) !important;
+}
+
+/* Danger Split Button */
+.p-splitbutton.btn-danger .p-button {
+  background: var(--color-danger) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-splitbutton.btn-danger:not(.p-disabled):hover .p-button {
+  background: var(--color-danger-hover) !important;
+}
+
+.p-splitbutton.btn-danger:not(.p-disabled):active .p-button {
+  background: var(--color-danger-active) !important;
+}
+
+.p-splitbutton.btn-danger.p-disabled .p-button {
+  background: var(--color-danger-disabled) !important;
+}
+
+/* Info Split Button */
+.p-splitbutton.btn-info .p-button {
+  background: var(--color-info) !important;
+  color: var(--color-text-light) !important;
+}
+
+.p-splitbutton.btn-info:not(.p-disabled):hover .p-button {
+  background: var(--color-info-hover) !important;
+}
+
+.p-splitbutton.btn-info:not(.p-disabled):active .p-button {
+  background: var(--color-info-active) !important;
+}
+
+.p-splitbutton.btn-info.p-disabled .p-button {
+  background: var(--color-info-disabled) !important;
+}
+
+/* =====================================================
+   SPLIT BUTTON VARIANTS - OUTLINED, TEXT, GHOST
+   ===================================================== */
+
+/* Outlined Split Button Base */
+.p-splitbutton.btn-outlined {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-outlined .p-button {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Outlined Split Button by Severity */
+.p-splitbutton.btn-primary.btn-outlined .p-button {
+  color: var(--color-primary) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.p-splitbutton.btn-secondary.btn-outlined .p-button {
+  color: var(--color-secondary) !important;
+  border: 2px solid var(--color-secondary) !important;
+}
+
+.p-splitbutton.btn-success.btn-outlined .p-button {
+  color: var(--color-success) !important;
+  border: 2px solid var(--color-success) !important;
+}
+
+.p-splitbutton.btn-export.btn-outlined .p-button {
+  color: var(--color-export) !important;
+  border: 2px solid var(--color-export) !important;
+}
+
+.p-splitbutton.btn-warning.btn-outlined .p-button {
+  color: var(--color-warning) !important;
+  border: 2px solid var(--color-warning) !important;
+}
+
+.p-splitbutton.btn-danger.btn-outlined .p-button {
+  color: var(--color-danger) !important;
+  border: 2px solid var(--color-danger) !important;
+}
+
+.p-splitbutton.btn-info.btn-outlined .p-button {
+  color: var(--color-info) !important;
+  border: 2px solid var(--color-info) !important;
+}
+
+/* Text Split Button */
+.p-splitbutton.btn-text {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-text .p-button {
+  background: transparent !important;
+  color: var(--color-secondary) !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-text:not(.p-disabled):hover .p-button {
+  background: rgba(63, 140, 249, 0.08) !important;
+}
+
+/* Ghost Split Button */
+.p-splitbutton.btn-ghost .p-button {
+  background: rgba(8, 40, 83, 0.08) !important;
+  color: var(--color-primary) !important;
+}
+
+.p-splitbutton.btn-ghost:not(.p-disabled):hover .p-button {
+  background: rgba(8, 40, 83, 0.12) !important;
+}
+
+/* =====================================================
+   SPLIT BUTTON SIZES
+   ===================================================== */
+
+.p-splitbutton.btn-sm .p-button {
+  padding: 0.35rem 0.7rem !important;
+  font-size: 0.8rem !important;
+}
+
+.p-splitbutton.btn-sm .p-splitbutton-menubutton {
+  width: 2rem !important;
+  min-width: 2rem !important;
+}
+
+.p-splitbutton.btn-md .p-button {
+  padding: 0.55rem 1rem !important;
+  font-size: 0.95rem !important;
+}
+
+.p-splitbutton.btn-md .p-splitbutton-menubutton {
+  width: 2.5rem !important;
+  min-width: 2.5rem !important;
+}
+
+.p-splitbutton.btn-lg .p-button {
+  padding: 0.8rem 1.25rem !important;
+  font-size: 1.05rem !important;
+}
+
+.p-splitbutton.btn-lg .p-splitbutton-menubutton {
+  width: 3rem !important;
+  min-width: 3rem !important;
+}
+
+/* =====================================================
+   SPLIT BUTTON VERSION 2 STYLES
+   ===================================================== */
+
+/* Primary v2 Split Button */
+.p-splitbutton.btn-primary.btn-v2 .p-button {
+  background: var(--v2-primary) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-splitbutton.btn-primary.btn-v2:not(.p-disabled):hover .p-button {
+  background: var(--v2-primary-hover) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-splitbutton.btn-primary.btn-v2:not(.p-disabled):active .p-button {
+  background: var(--v2-primary-active) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-splitbutton.btn-primary.btn-v2.p-disabled .p-button {
+  background: var(--v2-primary-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Secondary v2 Split Button */
+.p-splitbutton.btn-secondary.btn-v2 .p-button {
+  background: var(--v2-secondary) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-splitbutton.btn-secondary.btn-v2:not(.p-disabled):hover .p-button {
+  background: var(--v2-secondary-hover) !important;
+}
+
+.p-splitbutton.btn-secondary.btn-v2:not(.p-disabled):active .p-button {
+  background: var(--v2-secondary-active) !important;
+}
+
+.p-splitbutton.btn-secondary.btn-v2.p-disabled .p-button {
+  background: var(--v2-secondary-disabled) !important;
+}
+
+/* Success v2 Split Button */
+.p-splitbutton.btn-success.btn-v2 .p-button {
+  background: var(--v2-success) !important;
+  color: var(--v2-text-dark) !important;
+}
+
+.p-splitbutton.btn-success.btn-v2:not(.p-disabled):hover .p-button {
+  background: var(--v2-success-hover) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-splitbutton.btn-success.btn-v2:not(.p-disabled):active .p-button {
+  background: var(--v2-success-active) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-splitbutton.btn-success.btn-v2.p-disabled .p-button {
+  background: var(--v2-success-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Warning v2 Split Button */
+.p-splitbutton.btn-warning.btn-v2 .p-button {
+  background: var(--v2-warning) !important;
+  color: #1a1a1a !important;
+}
+
+.p-splitbutton.btn-warning.btn-v2:not(.p-disabled):hover .p-button {
+  background: var(--v2-warning-hover) !important;
+}
+
+.p-splitbutton.btn-warning.btn-v2:not(.p-disabled):active .p-button {
+  background: var(--v2-warning-active) !important;
+  color: #1a1a1a !important;
+}
+
+.p-splitbutton.btn-warning.btn-v2.p-disabled .p-button {
+  background: var(--v2-warning-disabled) !important;
+  color: var(--v2-text-light) !important;
+}
+
+/* Info v2 Split Button */
+.p-splitbutton.btn-info.btn-v2 .p-button {
+  background: var(--v2-info) !important;
+  color: var(--v2-text-light) !important;
+}
+
+.p-splitbutton.btn-info.btn-v2:not(.p-disabled):hover .p-button {
+  background: var(--v2-info-hover) !important;
+}
+
+.p-splitbutton.btn-info.btn-v2:not(.p-disabled):active .p-button {
+  background: var(--v2-info-active) !important;
+}
+
+.p-splitbutton.btn-info.btn-v2.p-disabled .p-button {
+  background: var(--v2-info-disabled) !important;
+}
+
+/* =====================================================
+   SPLIT BUTTON VERSION 2 VARIANTS
+   ===================================================== */
+
+/* Outlined v2 Split Button */
+.p-splitbutton.btn-outlined.btn-v2 {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-outlined.btn-v2 .p-button {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-primary.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-primary-active) !important;
+  border: 2px solid var(--v2-primary-active) !important;
+}
+
+.p-splitbutton.btn-secondary.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-secondary) !important;
+  border: 2px solid var(--v2-secondary) !important;
+}
+
+.p-splitbutton.btn-success.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-success-hover) !important;
+  border: 2px solid var(--v2-success-hover) !important;
+}
+
+.p-splitbutton.btn-export.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-success-active) !important;
+  border: 2px solid var(--v2-success-active) !important;
+}
+
+.p-splitbutton.btn-warning.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-warning) !important;
+  border: 2px solid var(--v2-warning) !important;
+}
+
+.p-splitbutton.btn-info.btn-outlined.btn-v2 .p-button {
+  color: var(--v2-info) !important;
+  border: 2px solid var(--v2-info) !important;
+}
+
+/* Text v2 Split Button */
+.p-splitbutton.btn-text.btn-v2 {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-text.btn-v2 .p-button {
+  background: transparent !important;
+  color: var(--v2-secondary) !important;
+  box-shadow: none !important;
+}
+
+.p-splitbutton.btn-text.btn-v2:not(.p-disabled):hover .p-button {
+  background: rgba(58, 114, 224, 0.08) !important;
+}
+
+/* Ghost v2 Split Button */
+.p-splitbutton.btn-ghost.btn-v2 .p-button {
+  background: rgba(237, 244, 255, 0.6) !important;
+  color: var(--v2-primary-active) !important;
+}
+
+.p-splitbutton.btn-ghost.btn-v2:not(.p-disabled):hover .p-button {
+  background: rgba(237, 244, 255, 0.85) !important;
+}
+/* ...existing code... */
+
+/* =====================================================
+   RESPONSIVE BUTTON STYLES - GLOBAL
+   Aplica a TODOS los botones del proyecto
+   ===================================================== */
+
+/* Tablet: 900px */
+@media (max-width: 900px) {
+  .p-button.p-button {
+    padding: 0.4rem 0.6rem !important;
+  }
+   /* Solo ocultar labels si el botón tiene icono */
+  .p-button:has(.p-button-icon) .p-button-label {
+    display: none !important;
+  }
+}
+
+/* Móvil: 576px - Ocultar labels en botones con iconos */
+@media (max-width: 576px) {
+ 
+  .p-toolbar-center h4 {
+    display: none !important;
+  }
+
+  .p-button:has(.p-button-icon) .p-button-icon {
+    margin-right: 0 !important;
+  }
+
+
+}
+
+/* Móvil pequeño: 480px */
+@media (max-width: 480px) {
+  /* .p-button.p-button {
+    padding: 0.3rem 0.5rem !important;
+  } */
+}
+
+/* Móvil extra pequeño: 400px */
+@media (max-width: 375px) {
+  /* .p-button.p-button {
+    padding: 0.25rem 0.4rem !important;
+  } */
+}

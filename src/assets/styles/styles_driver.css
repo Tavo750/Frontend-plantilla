@@ -1,0 +1,177 @@
+/* ============================================
+   DRIVER.JS TOUR OVERRIDES
+   Estilos globales para sobrescribir el max-width de driver.js
+   ============================================ */
+
+/* ===== POPOVER PRINCIPAL ===== */
+.driver-popover,
+div.driver-popover,
+body .driver-popover,
+html body .driver-popover,
+html body div.driver-popover {
+  max-width: 370px !important;
+  min-width: 280px !important;
+  width: auto !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+  border: 2px solid rgba(102, 126, 234, 0.2) !important;
+}
+
+/* ===== ELEMENTOS DEL TOUR ===== */
+.driver-popover-title {
+  color: #667eea !important;
+  font-weight: 700 !important;
+  font-size: 1.1rem !important;
+  margin-bottom: 10px !important;
+  padding-bottom: 4px !important;
+}
+
+.driver-popover-description {
+  line-height: 1.5 !important;
+  color: #555 !important;
+  font-size: 0.9rem !important;
+  padding: 6px 0 !important;
+  white-space: pre-line !important;
+  min-height: 50px !important;
+}
+
+.driver-popover-footer {
+  border-top: 1px solid rgba(102, 126, 234, 0.2) !important;
+  padding-top: 12px !important;
+  margin-top: 12px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* ===== BOTONES DEL TOUR ===== */
+.driver-popover-next-btn {
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 8px 14px !important;
+  min-width: 70px !important;
+  /* Eliminar duplicación en pantallas grandes */
+  text-shadow: none !important;
+  position: relative !important;
+}
+
+.driver-popover-prev-btn {
+  background: transparent !important;
+  border: 2px solid #667eea !important;
+  color: #667eea !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  min-width: 60px !important;
+  /* Eliminar duplicación en pantallas grandes */
+  text-shadow: none !important;
+  position: relative !important;
+}
+
+/* Botón de cerrar: mantener posición absoluta pero mejorar apariencia */
+.driver-popover-close-btn {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 28px !important;
+  height: 28px !important;
+  background: rgba(255, 107, 107, 0.1) !important;
+  border: 1px solid rgba(255, 107, 107, 0.3) !important;
+  border-radius: 50% !important;
+  color: #ff6b6b !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2 !important;
+  padding: 0 !important;
+}
+
+.driver-popover-close-btn:hover {
+  background: rgba(255, 107, 107, 0.2) !important;
+  border-color: #ff6b6b !important;
+  transform: scale(1.1) !important;
+}
+
+.driver-popover-progress-text {
+  background: rgba(102, 126, 234, 0.1) !important;
+  color: #667eea !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  margin-left: auto !important;
+}
+
+/* ===== RESPONSIVIDAD PARA MÓVILES ===== */
+@media (max-width: 768px) {
+  .driver-popover,
+  div.driver-popover,
+  body .driver-popover,
+  html body .driver-popover,
+  html body div.driver-popover {
+    padding: 12px !important;
+  }
+
+  .driver-popover-title {
+    font-size: 1rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  .driver-popover-description {
+    font-size: 0.85rem !important;
+    min-height: 40px !important;
+  }
+
+  .driver-popover-next-btn,
+  .driver-popover-prev-btn,
+  .driver-popover-close-btn {
+    font-size: 0.8rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .driver-popover,
+  div.driver-popover,
+  body .driver-popover,
+  html body .driver-popover,
+  html body div.driver-popover {
+    max-width: 280px !important;
+    min-width: 140px !important;
+    padding: 10px !important;
+  }
+
+  .driver-popover-title {
+    font-size: 0.8rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  .driver-popover-description {
+    font-size: 0.7rem !important;
+    min-height: 40px !important;
+  }
+
+  /* Botones compactos con mayor especificidad para sobrescribir 768px */
+  html body .driver-popover .driver-popover-next-btn,
+  html body .driver-popover .driver-popover-prev-btn {
+    width: 60px !important;
+    height: 24px !important;
+    padding: 2px 6px !important;
+    font-size: 9px !important;
+  }
+
+  .driver-popover-footer {
+    gap: 4px !important;
+    padding-top: 8px !important;
+    margin-top: 8px !important;
+  }
+
+  .driver-popover-progress-text {
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+  }
+}
+

@@ -1,0 +1,100 @@
+/* styles_chips.css
+   Reglas extraídas referentes a p-chip dentro de .custom-toolbar-dialog
+   para mantener comportamiento responsive consistente entre subcomponentes
+   de detalle-cotización.
+*/
+
+/* Mobile breakpoint: iPhone-ish */
+@media (max-width: 430px) {
+  /* Base: asegurar tamaño base uniforme para todos los chips */
+  .custom-toolbar-dialog .p-chip {
+    font-size: var(--font-size-h6) !important;
+  }
+
+  /* Etiqueta interna del chip (label) */
+  .custom-toolbar-dialog .p-chip .info-label {
+    font-size: var(--font-size-h6) !important;
+    font-weight: var(--font-medium) !important;
+    line-height: var(--line-height-tight) !important;
+  }
+
+  /* Valor del chip: debe verse más prominente que la etiqueta */
+  .custom-toolbar-dialog .p-chip .value {
+    font-size: var(--font-size-h5) !important;
+    font-weight: var(--font-bold) !important;
+    line-height: var(--line-height-tight) !important;
+  }
+
+  /* Icono dentro del chip (glifo) */
+  .custom-toolbar-dialog .p-chip .info-icon i,
+  .custom-toolbar-dialog .p-chip .info-icon .pi {
+    font-size: 1.2rem !important;
+    line-height: 1 !important;
+  }
+
+  /* Contenedor de chips: dos por fila, envolver y estirar para igualar alturas */
+  .custom-toolbar-dialog .d-flex {
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Ajustes para los chips y su contenido para que presenten altura consistente */
+  .custom-toolbar-dialog .p-chip,
+  .custom-toolbar-dialog .p-toolbar-group-start .d-flex > .p-chip {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    text-align: center !important;
+    gap: 0.25rem !important;
+    padding: 0.45rem 0.6rem !important;
+    flex: 0 1 calc(50% - 0.5rem) !important;
+    max-width: calc(50% - 0.5rem) !important;
+    box-sizing: border-box !important;
+    align-self: stretch !important;
+  }
+
+  /* Texto dentro del chip: ocupar espacio vertical para igualar alturas */
+  .custom-toolbar-dialog .p-chip .ml-2,
+  .custom-toolbar-dialog .p-chip .info-label,
+  .custom-toolbar-dialog .p-chip .value {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    max-width: none !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* Icon container y glifo */
+  .custom-toolbar-dialog .info-icon,
+  .custom-toolbar-dialog .p-chip > .info-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    margin: 0 !important;
+    margin-bottom: 0.18rem !important;
+  }
+
+  .custom-toolbar-dialog .p-chip .info-icon i,
+  .custom-toolbar-dialog .p-chip .info-icon .pi {
+    font-size: 1.1rem !important;
+    line-height: 1 !important;
+    display: inline-block !important;
+  }
+
+  .custom-toolbar-dialog .p-chip > .info-icon {
+    flex: 0 0 auto !important;
+    align-self: center !important;
+  }
+}

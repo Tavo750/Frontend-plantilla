@@ -1,0 +1,618 @@
+/* =============================================
+   SISTEMA DE ICONOS PRIMENG - NETTALCO
+   ============================================= */
+
+/* ===== VARIABLES PARA ICONOS ===== */
+:root {
+  /* Tamaños de iconos */
+  --icon-size-xs: 0.75rem;     /* 12px */
+  --icon-size-sm: 0.875rem;    /* 14px */
+  --icon-size-md: 1rem;        /* 16px */
+  --icon-size-lg: 1.125rem;    /* 18px */
+  --icon-size-xl: 1.25rem;     /* 20px */
+  --icon-size-2xl: 1.5rem;     /* 24px */
+  --icon-size-3xl: 2rem;       /* 32px */
+  --icon-size-4xl: 2.5rem;     /* 40px */
+
+  /* Espaciado para iconos */
+  --icon-spacing-xs: 0.25rem;
+  --icon-spacing-sm: 0.375rem;
+  --icon-spacing-md: 0.5rem;
+  --icon-spacing-lg: 0.75rem;
+  --icon-spacing-xl: 1rem;
+}
+
+/* ===== TAMAÑOS DE ICONOS ===== */
+.icon-xs {
+  font-size: var(--icon-size-xs) !important;
+  width: var(--icon-size-xs) !important;
+  height: var(--icon-size-xs) !important;
+}
+
+.icon-sm {
+  font-size: var(--icon-size-sm) !important;
+  width: var(--icon-size-sm) !important;
+  height: var(--icon-size-sm) !important;
+}
+
+.icon-md {
+  font-size: var(--icon-size-md) !important;
+  width: var(--icon-size-md) !important;
+  height: var(--icon-size-md) !important;
+}
+
+.icon-lg {
+  font-size: var(--icon-size-lg) !important;
+  width: var(--icon-size-lg) !important;
+  height: var(--icon-size-lg) !important;
+}
+
+.icon-xl {
+  font-size: var(--icon-size-xl) !important;
+  width: var(--icon-size-xl) !important;
+  height: var(--icon-size-xl) !important;
+}
+
+.icon-2xl {
+  font-size: var(--icon-size-2xl) !important;
+  width: var(--icon-size-2xl) !important;
+  height: var(--icon-size-2xl) !important;
+}
+
+.icon-3xl {
+  font-size: var(--icon-size-3xl) !important;
+  width: var(--icon-size-3xl) !important;
+  height: var(--icon-size-3xl) !important;
+}
+
+.icon-4xl {
+  font-size: var(--icon-size-4xl) !important;
+  width: var(--icon-size-4xl) !important;
+  height: var(--icon-size-4xl) !important;
+}
+
+/* ===== COLORES DE ICONOS ===== */
+/* Primary */
+.icon-primary {
+  color: var(--color-primary) !important;
+}
+
+.icon-primary-hover:hover {
+  color: var(--color-primary-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Secondary */
+.icon-secondary {
+  color: var(--color-secondary) !important;
+}
+
+.icon-secondary-hover:hover {
+  color: var(--color-secondary-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Success */
+.icon-success {
+  color: var(--color-success) !important;
+}
+
+.icon-success-hover:hover {
+  color: var(--color-success-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Warning */
+.icon-warning {
+  color: var(--color-warning) !important;
+}
+
+.icon-warning-hover:hover {
+  color: var(--color-warning-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Danger */
+.icon-danger {
+  color: var(--color-danger) !important;
+}
+
+.icon-danger-hover:hover {
+  color: var(--color-danger-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Info */
+.icon-info {
+  color: var(--color-info) !important;
+}
+
+.icon-info-hover:hover {
+  color: var(--color-info-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Export */
+.icon-export {
+  color: var(--color-export) !important;
+}
+
+.icon-export-hover:hover {
+  color: var(--color-export-hover) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Gray */
+.icon-gray {
+  color: #6b7280 !important;
+}
+
+.icon-gray-hover:hover {
+  color: #4b5563 !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Dark */
+.icon-dark {
+  color: var(--color-text-dark) !important;
+}
+
+.icon-dark-hover:hover {
+  color: #1f2937 !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Light */
+.icon-light {
+  color: var(--color-text-light) !important;
+}
+
+.icon-muted {
+  color: #9ca3af !important;
+}
+
+/* ===== ICONOS CON FONDO ===== */
+.icon-bg {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--radius-md) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* ===== ICONOS OUTLINE ===== */
+.icon-outline {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--radius-md) !important;
+  background: transparent !important;
+  border: 2px solid !important;
+  transition: all 0.2s ease !important;
+}
+
+.icon-bg-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-primary:hover {
+  background: var(--color-primary-hover) !important;
+}
+
+.icon-bg-secondary {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-secondary:hover {
+  background: var(--color-secondary-hover) !important;
+}
+
+.icon-bg-success {
+  background: var(--color-success) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-success:hover {
+  background: var(--color-success-hover) !important;
+}
+
+.icon-bg-warning {
+  background: var(--color-warning) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-warning:hover {
+  background: var(--color-warning-hover) !important;
+}
+
+.icon-bg-danger {
+  background: var(--color-danger) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-danger:hover {
+  background: var(--color-danger-hover) !important;
+}
+
+.icon-bg-info {
+  background: var(--color-info) !important;
+  color: var(--color-text-light) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-info:hover {
+  background: var(--color-info-hover) !important;
+}
+
+.icon-bg-light {
+  background: #f3f4f6 !important;
+  color: var(--color-text-dark) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-bg-light:hover {
+  background: #e5e7eb !important;
+}
+
+/* ===== ICONOS OUTLINE CON COLORES ===== */
+.icon-outline-primary {
+  color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-primary:hover {
+  background: var(--color-primary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-secondary {
+  color: var(--color-secondary) !important;
+  border-color: var(--color-secondary) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-secondary:hover {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-success {
+  color: var(--color-success) !important;
+  border-color: var(--color-success) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-success:hover {
+  background: var(--color-success) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-warning {
+  color: var(--color-warning) !important;
+  border-color: var(--color-warning) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-warning:hover {
+  background: var(--color-warning) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-danger {
+  color: var(--color-danger) !important;
+  border-color: var(--color-danger) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-danger:hover {
+  background: var(--color-danger) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-info {
+  color: var(--color-info) !important;
+  border-color: var(--color-info) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-info:hover {
+  background: var(--color-info) !important;
+  color: var(--color-text-light) !important;
+}
+
+.icon-outline-export {
+  color: var(--color-export) !important;
+  border-color: var(--color-export) !important;
+  padding: var(--icon-spacing-sm) !important;
+}
+
+.icon-outline-export:hover {
+  background: var(--color-export) !important;
+  color: var(--color-text-light) !important;
+}
+
+/* ===== ICONOS CIRCULARES ===== */
+.icon-circle {
+  border-radius: var(--radius-full) !important;
+}
+
+.icon-circle-sm {
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: var(--icon-size-sm) !important;
+}
+
+.icon-circle-md {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  font-size: var(--icon-size-md) !important;
+}
+
+.icon-circle-lg {
+  width: 3rem !important;
+  height: 3rem !important;
+  font-size: var(--icon-size-lg) !important;
+}
+
+.icon-circle-xl {
+  width: 4rem !important;
+  height: 4rem !important;
+  font-size: var(--icon-size-xl) !important;
+}
+
+/* ===== ESPACIADO DE ICONOS ===== */
+.icon-mr-xs {
+  margin-right: var(--icon-spacing-xs) !important;
+}
+
+.icon-mr-sm {
+  margin-right: var(--icon-spacing-sm) !important;
+}
+
+.icon-mr-md {
+  margin-right: var(--icon-spacing-md) !important;
+}
+
+.icon-mr-lg {
+  margin-right: var(--icon-spacing-lg) !important;
+}
+
+.icon-ml-xs {
+  margin-left: var(--icon-spacing-xs) !important;
+}
+
+.icon-ml-sm {
+  margin-left: var(--icon-spacing-sm) !important;
+}
+
+.icon-ml-md {
+  margin-left: var(--icon-spacing-md) !important;
+}
+
+.icon-ml-lg {
+  margin-left: var(--icon-spacing-lg) !important;
+}
+
+/* ===== EFECTOS Y ANIMACIONES ===== */
+.icon-spin {
+  animation: icon-spin 1s linear infinite !important;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-pulse {
+  animation: icon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
+@keyframes icon-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.icon-bounce {
+  animation: icon-bounce 1s infinite !important;
+}
+
+@keyframes icon-bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+.icon-hover-scale {
+  transition: transform 0.2s ease !important;
+}
+
+.icon-hover-scale:hover {
+  transform: scale(1.1) !important;
+}
+
+.icon-hover-rotate {
+  transition: transform 0.2s ease !important;
+}
+
+.icon-hover-rotate:hover {
+  transform: rotate(15deg) !important;
+}
+
+/* ===== ESTADOS INTERACTIVOS ===== */
+.icon-clickable {
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.icon-clickable:hover {
+  opacity: 0.8 !important;
+  transform: translateY(-1px) !important;
+}
+
+.icon-clickable:active {
+  transform: translateY(0) !important;
+}
+
+.icon-disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* ===== ICONOS EN CONTEXTOS ESPECÍFICOS ===== */
+/* Para p-inputicon */
+.p-inputicon .pi {
+  color: #6b7280 !important;
+  transition: color 0.2s ease !important;
+}
+
+.p-inputicon .pi.icon-primary {
+  color: var(--color-primary) !important;
+}
+
+.p-inputicon .pi.icon-secondary {
+  color: var(--color-secondary) !important;
+}
+
+/* Para p-button iconos */
+.p-button .pi {
+  transition: all 0.2s ease !important;
+}
+
+/* Para p-tag iconos */
+.p-tag .pi {
+  margin-right: 0.5rem !important;
+  font-size: 0.875em !important;
+}
+
+/* ===== GRUPOS DE ICONOS ===== */
+.icon-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--icon-spacing-sm) !important;
+}
+
+.icon-group-vertical {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: var(--icon-spacing-sm) !important;
+}
+
+.icon-stack {
+  position: relative !important;
+  display: inline-block !important;
+}
+
+.icon-stack .pi:first-child {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.icon-stack .pi:last-child {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 2 !important;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .icon-lg {
+    font-size: var(--icon-size-md) !important;
+  }
+
+  .icon-xl {
+    font-size: var(--icon-size-lg) !important;
+  }
+
+  .icon-2xl {
+    font-size: var(--icon-size-xl) !important;
+  }
+
+  .icon-circle-lg {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    font-size: var(--icon-size-md) !important;
+  }
+
+  .icon-circle-xl {
+    width: 3rem !important;
+    height: 3rem !important;
+    font-size: var(--icon-size-lg) !important;
+  }
+}
+
+/* ToggleSwitch: icon color when disabled (non-editable) */
+.p-toggleswitch.p-disabled i.pi,
+.p-toggleswitch.p-disabled .pi {
+  color: var(--color-white) !important;
+}
+
+/* More specific selector for toggle handle if needed */
+.p-toggleswitch.p-disabled .p-toggleswitch-handle .pi {
+  color: var(--color-white) !important;
+}
+
+@media (max-width: 480px) {
+  .icon-md {
+    font-size: var(--icon-size-sm) !important;
+  }
+
+  .icon-lg {
+    font-size: var(--icon-size-sm) !important;
+  }
+
+  .icon-circle-md {
+    width: 2rem !important;
+    height: 2rem !important;
+    font-size: var(--icon-size-sm) !important;
+  }
+
+  .icon-group {
+    gap: var(--icon-spacing-xs) !important;
+  }
+}
+
+/* ===== UTILIDADES DE ALINEACIÓN ===== */
+.icon-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.icon-inline {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+
+.icon-block {
+  display: block !important;
+  text-align: center !important;
+}

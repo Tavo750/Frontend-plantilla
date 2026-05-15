@@ -1,0 +1,107 @@
+:root {
+  /* ====== DESIGN TOKENS ====== */
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-full: 50%;
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Focus Ring */
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.5);
+
+  /* ====== BRAND COLORS - VERSION 1 ====== */
+
+  /* Primary */
+  --color-primary: #082853;
+  --color-primary-hover: #22436F;
+  --color-primary-active: #2B5DA1;
+  --color-primary-disabled: #6B7280;
+
+  /* Secondary */
+  --color-secondary: #3F8CF9;
+  --color-secondary-hover: #5A9FFC;
+  --color-secondary-active: #5398F8;
+  --color-secondary-disabled: #CAD8F1;
+
+  /* Success */
+  --color-success: #2BA5CD;
+  --color-success-hover: #45B1CE;
+  --color-success-active: #3CAAC8;
+  --color-success-disabled: #D6E5FA;
+
+  /* Export */
+  --color-export: #09718A;
+  --color-export-hover: #258FA6;
+  --color-export-active: #1A859D;
+  --color-export-disabled: #8CC3D7;
+
+  /* Warning */
+  --color-warning: #D57952;
+  --color-warning-hover: #D78158;
+  --color-warning-active: #DE956A;
+  --color-warning-disabled: #E4DBE7;
+
+  /* Danger */
+  --color-danger: #DC2626;
+  --color-danger-hover: #EF4444;
+  --color-danger-active: #B91C1C;
+  --color-danger-disabled: #FECACA;
+
+  /* Info */
+  --color-info: #66A6FB;
+  --color-info-hover: #7CB2FA;
+  --color-info-active: #B4D3FD;
+  --color-info-disabled: #ABC9F9;
+
+  /* Text Colors */
+  --color-text-light: #ffffff;
+  --color-text-dark: #082853;
+
+  /* ====== BRAND COLORS - VERSION 2 ====== */
+
+  /* Primary v2 */
+  --v2-primary: #EDF4FF;
+  --v2-primary-hover: #EEF4FF;
+  --v2-primary-active: #336DD9;
+  --v2-primary-disabled: #0A1D49;
+
+  /* Secondary v2 */
+  --v2-secondary: #3A72E0;
+  --v2-secondary-hover: #2B5FBC;
+  --v2-secondary-active: #1F498E;
+  --v2-secondary-disabled: #0C3D5C;
+
+  /* Success v2 */
+  --v2-success: #6ECBCD;
+  --v2-success-hover: #19819D;
+  --v2-success-active: #0C566F;
+  --v2-success-disabled: #0C3D5C;
+
+  /* Warning v2 */
+  --v2-warning: #F4B33C;
+  --v2-warning-hover: #F2A61E;
+  --v2-warning-active: #CA8825;
+  --v2-warning-disabled: #9D6A2D;
+
+  /* Info v2 */
+  --v2-info: #69A7ED;
+  --v2-info-hover: #5389DB;
+  --v2-info-active: #4775BF;
+  --v2-info-disabled: #40609B;
+
+  /* Text helpers v2 */
+  --v2-text-dark: #0A1D49;
+  --v2-text-light: #ffffff;
+}

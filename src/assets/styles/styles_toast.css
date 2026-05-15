@@ -1,0 +1,113 @@
+/* Toast styles - high specificity to override PrimeNG defaults where needed */
+
+/* Close button positioning and size */
+body .p-toast .p-toast-item .p-toast-message button[aria-label="Close"],
+body .p-toast .p-toast-item .p-toast-message .p-toast-close-icon,
+body .p-toast-message-icon-close-button {
+  position: absolute !important;
+  top: 0.5rem !important;
+  right: 0.5rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-width: 1.75rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.16s ease !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+
+/* Message container sizing */
+body .p-toast .p-toast-item .p-toast-message-content,
+body .p-toast .p-toast-item .p-toast-message {
+  max-width: 480px !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure text wraps */
+body .p-toast .p-toast-item .p-toast-message .p-toast-summary,
+body .p-toast .p-toast-item .p-toast-message .p-toast-detail {
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* Mobile: make toasts full-width and stacked (one per row) */
+@media (max-width: 768px) {
+  /* Include top and bottom positions */
+  body .p-toast.p-toast-top-right,
+  body .p-toast.p-toast-top-left,
+  body .p-toast.p-toast-top-center,
+  body .p-toast.p-toast-bottom-right,
+  body .p-toast.p-toast-bottom-left,
+  body .p-toast.p-toast-bottom-center {
+    left: 0 !important;
+    right: 0 !important;
+    display: flex !important;
+    flex-direction: column !important; /* stack items vertically */
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: 0.5rem !important;
+    pointer-events: auto !important;
+  }
+
+  /* Ensure each toast item becomes a full-width row */
+  body .p-toast .p-toast-item {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0.25rem 0 !important;
+    pointer-events: auto !important;
+  }
+
+  body .p-toast .p-toast-item .p-toast-message-content,
+  body .p-toast .p-toast-item .p-toast-message {
+    width: calc(100% - 2rem) !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Prevent close button overlap and ensure text wraps */
+  body .p-toast .p-toast-item .p-toast-message {
+    padding-right: 3rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+}
+
+/* Accessibility focus */
+body .p-toast .p-toast-item .p-toast-message:focus {
+  outline: 2px solid rgba(0,0,0,0.08) !important;
+}
+
+/* Backdrop to block interaction with underlying UI when toasts are visible.
+   Uses :has() to detect active toast items; if browser doesn't support :has(),
+   see notes below for a JS alternative (toggle a class on body). */
+body .p-toast:has(.p-toast-item) {
+  position: fixed !important;
+  inset: 0 !important;
+  pointer-events: auto !important; /* ensure it can capture events */
+  z-index: 1500 !important;
+}
+
+body .p-toast:has(.p-toast-item)::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  background: transparent !important; /* change to rgba(...) to dim */
+  pointer-events: auto !important; /* blocks clicks to underlying UI */
+  z-index: 1490 !important;
+}
+
+/* Ensure toast items stay above the backdrop */
+body .p-toast .p-toast-item {
+  position: relative !important;
+  z-index: 1510 !important;
+}
