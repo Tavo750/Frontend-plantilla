@@ -2,17 +2,17 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MessageService } from 'primeng/api';
 
-import { MonitoreoMapaRoutingModule } from './monitoreo-mapa-routing.module';
-import { MapaComponent } from './components/mapa/mapa.component';
+import { ReportesRoutingModule } from './reportes-routing.module';
+import { ReportesComponent } from './components/reportes/reportes.component';
 import { PrimeNgModule } from '../../../prime-ng/prime-ng.module';
 
 @NgModule({
-  declarations: [MapaComponent],
+  declarations: [ReportesComponent],
   imports: [
     CommonModule,
-    MonitoreoMapaRoutingModule,
+    ReportesRoutingModule,
     PrimeNgModule
   ],
   providers: [MessageService]
 })
-export class MonitoreoMapaModule {}
+export class ReportesModule {}

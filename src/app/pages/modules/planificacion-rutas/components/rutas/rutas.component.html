@@ -1,1 +1,123 @@
-<p>rutas works!</p>
+<div class="rutas-container">
+  <div class="rutas-header">
+    <div>
+      <h1 class="page-title">Planificación de Rutas</h1>
+      <p class="page-sub">Planifique y optimice las rutas de envío de maletas</p>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="cargando" class="loading-container">
+    <p-progressspinner strokeWidth="4" animationDuration=".8s"></p-progressspinner>
+    <span>Cargando envíos...</span>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error && !cargando" class="error-container">
+    <i class="pi pi-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+    <p>No se pudo conectar con el servidor.</p>
+    <p-button label="Reintentar" icon="pi pi-refresh" (onClick)="cargarEnvios()"></p-button>
+  </div>
+
+  <!-- Contenido principal -->
+  <div *ngIf="!cargando && !error">
+
+    <!-- Chips de estadísticas rápidas -->
+    <div class="stats-row">
+      <div class="stat-chip">
+        <span class="value">{{ envios.length }}</span>
+        <span class="label">Total envíos</span>
+      </div>
+      <div class="stat-chip">
+        <span class="value">{{ getTotalMaletas() }}</span>
+        <span class="label">Total maletas</span>
+      </div>
+      <div class="stat-chip">
+        <span class="value">{{ enviosFiltrados.length }}</span>
+        <span class="label">Mostrando</span>
+      </div>
+    </div>
+
+    <!-- Tabla de envíos -->
+    <p-table
+      [value]="enviosFiltrados"
+      [paginator]="true"
+      [rows]="15"
+      [rowsPerPageOptions]="[10, 15, 25, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first} - {last} de {totalRecords} envíos"
+      styleClass="p-datatable-gridlines p-datatable-sm"
+    >
+      <ng-template #caption>
+        <div class="filter-bar">
+          <div class="filter-chips">
+            <span
+              *ngFor="let op of estadoOpciones"
+              class="chip"
+              [class.active]="estadoSeleccionado === op.value"
+              (click)="filtrarPorEstado(op.value)"
+            >{{ op.label }}</span>
+          </div>
+          <p-iconfield>
+            <p-inputicon styleClass="pi pi-search" />
+            <input
+              pInputText
+              type="text"
+              (input)="filtrarTabla($event)"
+              placeholder="Buscar por aeropuerto, ciudad o aerolínea..."
+              style="width: 20rem;"
+            />
+          </p-iconfield>
+        </div>
+      </ng-template>
+
+      <ng-template #header>
+        <tr>
+          <th style="width: 5rem">ID</th>
+          <th>Aerolínea</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th style="width: 7rem; text-align: center;">Cantidad</th>
+          <th style="width: 9rem">Estado</th>
+          <th>Fecha Registro</th>
+          <th>Fecha Límite</th>
+          <th style="width: 6rem; text-align: center;">Prioridad</th>
+        </tr>
+      </ng-template>
+
+      <ng-template #body let-envio>
+        <tr>
+          <td>{{ envio.idEnvio }}</td>
+          <td>{{ envio.aerolinea?.nombre ?? '—' }}</td>
+          <td>
+            <div class="route-cell">
+              <span class="route-code">{{ envio.aeropuertoOrigen?.codigoOaci ?? '—' }}</span>
+              <span class="route-city">{{ envio.aeropuertoOrigen?.ciudad }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="route-cell">
+              <span class="route-code">{{ envio.aeropuertoDestino?.codigoOaci ?? '—' }}</span>
+              <span class="route-city">{{ envio.aeropuertoDestino?.ciudad }}</span>
+            </div>
+          </td>
+          <td style="text-align: center;">{{ envio.cantidad }}</td>
+          <td><span [class]="getEstadoClass(envio.estado)">{{ envio.estado }}</span></td>
+          <td>{{ envio.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
+          <td>{{ envio.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm' }}</td>
+          <td style="text-align: center;">{{ envio.prioridad }}</td>
+        </tr>
+      </ng-template>
+
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 2rem; color: #94a3b8;">
+            No hay envíos registrados.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <p-toast></p-toast>
+</div>

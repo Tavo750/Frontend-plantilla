@@ -1,0 +1,37 @@
+[33m❯[39m Building...
+[32m✔[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                     [2m | [22m [1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                      [2m | [22m [36m95.08 kB[39m[2m | [22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                    [2m | [22m [36m19.18 kB[39m[2m | [22m
+[32mchunk-OXS25PIV.js[39m  [2m | [22m[2m-[22m                         [2m | [22m  [36m4.24 kB[39m[2m | [22m
+[32mchunk-PZ5AY32C.js[39m  [2m | [22m[2m-[22m                         [2m | [22m[36m234 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m             [2m | [22m[1m118.75 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                     [2m | [22m [1mRaw size[22m
+[32mchunk-TC7N6XZO.js[39m  [2m | [22m[2msimulacion-module[22m         [2m | [22m [36m38.23 kB[39m[2m | [22m
+[32mchunk-VWWMALGO.js[39m  [2m | [22m[2mplanificacion-rutas-module[22m[2m | [22m [36m33.61 kB[39m[2m | [22m
+[32mchunk-IEOOS7YN.js[39m  [2m | [22m[2mmonitoreo-mapa-module[22m     [2m | [22m [36m32.65 kB[39m[2m | [22m
+[32mchunk-SOOU6SHO.js[39m  [2m | [22m[2mhome-routes[22m               [2m | [22m [36m12.85 kB[39m[2m | [22m
+[32mchunk-NUU25HAX.js[39m  [2m | [22m[2merror-routes[22m              [2m | [22m  [36m7.55 kB[39m[2m | [22m
+[32mchunk-7FBD5MBK.js[39m  [2m | [22m[2mregistro-maletas-module[22m   [2m | [22m  [36m4.78 kB[39m[2m | [22m
+
+Application bundle generation complete. [5.194 seconds] - 2026-05-24T06:47:01.707Z
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                     [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                      [2m | [22m[36m95.08 kB[39m[2m | [22m
+[32mchunk-YJ6N7PRR.js[39m  [2m | [22m[2m-[22m                         [2m | [22m [36m4.25 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                     [2m | [22m[1mRaw size[22m
+[32mchunk-TPMDSCDC.js[39m  [2m | [22m[2msimulacion-module[22m         [2m | [22m[36m38.23 kB[39m[2m | [22m
+[32mchunk-UYOUMRFU.js[39m  [2m | [22m[2mplanificacion-rutas-module[22m[2m | [22m[36m33.61 kB[39m[2m | [22m
+[32mchunk-7TD7JPWM.js[39m  [2m | [22m[2mmonitoreo-mapa-module[22m     [2m | [22m[36m32.65 kB[39m[2m | [22m
+
+Application bundle generation complete. [1.240 seconds] - 2026-05-24T06:54:06.304Z
+
+Page reload sent to client(s).

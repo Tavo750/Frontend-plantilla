@@ -1,18 +1,22 @@
-<div
-  class="sidebar"
-  [ngClass]="{ 'sidebar-mini': !open }"
->
-  <!-- Título del sistema -->
-  <div class="titulo-wrapper" [ngClass]="{ 'titulo-wrapper-colapsado': !open }">
-    <span class="titulo">{{ titulo }}</span>
+<div class="sidebar" [ngClass]="{ 'sidebar-mini': !open }">
+
+  <!-- ── Brand ───────────────────────────────────────────────── -->
+  <div class="brand" [ngClass]="{ 'brand-mini': !open }">
+    <div class="brand-icon">
+      <i class="pi pi-send"></i>
+    </div>
+    <div class="brand-text" *ngIf="open">
+      <span class="brand-name">{{ titulo }}</span>
+      <span class="brand-sub">Gestión de Equipajes</span>
+    </div>
   </div>
 
-  <!-- Menú principal -->
+  <!-- ── Sección label ────────────────────────────────────────── -->
+  <div class="section-label" *ngIf="open">MÓDULOS</div>
+
+  <!-- ── Menú principal ──────────────────────────────────────── -->
   <ul class="menu">
-    <li
-      *ngFor="let item of menuItems; let i = index"
-      class="menu-item"
-    >
+    <li *ngFor="let item of menuItems; let i = index" class="menu-item">
       <app-sidebar-item
         [item]="item"
         [depth]="0"
@@ -20,16 +24,20 @@
         [expanded]="currentExpandedItemIndex[0] === i"
         [currentExpandedItemIndex]="currentExpandedItemIndex"
         [sidebarCollapsed]="!open"
-        (expandChange)="handleExpandChange($event)"
-      >
+        (expandChange)="handleExpandChange($event)">
       </app-sidebar-item>
     </li>
   </ul>
 
-  <!-- Versión del sistema -->
-  <div class="version-container" *ngIf="open">
-    <div class="version-text">
-      {{ version }}
-    </div>
+  <!-- ── Footer ───────────────────────────────────────────────── -->
+  <div class="sidebar-footer">
+    <ng-container *ngIf="open; else miniFooter">
+      <div class="footer-text">© {{ version }}</div>
+      <div class="footer-sub">Sistema Operacional</div>
+    </ng-container>
+    <ng-template #miniFooter>
+      <i class="pi pi-send footer-icon"></i>
+    </ng-template>
   </div>
+
 </div>

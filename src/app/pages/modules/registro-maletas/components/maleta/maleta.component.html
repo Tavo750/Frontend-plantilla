@@ -1,1 +1,317 @@
-<p>maleta works!</p>
+<div class="mal-wrap">
+  <p-toast></p-toast>
+
+  <!-- HEADER -->
+  <div class="mal-header">
+    <div>
+      <h1 class="mal-title">Registro de Maletas</h1>
+      <p class="mal-sub">Registre nuevos envíos de equipaje entre aeropuertos</p>
+    </div>
+    <div class="header-btns">
+      <!-- Plantilla CSV -->
+      <button class="btn-secondary" (click)="descargarPlantillaCSV()" title="Descargar plantilla CSV de ejemplo">
+        <i class="pi pi-download"></i> Plantilla CSV
+      </button>
+      <!-- Carga masiva CSV -->
+      <label class="btn-upload" [class.loading]="cargandoCSV" title="Cargar múltiples envíos desde archivo CSV">
+        <i [class]="cargandoCSV ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"></i>
+        {{ cargandoCSV ? 'Cargando ' + csvProgreso + '%...' : 'Carga Masiva' }}
+        <input
+          type="file"
+          accept=".csv,.txt"
+          (change)="onArchivoCSV($event)"
+          style="display:none"
+          [disabled]="cargandoCSV"
+        />
+      </label>
+      <!-- Nuevo envío individual -->
+      <button class="btn-primary" (click)="mostrarFormulario = !mostrarFormulario">
+        <i [class]="mostrarFormulario ? 'pi pi-times' : 'pi pi-plus'"></i>
+        {{ mostrarFormulario ? 'Cancelar' : 'Nuevo Envío' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULTADO CARGA CSV -->
+  <div class="csv-result-panel" *ngIf="csvResultado">
+    <div class="csv-summary" [class.csv-ok]="csvResultado.fallidos === 0" [class.csv-warn]="csvResultado.fallidos > 0">
+      <i [class]="csvResultado.fallidos === 0 ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
+      <span>
+        <strong>{{ csvResultado.exitosos }}</strong> envío(s) registrado(s)
+        <ng-container *ngIf="csvResultado.fallidos > 0">
+          · <strong>{{ csvResultado.fallidos }}</strong> con error
+        </ng-container>
+      </span>
+      <button class="csv-close" (click)="csvResultado = null">✕</button>
+    </div>
+    <div class="csv-errors" *ngIf="csvResultado.errores.length > 0">
+      <div class="csv-error-item" *ngFor="let err of csvResultado.errores | slice:0:10">
+        <i class="pi pi-info-circle"></i> {{ err }}
+      </div>
+      <div class="csv-error-item" *ngIf="csvResultado.errores.length > 10" style="color:#9ca3af">
+        ...y {{ csvResultado.errores.length - 10 }} errores más
+      </div>
+    </div>
+    <div class="csv-format-hint">
+      <strong>Formato CSV:</strong> aerolinea, origen (OACI), destino (OACI), cantidad
+    </div>
+  </div>
+
+  <!-- ── FORMULARIO + PANEL INFO ─────────────────────────── -->
+  <div class="main-grid" *ngIf="mostrarFormulario">
+
+    <!-- Formulario (col-span 2/3) -->
+    <div class="card">
+      <div class="card-title"><i class="pi pi-box"></i> Nuevo Envío</div>
+      <div class="card-desc">Complete la información del envío de maletas</div>
+
+      <div class="form-grid">
+
+        <div class="form-field">
+          <label>Aerolínea Cliente *</label>
+          <p-select
+            [(ngModel)]="idAerolinea"
+            [options]="aerolineas"
+            optionLabel="nombre"
+            optionValue="idAerolinea"
+            placeholder="Seleccione la aerolínea"
+            [filter]="true"
+            filterBy="nombre"
+            [showClear]="true"
+            styleClass="w-full"
+          ></p-select>
+        </div>
+
+        <div class="form-field">
+          <label>Aeropuerto de Origen *</label>
+          <p-select
+            [(ngModel)]="idOrigen"
+            [options]="aeropuertos"
+            optionLabel="ciudad"
+            optionValue="idAeropuerto"
+            placeholder="Seleccione el aeropuerto de origen"
+            [filter]="true"
+            filterBy="ciudad,codigoOaci"
+            [showClear]="true"
+            styleClass="w-full"
+          ></p-select>
+          <span *ngIf="getAeropuertoById(idOrigen) as ap" style="font-size:0.75rem;color:#9ca3af;">
+            Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
+          </span>
+        </div>
+
+        <div class="form-field">
+          <label>Aeropuerto de Destino *</label>
+          <p-select
+            [(ngModel)]="idDestino"
+            [options]="aeropuertos"
+            optionLabel="ciudad"
+            optionValue="idAeropuerto"
+            placeholder="Seleccione el aeropuerto de destino"
+            [filter]="true"
+            filterBy="ciudad,codigoOaci"
+            [showClear]="true"
+            styleClass="w-full"
+          ></p-select>
+          <span *ngIf="getAeropuertoById(idDestino) as ap" style="font-size:0.75rem;color:#9ca3af;">
+            Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
+          </span>
+        </div>
+
+        <div class="form-field">
+          <label>Cantidad de Maletas *</label>
+          <p-inputnumber
+            [(ngModel)]="cantidad"
+            [min]="1"
+            [max]="400"
+            [showButtons]="true"
+            styleClass="w-full"
+            placeholder="1 – 400"
+          ></p-inputnumber>
+          <span style="font-size:0.75rem;color:#9ca3af;">Máximo 400 maletas por envío</span>
+        </div>
+
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-secondary" (click)="mostrarFormulario = false; limpiarFormulario()">
+          <i class="pi pi-times"></i> Cancelar
+        </button>
+        <p-button
+          label="Registrar Envío"
+          icon="pi pi-check"
+          (onClick)="registrarEnvio()"
+          [loading]="enviando"
+        ></p-button>
+      </div>
+    </div>
+
+    <!-- Panel Información (1/3) -->
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+
+      <!-- Delivery Info -->
+      <div class="card">
+        <div class="card-title-sm">Información de Entrega</div>
+
+        <ng-container *ngIf="getDeliveryTime() !== null; else noInfo">
+          <div class="info-row">
+            <div class="info-icon blue"><i class="pi pi-calendar"></i></div>
+            <div>
+              <div class="info-label">Plazo de Entrega</div>
+              <div class="info-value">{{ getDeliveryTime() }} {{ getDeliveryTime() === 1 ? 'día' : 'días' }}</div>
+            </div>
+          </div>
+
+          <div class="info-row">
+            <div class="info-icon green"><i class="pi pi-send"></i></div>
+            <div>
+              <div class="info-label">Tipo de Vuelo</div>
+              <div class="info-sub">{{ getFlightType() }}</div>
+            </div>
+          </div>
+
+          <div class="info-row">
+            <div class="info-icon purple"><i class="pi pi-map-marker"></i></div>
+            <div>
+              <div class="info-label">Ruta</div>
+              <div class="info-route">
+                {{ getAeropuertoById(idOrigen)?.ciudad }} → {{ getAeropuertoById(idDestino)?.ciudad }}
+              </div>
+              <div class="info-route-sub">
+                {{ getAeropuertoById(idOrigen)?.continente }} → {{ getAeropuertoById(idDestino)?.continente }}
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="info-alert"
+            [class.green]="isSameContinente()"
+            [class.blue]="!isSameContinente()">
+            <i [class]="isSameContinente() ? 'pi pi-check-circle' : 'pi pi-info-circle'"></i>
+            <span *ngIf="isSameContinente()">
+              Mismo continente: Entrega garantizada en 1 día (tiempo de traslado: 12 horas)
+            </span>
+            <span *ngIf="!isSameContinente()">
+              Diferente continente: Entrega garantizada en 2 días (tiempo de traslado: 24 horas)
+            </span>
+          </div>
+        </ng-container>
+
+        <ng-template #noInfo>
+          <div class="info-placeholder">
+            <i class="pi pi-map-marker" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>
+            Seleccione origen y destino para ver información de entrega
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Capacidades -->
+      <div class="card">
+        <div class="card-title-sm">Capacidades de Vuelo</div>
+        <div class="cap-row">
+          <div class="cap-label">Intracontinental</div>
+          <div class="cap-value">150–250 maletas por vuelo</div>
+          <div class="cap-sub">Múltiples vuelos diarios</div>
+        </div>
+        <div class="cap-row">
+          <div class="cap-label">Intercontinental</div>
+          <div class="cap-value">150–400 maletas por vuelo</div>
+          <div class="cap-sub">Al menos un vuelo diario</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── FILTROS ─────────────────────────────────────────────── -->
+  <div class="filter-chips" *ngIf="!cargandoLista">
+    <button
+      *ngFor="let op of ESTADOS"
+      class="chip"
+      [class.active]="estadoFiltro === op.value"
+      (click)="filtrarPorEstado(op.value)"
+    >{{ op.label }}</button>
+  </div>
+
+  <!-- ── LOADING ────────────────────────────────────────────── -->
+  <div class="loading-state" *ngIf="cargandoLista">
+    <p-progressspinner strokeWidth="3" animationDuration=".7s"></p-progressspinner>
+    <span>Cargando envíos...</span>
+  </div>
+
+  <!-- ── TABLA ─────────────────────────────────────────────── -->
+  <div class="table-card" *ngIf="!cargandoLista">
+    <div class="table-toolbar">
+      <p-iconfield>
+        <p-inputicon styleClass="pi pi-search"/>
+        <input
+          pInputText
+          type="text"
+          (input)="onBuscar($event)"
+          placeholder="Buscar por aeropuerto, ciudad o aerolínea..."
+          style="width: 22rem"
+        />
+      </p-iconfield>
+      <span class="toolbar-info">
+        {{ enviosFiltrados.length }} envíos · {{ getTotalMaletas() | number }} maletas
+      </span>
+    </div>
+
+    <p-table
+      [value]="enviosFiltrados"
+      [paginator]="true"
+      [rows]="15"
+      [rowsPerPageOptions]="[10, 15, 25, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first}–{last} de {totalRecords}"
+      styleClass="p-datatable-sm p-datatable-gridlines"
+    >
+      <ng-template #header>
+        <tr>
+          <th>ID</th>
+          <th>Aerolínea</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th style="text-align:center">Maletas</th>
+          <th>Estado</th>
+          <th>Fecha Registro</th>
+          <th>Fecha Límite</th>
+          <th style="text-align:center">Prioridad</th>
+        </tr>
+      </ng-template>
+
+      <ng-template #body let-e>
+        <tr>
+          <td class="id-cell">#{{ e.idEnvio }}</td>
+          <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
+          <td>
+            <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
+            <span class="city">{{ e.aeropuertoOrigen?.ciudad }}</span>
+          </td>
+          <td>
+            <span class="oaci">{{ e.aeropuertoDestino?.codigoOaci }}</span>
+            <span class="city">{{ e.aeropuertoDestino?.ciudad }}</span>
+          </td>
+          <td style="text-align:center; font-weight:700">{{ e.cantidad }}</td>
+          <td>
+            <span class="estado-chip"
+              [style.color]="getEstadoColor(e.estado)"
+              [style.border-color]="getEstadoColor(e.estado)">
+              {{ e.estado }}
+            </span>
+          </td>
+          <td>{{ e.fechaRegistro | date:'dd/MM/yy HH:mm' }}</td>
+          <td>{{ e.fechaLimiteEntrega | date:'dd/MM/yy HH:mm' }}</td>
+          <td style="text-align:center">{{ e.prioridad }}</td>
+        </tr>
+      </ng-template>
+
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="9" class="empty-row">No hay envíos que mostrar.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>

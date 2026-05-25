@@ -16,6 +16,20 @@ const routes: Routes = [
   },
 
   {
+    path: 'Dashboard',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/dashboard/dashboard.module').then(m => m.DashboardModule)
+  },
+  {
+    path: 'Reportes',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/reportes/reportes.module').then(m => m.ReportesModule)
+  },
+  {
     path: 'RegistroMaletas',
     component: LayoutComponent,
     canActivate: [AuthGuard],
@@ -35,6 +49,13 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     loadChildren: () =>
       import('./pages/modules/monitoreo-mapa/monitoreo-mapa.module').then(m => m.MonitoreoMapaModule)
+  },
+  {
+    path: 'Simulacion',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/simulacion/simulacion.module').then(m => m.SimulacionModule)
   },
 
   // ========== RUTAS PÚBLICAS ==========

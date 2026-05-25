@@ -1,4 +1,5 @@
 <div class="header-container">
+
   <!-- Breadcrumb -->
   <div class="header-title">
     <nav aria-label="breadcrumb">
@@ -27,13 +28,18 @@
   <!-- Spacer -->
   <div class="header-spacer"></div>
 
+  <!-- Status -->
+  <div class="status-badge">
+    <span class="status-dot"></span>
+    <span class="status-text">Sistema en línea</span>
+  </div>
+
   <!-- Perfil -->
   <div class="perfil" (click)="toggleProfileMenu()">
     <div class="avatar" [title]="usuario?.nombreCompleto || 'Usuario'">
       <span class="avatar-label">{{ avatarLabel }}</span>
     </div>
 
-    <!-- Menú de perfil dropdown -->
     <div class="profile-menu" *ngIf="showProfileMenu">
       <div class="profile-menu-backdrop" (click)="closeProfileMenu()"></div>
       <div class="profile-menu-content">

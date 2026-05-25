@@ -1,1 +1,207 @@
-<p>mapa works!</p>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>Monitoreo en Mapa</h1>
+      <p>Visualización en tiempo real de operaciones globales</p>
+    </div>
+    <button class="btn" (click)="toggleRefresh()">
+      {{ autoRefresh ? 'Actualizando...' : 'Actualizar' }}
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div *ngIf="cargando" class="loading-container">
+    <p-progressspinner strokeWidth="4" animationDuration=".8s"></p-progressspinner>
+    <span>Cargando aeropuertos...</span>
+  </div>
+
+  <!-- ERROR -->
+  <div *ngIf="error && !cargando" class="error-container">
+    <i class="pi pi-exclamation-triangle" style="font-size: 3rem; display: block; margin-bottom: 1rem;"></i>
+    <p>No se pudo conectar con el servidor.</p>
+    <p-button label="Reintentar" icon="pi pi-refresh" (onClick)="cargarAeropuertos()"></p-button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <ng-container *ngIf="!cargando && !error">
+
+    <!-- CONTROLS -->
+    <div class="card controls">
+
+      <div class="filters">
+
+        <span>🌍 Continente:</span>
+
+        <select (change)="onContinenteChange($event)">
+          <option value="">Todos los Continentes</option>
+          <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
+        </select>
+
+        <input
+          type="text"
+          class="search-input"
+          (input)="filtrarTabla($event)"
+          placeholder="Buscar por código, ciudad o país..."
+        />
+
+      </div>
+
+      <div class="zoom-buttons">
+        <button class="btn-icon">+</button>
+        <button class="btn-icon">−</button>
+      </div>
+
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="main-grid">
+
+      <!-- MAP SECTION -->
+      <div class="map-section">
+
+        <div class="card">
+
+          <div class="card-header">
+            <h2>Mapa Global de Operaciones</h2>
+            <p>Aeropuertos posicionados con coordenadas reales del backend</p>
+          </div>
+
+          <!-- #mapContainerEl: referencia para medir el área real del mapa -->
+          <div class="map-container" #mapContainerEl>
+
+            <!-- Imagen del mapa: (load) dispara la medición y posicionamiento -->
+            <img
+              [src]="worldMapUrl"
+              class="world-map"
+              alt="Mapa mundial"
+              (load)="onMapLoaded()"
+            />
+
+            <!-- Overlay oscuro sobre el mapa -->
+            <div class="overlay"></div>
+
+            <!-- AEROPUERTOS sobre el mapa -->
+            <div
+              *ngFor="let aeropuerto of aeropuertosFiltrados"
+              class="airport"
+              [style.left.%]="aeropuerto.x"
+              [style.top.%]="aeropuerto.y"
+              [title]="aeropuerto.codigoOaci + ' – ' + aeropuerto.ciudad + ', ' + aeropuerto.pais"
+            >
+              <div class="pulse" *ngIf="aeropuerto.activo"></div>
+              <div class="marker" [ngClass]="aeropuerto.activo ? 'active' : 'inactive'"></div>
+              <span>{{ aeropuerto.codigoOaci }}</span>
+            </div>
+
+            <!-- LEYENDA -->
+            <div class="legend">
+
+              <h3>Leyenda</h3>
+
+              <div class="legend-item">
+                <div class="legend-dot green"></div>
+                <span>Aeropuerto activo</span>
+              </div>
+
+              <div class="legend-item">
+                <div class="legend-dot gray"></div>
+                <span>Aeropuerto inactivo</span>
+              </div>
+
+            </div>
+
+            <!-- ESTADÍSTICAS EN VIVO -->
+            <div class="stats-box">
+
+              <h3>Estadísticas</h3>
+
+              <div class="stat-row">
+                <span>Aeropuertos</span>
+                <strong>{{ aeropuertosFiltrados.length }}</strong>
+              </div>
+
+              <div class="stat-row">
+                <span>Activos</span>
+                <strong>{{ getActivosCount() }}</strong>
+              </div>
+
+              <div class="stat-row">
+                <span>Capacidad total</span>
+                <strong>{{ getTotalCapacidad() }}</strong>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+
+        <div class="card">
+
+          <div class="card-header">
+            <h2>Estado de Aeropuertos</h2>
+            <p>{{ aeropuertosFiltrados.length }} aeropuertos mostrados</p>
+          </div>
+
+          <div class="airport-status">
+
+            <div
+              class="airport-card"
+              *ngFor="let aeropuerto of aeropuertosFiltrados"
+            >
+
+              <div class="airport-top">
+
+                <div>
+                  <h4>{{ aeropuerto.codigoOaci }}</h4>
+                  <p>{{ aeropuerto.ciudad }}, {{ aeropuerto.pais }}</p>
+                </div>
+
+                <span [class]="getActivoClass(aeropuerto.activo)">
+                  {{ aeropuerto.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+
+              </div>
+
+              <div class="storage">
+
+                <div class="storage-label">
+                  <span>Capacidad</span>
+                  <span>{{ aeropuerto.capacidad }} maletas</span>
+                </div>
+
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    [style.width.%]="aeropuerto.storagePct"
+                  ></div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div *ngIf="aeropuertosFiltrados.length === 0" class="empty-state">
+              No hay aeropuertos para mostrar.
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </ng-container>
+
+  <p-toast></p-toast>
+
+</div>

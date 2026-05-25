@@ -81,6 +81,33 @@
   flex: 1 1 auto;
 }
 
+/* ========== STATUS BADGE ========== */
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 0.75rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse-green 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
 /* ========== PERFIL ========== */
 .perfil {
   flex: 0 0 auto;

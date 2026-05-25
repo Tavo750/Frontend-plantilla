@@ -1,0 +1,379 @@
+<div class="sim-wrap">
+
+  <!-- ── HEADER ────────────────────────────────────────────── -->
+  <div class="sim-header">
+    <div class="header-left">
+      <i class="pi pi-globe header-icon"></i>
+      <div>
+        <div class="header-brand">Simulación de Operaciones</div>
+        <div class="header-sub">Monitoreo en tiempo real del sistema de transporte</div>
+      </div>
+    </div>
+
+    <div class="header-center" *ngIf="estado === 'listo'">
+      <span class="day-chip"><i class="pi pi-clock"></i> {{ diaActualLabel }}</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
+        <i class="pi pi-sliders-h"></i>
+      </button>
+      <ng-container *ngIf="estado === 'listo'">
+        <button class="btn-pausar" (click)="togglePlay()">
+          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
+          {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
+        </button>
+        <button class="btn-detener" (click)="detenerTodo()">
+          <i class="pi pi-stop-circle"></i> Detener
+        </button>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- ── CONFIG BAR ────────────────────────────────────────── -->
+  <div class="config-bar" *ngIf="mostrarConfig">
+    <div class="config-inner">
+      <div class="cfg-field">
+        <label>Fecha de inicio</label>
+        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true"></p-datepicker>
+      </div>
+      <div class="cfg-field">
+        <label>Días a simular</label>
+        <p-inputnumber [(ngModel)]="dias" [min]="1" [max]="14" [showButtons]="true" [style]="{'width':'9rem'}"></p-inputnumber>
+      </div>
+      <p-button
+        label="Ejecutar Simulación"
+        icon="pi pi-play"
+        (onClick)="ejecutarSimulacion()"
+        [loading]="estado === 'cargando' || estado === 'streaming'"
+        [disabled]="estado === 'cargando' || estado === 'streaming'"
+      ></p-button>
+    </div>
+  </div>
+
+  <!-- ── STREAMING PROGRESS ─────────────────────────────────── -->
+  <div class="streaming-bar" *ngIf="estado === 'streaming'">
+    <div class="stream-info">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>{{ mensajeProgreso }}</span>
+    </div>
+    <div class="stream-track">
+      <div class="stream-fill" [style.width.%]="progresoStreaming"></div>
+    </div>
+    <span class="stream-pct">{{ progresoStreaming }}%</span>
+  </div>
+
+  <!-- ── STATS BAR ─────────────────────────────────────────── -->
+  <div class="stats-bar" *ngIf="estado === 'listo' || estado === 'streaming'">
+    <div class="stat-chip">
+      <div class="s-lbl">Período</div>
+      <div class="s-val">{{ dias }} días</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-chip">
+      <div class="s-lbl">Vuelos completados</div>
+      <div class="s-val">{{ getVuelosCompletados() }}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="s-lbl">Vuelos activos</div>
+      <div class="s-val s-blue">{{ getVuelosActivos() }}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="s-lbl">Paquetes totales</div>
+      <div class="s-val">{{ getPaquetesTotales() }}</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-chip">
+      <div class="s-lbl s-green">Entregados</div>
+      <div class="s-val s-green">{{ getMaletasEntregadas() }}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="s-lbl s-orange">En Tránsito</div>
+      <div class="s-val s-orange">{{ getMaletasEnVuelo() }}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="s-lbl s-red">Retrasados</div>
+      <div class="s-val s-red">{{ getMaletasRetrasadas() }}</div>
+    </div>
+  </div>
+
+  <!-- ── EMPTY STATE ────────────────────────────────────────── -->
+  <div class="empty-state" *ngIf="estado === 'idle'">
+    <i class="pi pi-globe"></i>
+    <p>Configura los parámetros y presiona <strong>Ejecutar Simulación</strong> para comenzar</p>
+  </div>
+
+  <!-- ── MAPA + SIDEBAR ─────────────────────────────────────── -->
+  <ng-container *ngIf="estado === 'streaming' || estado === 'listo'">
+
+    <div class="main-content">
+
+      <!-- ── MAPA ──────────────────────────────────────────── -->
+      <div class="map-container" #mapContainerEl>
+
+        <!-- Imagen base world.svg (equirectangular Simplemaps) -->
+        <img src="/world.svg" class="world-map" alt="Mapa mundial" />
+
+        <!-- SVG overlay sincronizado con el viewBox del SVG -->
+        <svg
+          class="svg-overlay"
+          [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <!-- Arcos de vuelo -->
+          <path
+            *ngFor="let arco of arcosVuelo; trackBy: trackArco"
+            [attr.d]="arco.d"
+            [class]="'arco arco-' + arco.estado"
+            fill="none"
+            (click)="seleccionarVuelo(arco.vuelo)"
+            style="cursor:pointer"
+          />
+
+          <!-- Aeropuertos -->
+          <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+            <!-- Círculo interactivo -->
+            <circle
+              [attr.cx]="a.x" [attr.cy]="a.y" r="9"
+              [class]="getBagsEnAeropuerto(a.codigoOaci) > 0 ? 'aero-nodo aero-activo' : 'aero-nodo'"
+              style="pointer-events:all; cursor:pointer"
+              (mouseenter)="onAirportHover($event, a)"
+              (mouseleave)="onHoverEnd()"
+            />
+            <text [attr.x]="a.x" [attr.y]="a.y - 14" class="aero-label" text-anchor="middle">
+              {{ a.codigoOaci }}
+            </text>
+            <!-- Badge con cantidad de maletas en almacén -->
+            <g *ngIf="getBagsEnAeropuerto(a.codigoOaci) > 0" style="pointer-events:none">
+              <circle [attr.cx]="a.x + 14" [attr.cy]="a.y - 14" r="10" class="badge-bg"/>
+              <text  [attr.x]="a.x + 14" [attr.y]="a.y - 10" class="badge-txt" text-anchor="middle">
+                {{ getBagsEnAeropuerto(a.codigoOaci) }}
+              </text>
+            </g>
+          </g>
+
+          <!-- Aviones en vuelo -->
+          <g
+            *ngFor="let plano of planosEnMapa; trackBy: trackPlano"
+            [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
+            [class]="vueloSeleccionado?.codigoVuelo === plano.vuelo.codigoVuelo ? 'avion avion-sel' : 'avion'"
+            (click)="seleccionarVuelo(plano.vuelo)"
+            (mouseenter)="onPlaneHover($event, plano)"
+            (mouseleave)="onHoverEnd()"
+            style="cursor:pointer"
+          >
+            <polygon points="0,-22 8,6 0,-3 -8,6"    class="avion-body"/>
+            <polygon points="-20,0 20,0 13,8 -13,8"  class="avion-wings"/>
+          </g>
+        </svg>
+
+        <!-- Leyenda -->
+        <div class="leyenda">
+          <div class="ley-item"><span class="ley-dot dot-pendiente"></span>Pendiente</div>
+          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En vuelo</div>
+          <div class="ley-item"><span class="ley-dot dot-aterrizado"></span>Aterrizado</div>
+          <div class="ley-item"><span class="ley-dot dot-badge"></span>Almacén</div>
+        </div>
+
+        <!-- Badge de progreso streaming -->
+        <div class="streaming-badge" *ngIf="estado === 'streaming'">
+          <i class="pi pi-spin pi-spinner"></i>
+          Día {{ diasRecibidos }}/{{ diasEsperados }}
+        </div>
+
+        <!-- Tooltip flotante -->
+        <div
+          class="map-tooltip"
+          *ngIf="tooltip.visible"
+          [style.left.px]="tooltip.x"
+          [style.top.px]="tooltip.y"
+        >
+          <div class="tooltip-title">{{ tooltip.lines[0] }}</div>
+          <div class="tooltip-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
+        </div>
+
+      </div><!-- /map-container -->
+
+      <!-- ── RIGHT SIDEBAR ──────────────────────────────────── -->
+      <div class="right-sidebar">
+
+        <!-- Buscar / Rastrear -->
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">
+            <i class="pi pi-search"></i> Buscar / Rastrear
+          </div>
+          <div class="search-wrap">
+            <input
+              class="sidebar-search"
+              type="text"
+              placeholder="Código de vuelo o maleta..."
+              [value]="busqueda"
+              (input)="onBuscar($event)"
+            />
+            <button class="search-clear" *ngIf="busqueda" (click)="limpiarBusqueda()">✕</button>
+          </div>
+          <div class="search-results" *ngIf="vuelosBuscados.length > 0">
+            <div
+              class="search-result-item"
+              *ngFor="let v of vuelosBuscados"
+              (click)="seleccionarVuelo(v)"
+              [class.selected]="vueloSeleccionado?.codigoVuelo === v.codigoVuelo"
+            >
+              <span class="sr-code">{{ v.codigoVuelo }}</span>
+              <span class="sr-route">{{ v.origen }} → {{ v.destino }}</span>
+              <span class="sr-bags">{{ v.totalMaletas }}✈</span>
+            </div>
+          </div>
+          <div class="search-empty" *ngIf="busqueda && vuelosBuscados.length === 0">
+            Sin resultados para "{{ busqueda }}"
+          </div>
+          <div class="search-hint" *ngIf="!busqueda && estado === 'listo'">
+            {{ vuelos.length }} vuelos disponibles
+          </div>
+        </div>
+
+        <!-- Estado de Vuelos Activos -->
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">
+            <i class="pi pi-chart-bar"></i> Estado de Vuelos Activos
+          </div>
+          <div class="semaforo-list">
+            <div class="sem-row">
+              <span class="sem-dot sem-green"></span>
+              <span class="sem-label">A tiempo</span>
+              <span class="sem-count sem-count-green">{{ getVuelosAtiempo() }}</span>
+            </div>
+            <div class="sem-row">
+              <span class="sem-dot sem-amber"></span>
+              <span class="sem-label">Retraso leve</span>
+              <span class="sem-count sem-count-amber">{{ getVuelosRetrasadoLeve() }}</span>
+            </div>
+            <div class="sem-row">
+              <span class="sem-dot sem-red"></span>
+              <span class="sem-label">Retraso crítico</span>
+              <span class="sem-count sem-count-red">{{ getVuelosRetrasadoCritico() }}</span>
+            </div>
+            <div class="sem-row">
+              <i class="pi pi-send sem-icon-land"></i>
+              <span class="sem-label">Aterrizando</span>
+              <span class="sem-count">{{ getVuelosAterrizando() }}</span>
+            </div>
+          </div>
+          <div class="sem-legend">
+            🟢 = 0% sin SLA &nbsp;·&nbsp; 🟡 = &lt;50% sin SLA &nbsp;·&nbsp; 🔴 = ≥50% sin SLA
+          </div>
+        </div>
+
+        <!-- Detalle vuelo seleccionado -->
+        <div class="sidebar-card detail-card" *ngIf="vueloSeleccionado">
+          <div class="panel-head">
+            <span class="flight-badge">{{ vueloSeleccionado.codigoVuelo }}</span>
+            <button class="btn-close" (click)="vueloSeleccionado = null">✕</button>
+          </div>
+          <div class="route-row">
+            <div class="route-node">
+              <div class="route-code">{{ vueloSeleccionado.origen }}</div>
+              <div class="route-time">{{ vueloSeleccionado.horaSalida | date:'dd/MM HH:mm' }}</div>
+            </div>
+            <div class="route-arrow">
+              <div class="arr-line"></div>
+              <i class="pi pi-angle-right arr-icon"></i>
+            </div>
+            <div class="route-node">
+              <div class="route-code">{{ vueloSeleccionado.destino }}</div>
+              <div class="route-time">{{ vueloSeleccionado.horaLlegada | date:'dd/MM HH:mm' }}</div>
+            </div>
+          </div>
+          <div class="estado-pill"
+            [class.pill-pendiente]="getEstadoVuelo(vueloSeleccionado) === 'PENDIENTE'"
+            [class.pill-vuelo]="getEstadoVuelo(vueloSeleccionado) === 'EN_VUELO'"
+            [class.pill-aterrizado]="getEstadoVuelo(vueloSeleccionado) === 'ATERRIZADO'"
+          >
+            <i [class]="getEstadoVuelo(vueloSeleccionado) === 'EN_VUELO' ? 'pi pi-send' :
+                         getEstadoVuelo(vueloSeleccionado) === 'ATERRIZADO' ? 'pi pi-check-circle' : 'pi pi-clock'"></i>
+            {{ getEstadoVuelo(vueloSeleccionado) === 'EN_VUELO' ? 'En vuelo' :
+               getEstadoVuelo(vueloSeleccionado) === 'ATERRIZADO' ? 'Aterrizado' : 'En espera' }}
+          </div>
+          <div class="prog-section" *ngIf="getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
+            <div class="prog-labels">
+              <span>Recorrido</span>
+              <span>{{ getProgresoVuelo(vueloSeleccionado) | number:'1.0-0' }}%</span>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill" [style.width.%]="getProgresoVuelo(vueloSeleccionado)"></div>
+            </div>
+          </div>
+          <div class="bags-section">
+            <div class="bags-header">
+              <i class="pi pi-box"></i>
+              <span>{{ vueloSeleccionado.totalMaletas }} maletas · {{ vueloSeleccionado.envios.length }} envíos</span>
+            </div>
+            <div class="bags-list">
+              <div *ngFor="let e of vueloSeleccionado.envios" class="bag-item">
+                <span class="bag-id">#{{ e.idEnvio }}</span>
+                <span class="bag-qty">{{ e.cantidad }}✈</span>
+                <span class="bag-sla"
+                  [class.sla-ok]="e.cumpleSla !== false"
+                  [class.sla-fail]="e.cumpleSla === false">
+                  {{ e.cumpleSla !== false ? '✓ SLA' : '⚠ SLA' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Eventos Recientes -->
+        <div class="sidebar-card events-card">
+          <div class="sidebar-card-title">
+            <i class="pi pi-history"></i> Eventos Recientes
+          </div>
+          <div class="events-list" *ngIf="eventosRecientes.length > 0">
+            <div class="event-item" *ngFor="let ev of eventosRecientes | slice:0:20">
+              <i [class]="ev.tipo === 'despegue' ? 'pi pi-send ev-dep' : 'pi pi-map-marker ev-arr'"></i>
+              <div class="event-body">
+                <div class="event-msg">{{ ev.mensaje }}</div>
+                <div class="event-time">{{ ev.hora | date:'dd/MM HH:mm' }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="events-empty" *ngIf="eventosRecientes.length === 0">
+            Los eventos aparecerán al reproducir la simulación
+          </div>
+        </div>
+
+      </div><!-- /right-sidebar -->
+
+    </div><!-- /main-content -->
+
+    <!-- ── TIMELINE ──────────────────────────────────────────── -->
+    <div class="timeline" *ngIf="estado === 'listo'">
+      <div class="tl-controls">
+        <button class="btn-play" (click)="togglePlay()">
+          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
+        </button>
+        <div class="speed-group">
+          <button
+            *ngFor="let v of VELOCIDADES"
+            class="btn-spd"
+            [class.spd-active]="velocidad === v"
+            (click)="setVelocidad(v)"
+          >{{ v }}x</button>
+        </div>
+      </div>
+      <div class="tl-slider-area">
+        <div class="tl-time-label">
+          <i class="pi pi-clock"></i> {{ tiempoLabel }}
+        </div>
+        <input
+          type="range" class="tl-range"
+          [min]="tiempoInicioMs" [max]="tiempoFinMs" [value]="tiempoActualMs"
+          (input)="onSliderChange($event)"
+        />
+        <div class="tl-pct">{{ progresoSlider }}%</div>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <p-toast></p-toast>
+</div>
