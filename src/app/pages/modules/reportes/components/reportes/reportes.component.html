@@ -1,0 +1,204 @@
+<div class="rep-wrap">
+  <p-toast></p-toast>
+
+  <!-- HEADER -->
+  <div class="rep-header">
+    <div>
+      <h1 class="rep-title">Reportes y Análisis</h1>
+      <p class="rep-sub">Métricas de desempeño y análisis operacional</p>
+    </div>
+    <div class="header-actions" *ngIf="!cargando && !error">
+      <button class="btn-secondary" (click)="cargar()">
+        <i class="pi pi-refresh"></i> Actualizar
+      </button>
+      <button class="btn-primary" (click)="exportarCSV()">
+        <i class="pi pi-download"></i> Exportar Reporte
+      </button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-state" *ngIf="cargando">
+    <p-progressspinner strokeWidth="3" animationDuration=".7s"></p-progressspinner>
+    <span>Cargando datos...</span>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-state" *ngIf="error && !cargando">
+    <i class="pi pi-times-circle" style="font-size:2rem; color:#ef4444"></i>
+    <p>No se pudieron cargar los reportes.</p>
+    <button class="btn-primary" (click)="cargar()">
+      <i class="pi pi-refresh"></i> Reintentar
+    </button>
+  </div>
+
+  <!-- CONTENIDO -->
+  <ng-container *ngIf="!cargando && !error">
+
+    <!-- ── KPI CARDS ────────────────────────────────────────── -->
+    <div class="kpi-grid">
+
+      <div class="kpi-card" *ngFor="let k of kpis">
+        <div class="kpi-head">{{ k.label }}</div>
+        <div class="kpi-body-row">
+          <div class="kpi-value" [style.color]="k.color">{{ k.value }}</div>
+          <div class="kpi-icon" [style.color]="k.color"><i [class]="k.icon"></i></div>
+        </div>
+        <div class="kpi-sub">{{ k.sub }}</div>
+      </div>
+
+    </div>
+
+    <!-- ── GRÁFICAS ──────────────────────────────────────────── -->
+    <div class="charts-grid">
+
+      <!-- Por Estado -->
+      <div class="chart-card">
+        <div class="chart-title"><i class="pi pi-chart-pie"></i> Distribución por Estado</div>
+        <div class="chart-desc">Estado actual de todos los envíos</div>
+        <div class="bar-list">
+          <div class="bar-row" *ngFor="let item of porEstado">
+            <span class="bar-label">{{ item.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width.%]="item.porcentaje" [style.background]="item.color"></div>
+            </div>
+            <span class="bar-count">{{ item.count }}</span>
+          </div>
+          <div class="empty-chart" *ngIf="porEstado.length === 0">Sin datos disponibles</div>
+        </div>
+      </div>
+
+      <!-- Top Aerolíneas -->
+      <div class="chart-card">
+        <div class="chart-title"><i class="pi pi-send"></i> Top 5 Aerolíneas</div>
+        <div class="chart-desc">Aerolíneas con mayor volumen de envíos</div>
+        <div class="bar-list">
+          <div class="bar-row" *ngFor="let item of porAerolinea">
+            <span class="bar-label">{{ item.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width.%]="item.porcentaje" [style.background]="item.color"></div>
+            </div>
+            <span class="bar-count">{{ item.count }}</span>
+          </div>
+          <div class="empty-chart" *ngIf="porAerolinea.length === 0">Sin datos disponibles</div>
+        </div>
+      </div>
+
+      <!-- Top Rutas -->
+      <div class="chart-card">
+        <div class="chart-title"><i class="pi pi-map-marker"></i> Top 5 Rutas</div>
+        <div class="chart-desc">Rutas con mayor tráfico de maletas</div>
+        <div class="bar-list">
+          <div class="bar-row" *ngFor="let item of topRutas">
+            <span class="bar-label">{{ item.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width.%]="item.porcentaje" [style.background]="item.color"></div>
+            </div>
+            <span class="bar-count">{{ item.count }}</span>
+          </div>
+          <div class="empty-chart" *ngIf="topRutas.length === 0">Sin datos disponibles</div>
+        </div>
+      </div>
+
+      <!-- Por Prioridad -->
+      <div class="chart-card">
+        <div class="chart-title"><i class="pi pi-sort-alt"></i> Distribución por Prioridad</div>
+        <div class="chart-desc">Nivel de prioridad asignado a los envíos</div>
+        <div class="bar-list">
+          <div class="bar-row" *ngFor="let item of porPrioridad">
+            <span class="bar-label">{{ item.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width.%]="item.porcentaje" [style.background]="item.color"></div>
+            </div>
+            <span class="bar-count">{{ item.count }}</span>
+          </div>
+          <div class="empty-chart" *ngIf="porPrioridad.length === 0">Sin datos disponibles</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── TABLA DETALLADA ────────────────────────────────────── -->
+    <div class="table-card">
+      <div class="table-toolbar">
+        <div>
+          <div style="font-size:0.9rem;font-weight:600;color:#111827;margin-bottom:0.1rem;">Detalle de Envíos</div>
+          <div style="font-size:0.78rem;color:#9ca3af;">Listado completo de todos los registros</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+          <p-iconfield>
+            <p-inputicon styleClass="pi pi-search"/>
+            <input
+              pInputText
+              type="text"
+              (input)="onBuscar($event)"
+              placeholder="Buscar por aeropuerto, aerolínea, estado..."
+              style="width: 22rem"
+            />
+          </p-iconfield>
+          <span class="toolbar-info">
+            {{ enviosFiltrados.length }} envíos · {{ getTotalMaletasFiltradas() | number }} maletas
+          </span>
+        </div>
+      </div>
+
+      <p-table
+        [value]="enviosFiltrados"
+        [paginator]="true"
+        [rows]="15"
+        [rowsPerPageOptions]="[10, 15, 25, 50]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="{first}–{last} de {totalRecords}"
+        styleClass="p-datatable-sm p-datatable-gridlines"
+      >
+        <ng-template #header>
+          <tr>
+            <th>ID</th>
+            <th>Aerolínea</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th style="text-align:center">Maletas</th>
+            <th>Estado</th>
+            <th style="text-align:center">Prioridad</th>
+            <th>Fecha Registro</th>
+            <th>Fecha Límite</th>
+          </tr>
+        </ng-template>
+
+        <ng-template #body let-e>
+          <tr>
+            <td class="id-cell">#{{ e.idEnvio }}</td>
+            <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
+            <td>
+              <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
+              <span class="city">{{ e.aeropuertoOrigen?.ciudad }}</span>
+            </td>
+            <td>
+              <span class="oaci">{{ e.aeropuertoDestino?.codigoOaci }}</span>
+              <span class="city">{{ e.aeropuertoDestino?.ciudad }}</span>
+            </td>
+            <td style="text-align:center; font-weight:700">{{ e.cantidad }}</td>
+            <td>
+              <span class="estado-chip"
+                [style.color]="getEstadoColor(e.estado)"
+                [style.border-color]="getEstadoColor(e.estado)">
+                {{ e.estado }}
+              </span>
+            </td>
+            <td style="text-align:center">{{ e.prioridad }}</td>
+            <td>{{ e.fechaRegistro | date:'dd/MM/yy HH:mm' }}</td>
+            <td>{{ e.fechaLimiteEntrega | date:'dd/MM/yy HH:mm' }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template #emptymessage>
+          <tr>
+            <td colspan="9" class="empty-row">No hay envíos que mostrar.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+  </ng-container>
+
+</div>
