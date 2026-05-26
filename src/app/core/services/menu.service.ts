@@ -58,23 +58,16 @@ export class MenuService {
         routerLink: ['inicio', 'inicio']
       },
       {
-        id: 'dashboard',
+        id: 'Dashboard',
         label: 'Dashboard',
         icon: 'pi pi-chart-bar',
-        items: [
-          {
-            id: 'dashboard-general',
-            label: 'General',
-            icon: 'pi pi-chart-line',
-            routerLink: ['dashboard', 'general']
-          },
-          {
-            id: 'dashboard-reportes',
-            label: 'Reportes',
-            icon: 'pi pi-file',
-            routerLink: ['dashboard', 'reportes']
-          }
-        ]
+        routerLink: ['Dashboard']
+      },
+      {
+        id: 'Reportes',
+        label: 'Reportes',
+        icon: 'pi pi-file-export',
+        routerLink: ['Reportes']
       },
       {
         id: 'RegistroMaletas',
@@ -127,6 +120,12 @@ export class MenuService {
         label: 'Monitoreo Mapa',
         icon: 'pi pi-map',
         routerLink: ['MonitoreoMapa']
+      },
+      {
+        id: 'Simulacion',
+        label: 'Simulación',
+        icon: 'pi pi-play-circle',
+        routerLink: ['Simulacion']
       }
     ];
 

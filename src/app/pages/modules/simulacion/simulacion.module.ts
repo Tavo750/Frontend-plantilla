@@ -2,17 +2,17 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MessageService } from 'primeng/api';
 
-import { RegistroMaletasRoutingModule } from './registro-maletas-routing.module';
-import { MaletaComponent } from './components/maleta/maleta.component';
+import { SimulacionRoutingModule } from './simulacion-routing.module';
+import { SimulacionComponent } from './components/simulacion/simulacion.component';
 import { PrimeNgModule } from '../../../prime-ng/prime-ng.module';
 
 @NgModule({
-  declarations: [MaletaComponent],
+  declarations: [SimulacionComponent],
   imports: [
     CommonModule,
-    RegistroMaletasRoutingModule,
+    SimulacionRoutingModule,
     PrimeNgModule
   ],
   providers: [MessageService]
 })
-export class RegistroMaletasModule { }
+export class SimulacionModule {}

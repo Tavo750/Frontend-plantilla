@@ -1,230 +1,188 @@
-<div class="page-container">
+<div class="container">
 
-  <section class="header-section">
+  <!-- HEADER -->
+  <div class="header">
     <div>
-      <h1>Monitoreo de simulación del periodo</h1>
-      <p>
-        Demo integrada entre Angular, Spring Boot y PostgreSQL para ejecutar la simulación de 5 días.
-      </p>
+      <h1>Monitoreo en Mapa</h1>
+      <p>Visualización en tiempo real de operaciones globales</p>
     </div>
-
-    <button
-      class="btn-primary"
-      type="button"
-      (click)="iniciarSimulacion5Dias()"
-      [disabled]="cargando || animandoVisual">
-      {{
-        cargando
-          ? 'Calculando simulación...'
-          : animandoVisual
-            ? 'Reproduciendo simulación...'
-            : 'Iniciar simulación 5 días'
-      }}
+    <button class="btn" (click)="toggleRefresh()">
+      {{ autoRefresh ? 'Actualizando...' : 'Actualizar' }}
     </button>
-  </section>
-
-  <section class="map-card">
-    <div class="map-header">
-      <div>
-        <h2>Visualizador / Mapa operativo</h2>
-        <p>
-          Rutas asignadas por el planificador durante la simulación del periodo.
-        </p>
-      </div>
-
-      <div class="map-counter" *ngIf="simulacionEjecutada || animandoVisual">
-        {{ rutasMapa.length }} rutas visualizadas
-      </div>
-    </div>
-
-    <div class="world-map">
-
-      <!-- Overlay mientras el backend calcula -->
-      <div *ngIf="cargando" class="simulation-overlay">
-        <div class="loader-plane">✈</div>
-        <strong>El backend está calculando la simulación...</strong>
-        <span>Esperando respuesta del planificador.</span>
-      </div>
-
-      <!-- Estado mientras Angular reproduce los eventos visualmente -->
-      <div *ngIf="animandoVisual" class="simulation-progress">
-        <span class="pulse-dot"></span>
-        Reproduciendo eventos: {{ eventos.length }} de {{ eventosBackend.length }}
-      </div>
-
-      <!-- Continentes de referencia -->
-      <div class="continent america">AMÉRICA</div>
-      <div class="continent europe">EUROPA</div>
-      <div class="continent asia">ASIA</div>
-
-      <!-- Capa SVG de rutas y aviones -->
-      <svg
-        class="route-layer"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none">
-
-        <path
-          *ngFor="let ruta of rutasMapa"
-          [attr.id]="ruta.id"
-          [attr.d]="ruta.path"
-          class="route-path">
-        </path>
-
-        <g
-          *ngFor="let ruta of rutasMapa"
-          class="plane-group">
-
-          <text class="plane-icon" x="0" y="0">✈</text>
-
-          <animateMotion
-            [attr.dur]="ruta.duracion + 's'"
-            [attr.begin]="ruta.delay + 's'"
-            repeatCount="indefinite"
-            rotate="auto">
-
-            <mpath [attr.href]="'#' + ruta.id"></mpath>
-          </animateMotion>
-        </g>
-      </svg>
-
-      <!-- Aeropuertos -->
-      <div
-        *ngFor="let aeropuerto of aeropuertosMapa"
-        class="airport"
-        [style.left.%]="aeropuerto.x"
-        [style.top.%]="aeropuerto.y">
-
-        <div class="airport-dot"></div>
-
-        <div class="airport-label">
-          <strong>{{ aeropuerto.codigo }}</strong>
-          <span>{{ aeropuerto.ciudad }}</span>
-        </div>
-      </div>
-
-      <!-- Mensaje inicial -->
-      <div *ngIf="!cargando && !simulacionEjecutada && !animandoVisual" class="map-empty">
-        Presiona “Iniciar simulación 5 días” para visualizar rutas, aeropuertos y aviones.
-      </div>
-
-    </div>
-
-    <div class="map-legend">
-      <div>
-        <span class="legend-dot airport-color"></span>
-        Aeropuerto
-      </div>
-
-      <div>
-        <span class="legend-line"></span>
-        Ruta asignada
-      </div>
-
-      <div>
-        <span class="legend-plane">✈</span>
-        Vuelo en movimiento
-      </div>
-    </div>
-  </section>
-
-  <div *ngIf="mensajeError" class="error-box">
-    {{ mensajeError }}
   </div>
 
-  <section *ngIf="resumen" class="kpi-grid">
+  <!-- LOADING -->
+  <div *ngIf="cargando" class="loading-container">
+    <p-progressspinner strokeWidth="4" animationDuration=".8s"></p-progressspinner>
+    <span>Cargando aeropuertos...</span>
+  </div>
 
-    <article class="kpi-card">
-      <span>Total envíos</span>
-      <strong>{{ resumen.totalEnvios }}</strong>
-      <small>Periodo: {{ resumen.fechaInicio }} / {{ resumen.dias }} días</small>
-    </article>
+  <!-- ERROR -->
+  <div *ngIf="error && !cargando" class="error-container">
+    <i class="pi pi-exclamation-triangle" style="font-size: 3rem; display: block; margin-bottom: 1rem;"></i>
+    <p>No se pudo conectar con el servidor.</p>
+    <p-button label="Reintentar" icon="pi pi-refresh" (onClick)="cargarAeropuertos()"></p-button>
+  </div>
 
-    <article class="kpi-card success">
-      <span>Envíos asignados</span>
-      <strong>{{ resumen.enviosAsignados }}</strong>
-      <small>{{ porcentajeEnviosAsignados }}% del total</small>
-    </article>
+  <!-- MAIN CONTENT -->
+  <ng-container *ngIf="!cargando && !error">
 
-    <article class="kpi-card danger">
-      <span>Envíos no asignados</span>
-      <strong>{{ resumen.enviosNoAsignados }}</strong>
-      <small>Pendientes o sin vuelo directo viable</small>
-    </article>
+    <!-- CONTROLS -->
+    <div class="card controls">
 
-    <article class="kpi-card">
-      <span>Total maletas</span>
-      <strong>{{ resumen.totalMaletas }}</strong>
-      <small>{{ porcentajeMaletasAsignadas }}% asignadas</small>
-    </article>
+      <div class="filters">
 
-    <article class="kpi-card success">
-      <span>Maletas asignadas</span>
-      <strong>{{ resumen.maletasAsignadas }}</strong>
-      <small>Dentro del plazo de entrega</small>
-    </article>
+        <span>🌍 Continente:</span>
 
-    <article class="kpi-card danger">
-      <span>Maletas no asignadas</span>
-      <strong>{{ resumen.maletasNoAsignadas }}</strong>
-      <small>Requieren replanificación</small>
-    </article>
+        <select (change)="onContinenteChange($event)">
+          <option value="">Todos los Continentes</option>
+          <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
+        </select>
 
-    <article class="kpi-card warning">
-      <span>Vuelos utilizados</span>
-      <strong>{{ resumen.vuelosUtilizados }}</strong>
-      <small>Vuelos con capacidad ocupada</small>
-    </article>
+        <input type="text" class="search-input" (input)="filtrarTabla($event)"
+          placeholder="Buscar por código, ciudad o país..." />
 
-  </section>
+      </div>
 
-  <section *ngIf="simulacionEjecutada || animandoVisual" class="table-section">
-    <div class="table-header">
-      <h2>Eventos de la simulación</h2>
-      <p>{{ eventos.length }} eventos generados por el planificador MVP.</p>
+      <div class="zoom-buttons">
+        <button class="btn-icon">+</button>
+        <button class="btn-icon">−</button>
+      </div>
+
     </div>
 
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>ID envío</th>
-            <th>Origen</th>
-            <th>Destino</th>
-            <th>Cantidad</th>
-            <th>Estado</th>
-            <th>Vuelo</th>
-            <th>Salida</th>
-            <th>Llegada</th>
-          </tr>
-        </thead>
+    <!-- MAIN GRID -->
+    <div class="main-grid">
 
-        <tbody>
-          <tr *ngFor="let evento of eventos">
-            <td>{{ evento.idEnvio }}</td>
-            <td>{{ evento.origen }}</td>
-            <td>{{ evento.destino }}</td>
-            <td>{{ evento.cantidad }}</td>
-            <td>
-              <span
-                class="status"
-                [class.status-ok]="evento.estado === 'ASIGNADO'"
-                [class.status-error]="evento.estado !== 'ASIGNADO'">
-                {{ evento.estado }}
-              </span>
-            </td>
-            <td>{{ evento.codigoVuelo || '-' }}</td>
-            <td>{{ evento.horaSalida || '-' }}</td>
-            <td>{{ evento.horaLlegada || '-' }}</td>
-          </tr>
+      <!-- MAP SECTION -->
+      <div class="map-section">
 
-          <tr *ngIf="eventos.length === 0">
-            <td colspan="8" class="empty-message">
-              Todavía no se han reproducido eventos.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <div class="card">
+
+          <div class="card-header">
+            <h2>Mapa Global de Operaciones</h2>
+            <p>Aeropuertos posicionados con coordenadas reales del backend</p>
+          </div>
+
+          <!-- #mapContainerEl: referencia para medir el área real del mapa -->
+          <div class="map-container" #mapContainerEl>
+
+            <!-- Imagen del mapa: (load) dispara la medición y posicionamiento -->
+            <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
+
+            <!-- Overlay oscuro sobre el mapa -->
+            <div class="overlay"></div>
+
+            <!-- AEROPUERTOS sobre el mapa -->
+            <div *ngFor="let aeropuerto of aeropuertosFiltrados" class="airport" [style.left.%]="aeropuerto.x"
+              [style.top.%]="aeropuerto.y"
+              [title]="aeropuerto.codigoOaci + ' – ' + aeropuerto.ciudad + ', ' + aeropuerto.pais">
+              <div class="pulse" *ngIf="aeropuerto.activo"></div>
+              <div class="marker" [ngClass]="aeropuerto.activo ? 'active' : 'inactive'"></div>
+              <span>{{ aeropuerto.codigoOaci }}</span>
+            </div>
+
+            <!-- LEYENDA -->
+            <div class="legend">
+
+              <h3>Leyenda</h3>
+
+              <div class="legend-item">
+                <div class="legend-dot green"></div>
+                <span>Aeropuerto activo</span>
+              </div>
+
+              <div class="legend-item">
+                <div class="legend-dot gray"></div>
+                <span>Aeropuerto inactivo</span>
+              </div>
+
+            </div>
+
+            <!-- ESTADÍSTICAS EN VIVO -->
+            <div class="stats-box">
+
+              <h3>Estadísticas</h3>
+
+              <div class="stat-row">
+                <span>Aeropuertos</span>
+                <strong>{{ aeropuertosFiltrados.length }}</strong>
+              </div>
+
+              <div class="stat-row">
+                <span>Activos</span>
+                <strong>{{ getActivosCount() }}</strong>
+              </div>
+
+              <div class="stat-row">
+                <span>Capacidad total</span>
+                <strong>{{ getTotalCapacidad() }}</strong>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+
+        <div class="card">
+
+          <div class="card-header">
+            <h2>Estado de Aeropuertos</h2>
+            <p>{{ aeropuertosFiltrados.length }} aeropuertos mostrados</p>
+          </div>
+
+          <div class="airport-status">
+
+            <div class="airport-card" *ngFor="let aeropuerto of aeropuertosFiltrados">
+
+              <div class="airport-top">
+
+                <div>
+                  <h4>{{ aeropuerto.codigoOaci }}</h4>
+                  <p>{{ aeropuerto.ciudad }}, {{ aeropuerto.pais }}</p>
+                </div>
+
+                <span [class]="getActivoClass(aeropuerto.activo)">
+                  {{ aeropuerto.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+
+              </div>
+
+              <div class="storage">
+
+                <div class="storage-label">
+                  <span>Capacidad</span>
+                  <span>{{ aeropuerto.capacidad }} maletas</span>
+                </div>
+
+                <div class="progress-bar">
+                  <div class="progress-fill" [style.width.%]="aeropuerto.storagePct"></div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div *ngIf="aeropuertosFiltrados.length === 0" class="empty-state">
+              No hay aeropuertos para mostrar.
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
-  </section>
+
+  </ng-container>
+
+  <p-toast></p-toast>
 
 </div>

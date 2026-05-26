@@ -1,0 +1,153 @@
+<div class="dash-wrap">
+
+  <!-- HEADER -->
+  <div class="dash-header">
+    <div>
+      <h1 class="dash-title">Panel de Control</h1>
+      <p class="dash-sub">Vista general de las operaciones de Tasf.B2B</p>
+    </div>
+    <button class="btn-refresh" (click)="recargar()" [disabled]="cargando">
+      <i [class]="cargando ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"></i>
+      Actualizar
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div *ngIf="cargando" class="loading-state">
+    <p-progressspinner strokeWidth="3" animationDuration=".7s"></p-progressspinner>
+    <span>Cargando datos...</span>
+  </div>
+
+  <!-- ERROR -->
+  <div *ngIf="error && !cargando" class="error-state">
+    <i class="pi pi-exclamation-triangle"></i>
+    <p>No se pudo conectar con el servidor.</p>
+    <button class="btn-refresh" (click)="recargar()">Reintentar</button>
+  </div>
+
+  <!-- CONTENIDO -->
+  <ng-container *ngIf="!cargando && !error">
+
+    <!-- ── KPI CARDS ─────────────────────────────────────────── -->
+    <div class="kpi-grid">
+      <div class="kpi-card" *ngFor="let kpi of kpis">
+        <div class="kpi-icon" [style.background]="kpi.bgColor" [style.color]="kpi.color">
+          <i [class]="kpi.icono"></i>
+        </div>
+        <div class="kpi-info">
+          <div class="kpi-val">{{ kpi.valor | number }}</div>
+          <div class="kpi-label">{{ kpi.titulo }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FILA CENTRAL ──────────────────────────────────────── -->
+    <div class="main-row">
+
+      <!-- Distribución por estado -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="pi pi-chart-pie"></i> Distribución por Estado</div>
+            <div class="card-desc">Estado actual de los envíos</div>
+          </div>
+        </div>
+        <div class="estado-list">
+          <div class="estado-row" *ngFor="let es of estadoChart">
+            <div class="es-label">
+              <span class="es-dot" [style.background]="es.color"></span>
+              <span>{{ getEstadoLabel(es.estado) }}</span>
+            </div>
+            <div class="es-bar-wrap">
+              <div class="es-bar" [style.width.%]="es.pct" [style.background]="es.color"></div>
+            </div>
+            <div class="es-nums">
+              <span>{{ es.cantidad }}</span>
+              <span class="es-pct">{{ es.pct }}%</span>
+            </div>
+          </div>
+          <div *ngIf="estadoChart.length === 0" class="empty-msg">Sin datos disponibles</div>
+        </div>
+      </div>
+
+      <!-- Aeropuertos por continente -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="pi pi-globe"></i> Aeropuertos por Continente</div>
+            <div class="card-desc">Distribución geográfica de la red</div>
+          </div>
+        </div>
+        <div class="cont-list">
+          <div class="cont-row" *ngFor="let c of continenteChart">
+            <div class="cont-label">{{ c.continente }}</div>
+            <div class="es-bar-wrap">
+              <div class="es-bar" [style.width.%]="c.pct" style="background:#3b82f6"></div>
+            </div>
+            <div class="es-nums">
+              <span>{{ c.cantidad }}</span>
+              <span class="es-pct">{{ c.pct }}%</span>
+            </div>
+          </div>
+          <div *ngIf="continenteChart.length === 0" class="empty-msg">Sin datos disponibles</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── ÚLTIMOS ENVÍOS ────────────────────────────────────── -->
+    <div class="card last-card">
+      <div class="card-header">
+        <div>
+          <div class="card-title"><i class="pi pi-list"></i> Actividad Reciente</div>
+          <div class="card-desc">Últimos envíos registrados</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="envios-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Aerolínea</th>
+              <th>Origen</th>
+              <th>Destino</th>
+              <th class="center">Maletas</th>
+              <th>Estado</th>
+              <th>Fecha Registro</th>
+              <th class="center">Prioridad</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of recentEnvios">
+              <td class="id-cell">#{{ e.idEnvio }}</td>
+              <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
+              <td>
+                <span class="oaci-badge">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
+                <span class="city-sub">{{ e.aeropuertoOrigen?.ciudad }}</span>
+              </td>
+              <td>
+                <span class="oaci-badge">{{ e.aeropuertoDestino?.codigoOaci }}</span>
+                <span class="city-sub">{{ e.aeropuertoDestino?.ciudad }}</span>
+              </td>
+              <td class="center">{{ e.cantidad }}</td>
+              <td>
+                <span class="estado-badge"
+                  [style.color]="getEstadoColor(e.estado)"
+                  [style.border-color]="getEstadoColor(e.estado)">
+                  {{ getEstadoLabel(e.estado) }}
+                </span>
+              </td>
+              <td>{{ e.fechaRegistro | date:'dd/MM/yy HH:mm' }}</td>
+              <td class="center">{{ e.prioridad }}</td>
+            </tr>
+            <tr *ngIf="recentEnvios.length === 0">
+              <td colspan="8" class="empty-row">No hay envíos registrados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>
