@@ -120,14 +120,14 @@
           <tbody>
             <tr *ngFor="let e of recentEnvios">
               <td class="id-cell">#{{ e.idEnvio }}</td>
-              <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
+              <td>{{ e.aerolinea.nombre }}</td>
               <td>
-                <span class="oaci-badge">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
-                <span class="city-sub">{{ e.aeropuertoOrigen?.ciudad }}</span>
+                <span class="oaci-badge">{{ e.aeropuertoOrigen.codigoOaci }}</span>
+                <span class="city-sub">{{ e.aeropuertoOrigen.ciudad }}</span>
               </td>
               <td>
-                <span class="oaci-badge">{{ e.aeropuertoDestino?.codigoOaci }}</span>
-                <span class="city-sub">{{ e.aeropuertoDestino?.ciudad }}</span>
+                <span class="oaci-badge">{{ e.aeropuertoDestino.codigoOaci }}</span>
+                <span class="city-sub">{{ e.aeropuertoDestino.ciudad }}</span>
               </td>
               <td class="center">{{ e.cantidad }}</td>
               <td>
