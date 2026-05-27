@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { AuthRoutingModule } from './auth-routing-module';
+import { AuthRoutingModule } from './auth-routing.module';
 import { Login } from './components/login/login';
 import { CrearUsuario } from './components/crear-usuario/crear-usuario';
 
