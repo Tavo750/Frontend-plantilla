@@ -29,7 +29,7 @@
           <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
           {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
         </button>
-        <button class="btn-detener" (click)="detenerTodo()">
+        <button class="btn-detener" (click)="detener()">
           <i class="pi pi-stop-circle"></i> Detener
         </button>
       </ng-container>
@@ -177,9 +177,7 @@
 
         <!-- Leyenda -->
         <div class="leyenda">
-          <div class="ley-item"><span class="ley-dot dot-pendiente"></span>Pendiente</div>
-          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En vuelo</div>
-          <div class="ley-item"><span class="ley-dot dot-aterrizado"></span>Aterrizado</div>
+          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
           <div class="ley-item"><span class="ley-dot dot-badge"></span>Almacén</div>
         </div>
 
@@ -442,25 +440,28 @@
 
   </ng-container>
 
-  <!-- ── DIALOG: Confirmar cancelación de vuelo ─────────────── -->
+  <!-- ── DIALOG: Cancelar vuelo / Reprogramar envíos ──────────── -->
   <p-dialog
     [(visible)]="mostrarConfirmCancelar"
     [modal]="true"
     [closable]="true"
-    header="Cancelar vuelo"
-    [style]="{'width':'340px'}"
+    [header]="cancelacionExitosa ? 'Vuelo cancelado' : 'Cancelar vuelo'"
+    [style]="{'width':'360px'}"
     [draggable]="false"
     [resizable]="false"
+    (onHide)="cerrarDialogoCancelacion()"
   >
-    <div class="confirm-body" *ngIf="vueloParaCancelar">
+
+    <!-- Fase 1: Confirmación de cancelación -->
+    <div class="confirm-body" *ngIf="!cancelacionExitosa && vueloParaCancelar">
       <i class="pi pi-exclamation-triangle confirm-icon"></i>
       <p>¿Cancelar el vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong>?</p>
       <p class="confirm-sub">{{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
       <p class="confirm-hint">
-        Los envíos afectados se re-rutearán automáticamente al volver a ejecutar la simulación.
+        Los envíos afectados podrán reprogramarse con rutas alternativas.
       </p>
       <div class="confirm-footer">
-        <button class="btn-pausar" (click)="mostrarConfirmCancelar = false" [disabled]="cancelando">
+        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()" [disabled]="cancelando">
           No, mantener
         </button>
         <button class="btn-detener" (click)="confirmarCancelar()" [disabled]="cancelando">
@@ -470,6 +471,24 @@
         </button>
       </div>
     </div>
+
+    <!-- Fase 2: Vuelo cancelado → ofrecer reprogramar -->
+    <div class="confirm-body" *ngIf="cancelacionExitosa">
+      <i class="pi pi-check-circle" style="font-size:2.4rem;color:#4ade80;"></i>
+      <p>Vuelo <strong>{{ codigoVueloCancelado }}</strong> cancelado correctamente.</p>
+      <p class="confirm-hint">
+        ¿Deseas reprogramar ahora los envíos afectados con rutas alternativas?
+      </p>
+      <div class="confirm-footer">
+        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()">
+          Más tarde
+        </button>
+        <button class="btn-reprogramar" (click)="reprogramarEnvios()">
+          <i class="pi pi-refresh"></i> Reprogramar envíos
+        </button>
+      </div>
+    </div>
+
   </p-dialog>
 
   <p-toast></p-toast>
