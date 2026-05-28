@@ -50,7 +50,7 @@ export class Login implements OnInit {
     this.authService.login(body).subscribe({
       next: () => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/inicio']);
       },
       error: (err) => {
         this.isLoading = false;
