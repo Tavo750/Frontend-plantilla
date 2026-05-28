@@ -39,12 +39,8 @@
           <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
         </select>
 
-        <input
-          type="text"
-          class="search-input"
-          (input)="filtrarTabla($event)"
-          placeholder="Buscar por código, ciudad o país..."
-        />
+        <input type="text" class="search-input" (input)="filtrarTabla($event)"
+          placeholder="Buscar por código, ciudad o país..." />
 
       </div>
 
@@ -72,24 +68,15 @@
           <div class="map-container" #mapContainerEl>
 
             <!-- Imagen del mapa: (load) dispara la medición y posicionamiento -->
-            <img
-              [src]="worldMapUrl"
-              class="world-map"
-              alt="Mapa mundial"
-              (load)="onMapLoaded()"
-            />
+            <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
 
             <!-- Overlay oscuro sobre el mapa -->
             <div class="overlay"></div>
 
             <!-- AEROPUERTOS sobre el mapa -->
-            <div
-              *ngFor="let aeropuerto of aeropuertosFiltrados"
-              class="airport"
-              [style.left.%]="aeropuerto.x"
+            <div *ngFor="let aeropuerto of aeropuertosFiltrados" class="airport" [style.left.%]="aeropuerto.x"
               [style.top.%]="aeropuerto.y"
-              [title]="aeropuerto.codigoOaci + ' – ' + aeropuerto.ciudad + ', ' + aeropuerto.pais"
-            >
+              [title]="aeropuerto.codigoOaci + ' – ' + aeropuerto.ciudad + ', ' + aeropuerto.pais">
               <div class="pulse" *ngIf="aeropuerto.activo"></div>
               <div class="marker" [ngClass]="aeropuerto.activo ? 'active' : 'inactive'"></div>
               <span>{{ aeropuerto.codigoOaci }}</span>
@@ -152,10 +139,7 @@
 
           <div class="airport-status">
 
-            <div
-              class="airport-card"
-              *ngFor="let aeropuerto of aeropuertosFiltrados"
-            >
+            <div class="airport-card" *ngFor="let aeropuerto of aeropuertosFiltrados">
 
               <div class="airport-top">
 
@@ -178,10 +162,7 @@
                 </div>
 
                 <div class="progress-bar">
-                  <div
-                    class="progress-fill"
-                    [style.width.%]="aeropuerto.storagePct"
-                  ></div>
+                  <div class="progress-fill" [style.width.%]="aeropuerto.storagePct"></div>
                 </div>
 
               </div>

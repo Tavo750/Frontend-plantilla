@@ -1,123 +1,356 @@
-<div class="rutas-container">
-  <div class="rutas-header">
+<div class="route-page">
+
+  <!-- HEADER -->
+  <div class="page-header">
     <div>
-      <h1 class="page-title">Planificación de Rutas</h1>
-      <p class="page-sub">Planifique y optimice las rutas de envío de maletas</p>
+      <h1 class="page-title">
+        Planificación de Rutas
+      </h1>
+
+      <p class="page-subtitle">
+        Planifique y optimice las rutas de envío de maletas
+      </p>
     </div>
+
+    <button
+      pButton
+      type="button"
+      icon="pi pi-refresh"
+      label="Actualizar"
+      class="p-button-outlined"
+      (click)="cargarDatos()">
+    </button>
   </div>
 
-  <!-- Loading -->
+  <!-- LOADING -->
   <div *ngIf="cargando" class="loading-container">
-    <p-progressspinner strokeWidth="4" animationDuration=".8s"></p-progressspinner>
-    <span>Cargando envíos...</span>
+    <p-progressSpinner strokeWidth="4"></p-progressSpinner>
+
+    <span>
+      Cargando información...
+    </span>
   </div>
 
-  <!-- Error -->
+  <!-- ERROR -->
   <div *ngIf="error && !cargando" class="error-container">
-    <i class="pi pi-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
-    <p>No se pudo conectar con el servidor.</p>
-    <p-button label="Reintentar" icon="pi pi-refresh" (onClick)="cargarEnvios()"></p-button>
+    <i class="pi pi-exclamation-triangle"></i>
+
+    <h3>
+      Error de conexión
+    </h3>
+
+    <p>
+      No se pudo conectar con el servidor
+    </p>
+
+    <button
+      pButton
+      type="button"
+      label="Reintentar"
+      icon="pi pi-refresh"
+      (click)="cargarDatos()">
+    </button>
   </div>
 
-  <!-- Contenido principal -->
+  <!-- CONTENT -->
   <div *ngIf="!cargando && !error">
 
-    <!-- Chips de estadísticas rápidas -->
-    <div class="stats-row">
-      <div class="stat-chip">
-        <span class="value">{{ envios.length }}</span>
-        <span class="label">Total envíos</span>
+    <!-- SELECTOR -->
+    <div class="planner-card">
+
+      <div class="planner-header">
+        <div class="planner-title">
+          <i class="pi pi-send"></i>
+
+          <div>
+            <h2>
+              Planificador de Rutas
+            </h2>
+
+            <p>
+              Seleccione un envío para visualizar la ruta
+            </p>
+          </div>
+        </div>
       </div>
-      <div class="stat-chip">
-        <span class="value">{{ getTotalMaletas() }}</span>
-        <span class="label">Total maletas</span>
-      </div>
-      <div class="stat-chip">
-        <span class="value">{{ enviosFiltrados.length }}</span>
-        <span class="label">Mostrando</span>
+
+      <div class="selector-container">
+
+        <p-select
+          [options]="envios"
+          [(ngModel)]="envioSeleccionado"
+          optionLabel="idEnvio"
+          placeholder="Seleccione un envío"
+          [showClear]="true"
+          appendTo="body"
+          styleClass="custom-select"
+          [fluid]="true"
+          (onChange)="agregarEnvioSeleccionado()">
+
+          <!-- SELECTED ITEM -->
+          <ng-template pTemplate="selectedItem" let-envio>
+            <div class="dropdown-selected" *ngIf="envio">
+              <span class="envio-id">
+                #{{ envio.idEnvio }}
+              </span>
+
+              <span class="route-text">
+                {{ envio.aeropuertoOrigen?.codigoOaci }}
+                →
+                {{ envio.aeropuertoDestino?.codigoOaci }}
+              </span>
+
+              <span class="qty-badge">
+                {{ envio.cantidad }} maletas
+              </span>
+            </div>
+          </ng-template>
+
+          <!-- OPTION ITEM -->
+          <ng-template pTemplate="item" let-envio>
+            <div class="dropdown-item">
+              <div class="dropdown-main">
+                <span class="envio-id">
+                  #{{ envio.idEnvio }}
+                </span>
+
+                <span class="route-text">
+                  {{ envio.aeropuertoOrigen?.codigoOaci }}
+                  →
+                  {{ envio.aeropuertoDestino?.codigoOaci }}
+                </span>
+              </div>
+
+              <span class="qty-badge">
+                {{ envio.cantidad }} maletas
+              </span>
+            </div>
+          </ng-template>
+
+        </p-select>
+
       </div>
     </div>
 
-    <!-- Tabla de envíos -->
-    <p-table
-      [value]="enviosFiltrados"
-      [paginator]="true"
-      [rows]="15"
-      [rowsPerPageOptions]="[10, 15, 25, 50]"
-      [showCurrentPageReport]="true"
-      currentPageReportTemplate="{first} - {last} de {totalRecords} envíos"
-      styleClass="p-datatable-gridlines p-datatable-sm"
-    >
-      <ng-template #caption>
-        <div class="filter-bar">
-          <div class="filter-chips">
-            <span
-              *ngFor="let op of estadoOpciones"
-              class="chip"
-              [class.active]="estadoSeleccionado === op.value"
-              (click)="filtrarPorEstado(op.value)"
-            >{{ op.label }}</span>
-          </div>
-          <p-iconfield>
-            <p-inputicon styleClass="pi pi-search" />
-            <input
-              pInputText
-              type="text"
-              (input)="filtrarTabla($event)"
-              placeholder="Buscar por aeropuerto, ciudad o aerolínea..."
-              style="width: 20rem;"
-            />
-          </p-iconfield>
+    <!-- LISTA DE ENVÍOS -->
+    <div *ngIf="enviosSeleccionados.length > 0">
+
+      <div
+        *ngFor="let envio of enviosSeleccionados; trackBy: trackByEnvio"
+        class="detail-card compact-card">
+
+        <!-- ID -->
+        <div class="compact-block id-block">
+          <span class="mini-label">
+            Envío
+          </span>
+
+          <span class="mini-value strong">
+            #{{ envio.idEnvio }}
+          </span>
         </div>
-      </ng-template>
 
-      <ng-template #header>
-        <tr>
-          <th style="width: 5rem">ID</th>
-          <th>Aerolínea</th>
-          <th>Origen</th>
-          <th>Destino</th>
-          <th style="width: 7rem; text-align: center;">Cantidad</th>
-          <th style="width: 9rem">Estado</th>
-          <th>Fecha Registro</th>
-          <th>Fecha Límite</th>
-          <th style="width: 6rem; text-align: center;">Prioridad</th>
-        </tr>
-      </ng-template>
+        <!-- ESTADO -->
+        <div class="compact-block">
+          <span [class]="getEstadoClass(envio.estado)">
+            {{ envio.estado }}
+          </span>
+        </div>
 
-      <ng-template #body let-envio>
-        <tr>
-          <td>{{ envio.idEnvio }}</td>
-          <td>{{ envio.aerolinea?.nombre ?? '—' }}</td>
-          <td>
-            <div class="route-cell">
-              <span class="route-code">{{ envio.aeropuertoOrigen?.codigoOaci ?? '—' }}</span>
-              <span class="route-city">{{ envio.aeropuertoOrigen?.ciudad }}</span>
-            </div>
-          </td>
-          <td>
-            <div class="route-cell">
-              <span class="route-code">{{ envio.aeropuertoDestino?.codigoOaci ?? '—' }}</span>
-              <span class="route-city">{{ envio.aeropuertoDestino?.ciudad }}</span>
-            </div>
-          </td>
-          <td style="text-align: center;">{{ envio.cantidad }}</td>
-          <td><span [class]="getEstadoClass(envio.estado)">{{ envio.estado }}</span></td>
-          <td>{{ envio.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</td>
-          <td>{{ envio.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm' }}</td>
-          <td style="text-align: center;">{{ envio.prioridad }}</td>
-        </tr>
-      </ng-template>
+        <!-- ORIGEN -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Origen
+          </span>
 
-      <ng-template #emptymessage>
-        <tr>
-          <td colspan="9" style="text-align: center; padding: 2rem; color: #94a3b8;">
-            No hay envíos registrados.
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
+          <span class="mini-value">
+            {{ envio.aeropuertoOrigen?.codigoOaci }}
+          </span>
+
+          <span class="mini-city">
+            {{ envio.aeropuertoOrigen?.ciudad }}
+          </span>
+
+          <span class="mini-country">
+            {{ getPaisAeropuerto(envio.aeropuertoOrigen?.codigoOaci) }}
+          </span>
+
+          <span class="mini-continent">
+            {{ getContinenteAeropuerto(envio.aeropuertoOrigen?.codigoOaci) }}
+          </span>
+        </div>
+
+        <!-- ARROW -->
+        <div class="compact-arrow">
+          <i class="pi pi-arrow-right"></i>
+        </div>
+
+        <!-- DESTINO -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Destino
+          </span>
+
+          <span class="mini-value">
+            {{ envio.aeropuertoDestino?.codigoOaci }}
+          </span>
+
+          <span class="mini-city">
+            {{ envio.aeropuertoDestino?.ciudad }}
+          </span>
+
+          <span class="mini-country">
+            {{ getPaisAeropuerto(envio.aeropuertoDestino?.codigoOaci) }}
+          </span>
+
+          <span class="mini-continent">
+            {{ getContinenteAeropuerto(envio.aeropuertoDestino?.codigoOaci) }}
+          </span>
+        </div>
+
+        <!-- MALETAS -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Maletas
+          </span>
+
+          <span class="mini-value primary">
+            {{ envio.cantidad }}
+          </span>
+        </div>
+
+        <!-- PRIORIDAD -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Prioridad
+          </span>
+
+          <span class="mini-value">
+            {{ envio.prioridad }}
+          </span>
+        </div>
+
+        <!-- FECHA -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Registro
+          </span>
+
+          <span class="mini-date">
+            {{ envio.fechaRegistro | date:'dd/MM HH:mm' }}
+          </span>
+        </div>
+
+        <!-- LÍMITE -->
+        <div class="compact-block">
+          <span class="mini-label">
+            Límite
+          </span>
+
+          <span class="mini-date">
+            {{ envio.fechaLimiteEntrega | date:'dd/MM HH:mm' }}
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- AEROPUERTOS -->
+    <div class="airport-table-card" *ngIf="aeropuertos.length > 0">
+
+      <div class="airport-table-header">
+        <div>
+          <h2>
+            <i class="pi pi-map-marker"></i>
+            Aeropuertos disponibles
+          </h2>
+
+          <p>
+            Listado actual de aeropuertos registrados
+          </p>
+        </div>
+
+        <span class="airport-count">
+          {{ aeropuertos.length }} aeropuertos
+        </span>
+      </div>
+
+      <div class="airport-table-wrapper">
+
+        <table class="airport-table">
+
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Código OACI</th>
+              <th>Código</th>
+              <th>Ciudad</th>
+              <th>País</th>
+              <th>Continente</th>
+              <th>GMT</th>
+              <th>Capacidad</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let aeropuerto of aeropuertos">
+              <td>
+                #{{ aeropuerto.idAeropuerto }}
+              </td>
+
+              <td>
+                <span class="airport-code-badge">
+                  {{ aeropuerto.codigoOaci }}
+                </span>
+              </td>
+
+              <td>
+                {{ aeropuerto.codigo }}
+              </td>
+
+              <td>
+                {{ aeropuerto.ciudad }}
+              </td>
+
+              <td>
+                {{ aeropuerto.pais }}
+              </td>
+
+              <td>
+                {{ aeropuerto.continente }}
+              </td>
+
+              <td>
+                GMT {{ aeropuerto.gmt }}
+              </td>
+
+              <td>
+                {{ aeropuerto.capacidad }}
+              </td>
+
+              <td>
+                <span
+                  class="airport-status"
+                  [class.active]="aeropuerto.activo"
+                  [class.inactive]="!aeropuerto.activo">
+
+                  {{ aeropuerto.activo ? 'Activo' : 'Inactivo' }}
+
+                </span>
+              </td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
   </div>
 
   <p-toast></p-toast>
+
 </div>

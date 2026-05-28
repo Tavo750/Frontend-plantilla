@@ -1,150 +1,701 @@
-/* ========== WRAP ========== */
-.rutas-container {
-  padding: 1.5rem;
-  background: var(--color-bg, #f4f6fa);
-  min-height: 100%;
-  font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
-  color: #111827;
+/* =========================================================
+   PAGE
+========================================================= */
+
+.route-page {
+  padding: 2rem;
+  background: #f5f7fb;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
 }
 
-/* ========== HEADER ========== */
-.rutas-header {
+/* =========================================================
+   HEADER
+========================================================= */
+
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  margin-bottom: 2rem;
 }
-.page-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 0.25rem;
-  letter-spacing: -0.01em;
-}
-.page-sub { color: #6b7280; font-size: 0.875rem; margin: 0; }
 
-/* ========== STATS CHIPS ========== */
-.stats-row {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+.page-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
 }
-.stat-chip {
-  background: #ffffff;
+
+.page-subtitle {
+  margin-top: .4rem;
+  color: #64748b;
+  font-size: .95rem;
+}
+
+/* =========================================================
+   CARD BASE
+========================================================= */
+
+.planner-card,
+.detail-card {
+  background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.85rem 1.25rem;
+  border-radius: 14px;
+
+  padding: 1rem; /* antes 1.5rem */
+  margin-bottom: 1rem;
+
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.04),
+    0 2px 10px rgba(0,0,0,.03);
+}
+
+/* =========================================================
+   PLANNER
+========================================================= */
+
+.planner-header {
+  margin-bottom: 1.2rem;
+}
+
+.planner-title {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: .9rem;
+}
+
+.planner-title i {
+  font-size: 1.2rem;
+  margin-top: .2rem;
+  color: #0f172a;
+}
+
+.planner-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.planner-title p {
+  margin-top: .35rem;
+  color: #64748b;
+}
+
+/* =========================================================
+   SELECT
+========================================================= */
+
+.selector-container {
+  width: 100%;
+}
+
+.dropdown-item,
+.dropdown-selected {
+  display: flex;
   align-items: center;
-  min-width: 130px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
 }
-.stat-chip .value {
-  font-size: 1.75rem;
-  font-weight: 800;
+
+.dropdown-main {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.envio-id {
+  font-family: monospace;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.route-text {
   color: #111827;
-  line-height: 1;
-}
-.stat-chip .label {
-  font-size: 0.72rem;
-  color: #9ca3af;
-  margin-top: 0.25rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   font-weight: 500;
 }
 
-/* ========== FILTER BAR ========== */
-.filter-bar {
+.qty-badge {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 600;
+}
+
+/* =========================================================
+   DETAIL
+========================================================= */
+
+.detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
+
+  margin-bottom: 1rem; /* antes 2rem */
 }
-.filter-chips {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+
+.detail-label {
+  color: #64748b;
+  font-size: .75rem;
 }
-.chip {
-  padding: 0.3rem 1rem;
-  border-radius: 99px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1.5px solid #e5e7eb;
-  background: #ffffff;
-  color: #6b7280;
-  font-family: inherit;
-  transition: all 0.15s;
+
+.detail-id {
+  margin: .1rem 0 0;
+
+  font-size: 1.4rem; /* antes 2rem */
+  font-weight: 700;
+
+  line-height: 1.2;
 }
-.chip:hover {
-  border-color: #93c5fd;
+
+/* =========================================================
+   STATUS BADGES
+========================================================= */
+
+.badge-registrada,
+.badge-transito,
+.badge-entregada,
+.badge-retrasada,
+.badge-espera,
+.badge-default {
+
+  padding: .35rem .7rem;
+
+  border-radius: 999px;
+
+  font-size: .68rem; /* más pequeño */
+  font-weight: 700;
+}
+
+.badge-registrada {
+  background: #dbeafe;
   color: #2563eb;
-  background: #eff6ff;
-}
-.chip.active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: white;
 }
 
-/* ========== STATE BADGES ========== */
-.badge-registrada  { background: #dbeafe; color: #1d4ed8; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
-.badge-transito    { background: #fef9c3; color: #a16207; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
-.badge-entregada   { background: #dcfce7; color: #15803d; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
-.badge-retrasada   { background: #fee2e2; color: #dc2626; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
-.badge-espera      { background: #f3e8ff; color: #7e22ce; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
-.badge-default     { background: #f1f5f9; color: #475569; padding: 0.2rem 0.65rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
+.badge-transito {
+  background: #fef3c7;
+  color: #d97706;
+}
 
-/* ========== LOADING / ERROR ========== */
-.loading-container {
+.badge-entregada {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.badge-retrasada {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.badge-espera {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.badge-default {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* =========================================================
+   ROUTE VISUAL
+========================================================= */
+
+.route-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 1rem; /* antes 2rem */
+
+  margin-bottom: 1rem;
+}
+
+
+.airport-card {
+
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  border-radius: 14px;
+
+  padding: .9rem; /* antes 1.5rem */
+
+  min-width: 140px; /* antes 220px */
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 3rem;
-  gap: 1rem;
-  color: #6b7280;
-}
-.error-container {
-  text-align: center;
-  padding: 3rem;
-  color: #ef4444;
 }
 
-/* ========== ROUTE CELL ========== */
-.route-cell {
+.airport-label {
+  color: #64748b;
+
+  font-size: .72rem;
+
+  margin-bottom: .35rem;
+}
+
+.airport-code {
+
+  font-size: 1.5rem; /* antes 2rem */
+
+  font-weight: 800;
+
+  color: #0f172a;
+}
+
+.airport-city {
+
+  color: #64748b;
+
+  margin-top: .25rem;
+
+  font-size: .78rem;
+}
+
+.route-arrow {
+
+  display: flex;
+  align-items: center;
+
+  gap: .45rem;
+
+  min-width: 80px; /* antes 120px */
+}
+
+.route-arrow .line {
+  flex: 1;
+
+  height: 2px;
+
+  background: #cbd5e1;
+}
+
+.route-arrow i {
+
+  font-size: 1rem; /* antes 1.3rem */
+
+  color: #334155;
+}
+
+/* =========================================================
+   INFO GRID
+========================================================= */
+
+.info-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+
+  gap: .7rem; /* antes 1rem */
+}
+
+.info-card {
+
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 12px;
+
+  padding: .8rem; /* antes 1.2rem */
+
   display: flex;
   flex-direction: column;
 }
-.route-code {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #111827;
-}
-.route-city {
-  font-size: 0.75rem;
-  color: #9ca3af;
+
+.info-title {
+
+  color: #64748b;
+
+  font-size: .72rem;
+
+  margin-bottom: .45rem;
 }
 
-/* ========== TABLE OVERRIDES ========== */
-:host ::ng-deep .p-datatable-sm .p-datatable-tbody > tr > td {
-  color: #374151;
-  font-size: 0.82rem;
+.info-value {
+
+  font-size: 1rem; /* antes 1.2rem */
+
+  font-weight: 700;
+
+  color: #0f172a;
 }
-:host ::ng-deep .p-datatable-sm .p-datatable-thead > tr > th {
-  background: #f9fafb;
-  color: #6b7280;
-  font-size: 0.72rem;
+.info-value.primary {
+  color: #2563eb;
+}
+
+.info-date {
+
+  color: #0f172a;
+
+  font-size: .82rem;
+
+  font-weight: 500;
+}
+/* =========================================================
+   LOADING / ERROR
+========================================================= */
+
+.loading-container,
+.error-container {
+  background: white;
+  border-radius: 20px;
+  padding: 3rem;
+  text-align: center;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.error-container i {
+  font-size: 3rem;
+  color: #ef4444;
+  margin-bottom: 1rem;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .route-section {
+    flex-direction: column;
+  }
+
+  .route-arrow {
+    transform: rotate(90deg);
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+}
+
+.compact-card {
+  display: grid;
+
+  grid-template-columns:
+    90px     /* envio */
+    120px    /* estado */
+    120px    /* origen */
+    40px     /* flecha */
+    120px    /* destino */
+    90px     /* maletas */
+    90px     /* prioridad */
+    120px    /* registro */
+    120px;   /* limite */
+
+  align-items: center;
+  gap: 1rem;
+
+  padding: 1rem 1.3rem;
+
+  border-radius: 16px;
+
+  overflow-x: auto;
+}
+
+/* BLOQUES */
+
+.compact-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  min-height: 52px;
+}
+
+.id-block {
+  min-width: 70px;
+}
+
+/* LABELS */
+
+.mini-label {
+  font-size: .70rem;
+  color: #64748b;
+
+  margin-bottom: .25rem;
+
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+  letter-spacing: .4px;
 }
-:host ::ng-deep .p-datatable-sm .p-datatable-tbody > tr:hover > td {
-  background: #f9fafb;
+
+/* VALUES */
+
+.mini-value {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #0f172a;
+
+  line-height: 1.1;
+}
+
+.mini-value.strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.mini-value.primary {
+  color: #2563eb;
+}
+
+/* CITY */
+
+.mini-city {
+  font-size: .72rem;
+  color: #94a3b8;
+  margin-top: .15rem;
+}
+/* DATE */
+
+.mini-date {
+  font-size: .82rem;
+  color: #0f172a;
+}
+
+/* ARROW */
+
+.compact-arrow {
+  font-size: 1rem;
+  color: #64748b;
+  padding-top: .8rem;
+}
+
+/* BADGES MÁS PEQUEÑOS */
+
+.badge-registrada,
+.badge-transito,
+.badge-entregada,
+.badge-retrasada,
+.badge-espera,
+.badge-default {
+  padding: .3rem .65rem;
+  font-size: .68rem;
+}
+
+/* MOBILE */
+
+@media (max-width: 1000px) {
+
+  .compact-card {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+}
+
+.compact-arrow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  font-size: 1rem;
+  color: #64748b;
+}
+
+/* =========================================================
+   AIRPORTS SECTION
+========================================================= */
+
+.airports-section {
+  margin-top: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 1rem;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.airport-count {
+  font-size: .8rem;
+  background: #e2e8f0;
+  color: #334155;
+
+  padding: .35rem .7rem;
+  border-radius: 999px;
+}
+
+.airports-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fill, minmax(220px, 1fr));
+
+  gap: .9rem;
+}
+
+.airport-mini-card {
+  background: white;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 14px;
+
+  padding: .9rem;
+
+  transition: .2s ease;
+}
+
+.airport-mini-card:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 4px 12px rgba(0,0,0,.06);
+}
+
+.airport-mini-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: .7rem;
+}
+
+.airport-mini-code {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.airport-mini-id {
+  font-size: .72rem;
+
+  background: #eff6ff;
+  color: #2563eb;
+
+  padding: .2rem .5rem;
+
+  border-radius: 999px;
+}
+
+.airport-mini-info {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.airport-mini-city {
+  font-weight: 600;
+  color: #111827;
+}
+
+.airport-mini-country {
+  font-size: .82rem;
+  color: #64748b;
+}
+
+/* =========================================================
+   AIRPORT TABLE
+========================================================= */
+
+.airport-table-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.4rem;
+  margin-top: 1.5rem;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.04),
+    0 4px 14px rgba(0,0,0,.03);
+}
+
+.airport-table-header {
+  margin-bottom: 1.2rem;
+}
+
+.airport-table-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.airport-table-header p {
+  margin: .35rem 0 0;
+  font-size: .9rem;
+  color: #64748b;
+}
+
+.airport-table-wrapper {
+  overflow-x: auto;
+}
+
+.airport-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.airport-table th {
+  text-align: left;
+  padding: .75rem .6rem;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.airport-table td {
+  padding: .75rem .6rem;
+  font-size: .85rem;
+  color: #0f172a;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.airport-table tr:last-child td {
+  border-bottom: none;
+}
+
+.airport-code-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: .25rem .65rem;
+  border-radius: 8px;
+
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+
+  font-size: .78rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mini-country {
+  font-size: .7rem;
+  color: #64748b;
+}
+
+.mini-continent {
+  font-size: .68rem;
+  color: #2563eb;
+  font-weight: 600;
 }

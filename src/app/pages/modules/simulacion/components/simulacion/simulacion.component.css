@@ -611,3 +611,138 @@
   cursor: pointer; border: none;
 }
 .tl-pct { font-size: 0.75rem; color: #6b7280; min-width: 35px; text-align: right; }
+
+/* ── ENVÍOS POR AEROPUERTO ───────────────────────────────────── */
+.aero-list-header {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.25rem;
+}
+.aero-col-asig   { min-width: 48px; text-align: right; color: #16a34a; }
+.aero-col-noasig { min-width: 48px; text-align: right; color: #dc2626; }
+.aero-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  gap: 1px;
+}
+.aero-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  background: #fafafa;
+  border: 1px solid transparent;
+  transition: background 0.1s;
+}
+.aero-list-item:hover { background: #eff6ff; border-color: #dbeafe; }
+.aero-code   { font-weight: 700; color: #1d4ed8; flex: 1; font-family: monospace; }
+.aero-asig   { min-width: 48px; text-align: right; font-weight: 700; color: #16a34a; }
+.aero-noasig { min-width: 48px; text-align: right; font-weight: 700; color: #dc2626; }
+
+/* ── GESTIÓN DE VUELOS ───────────────────────────────────────── */
+.gestion-badge {
+  margin-left: auto;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.gestion-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  gap: 1px;
+}
+.gestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  background: #fafafa;
+  border: 1px solid transparent;
+  transition: background 0.1s;
+}
+.gestion-item:hover { background: #eff6ff; border-color: #dbeafe; }
+.gestion-cancelado {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+.gestion-cancelado .gestion-code {
+  color: #dc2626;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+.gestion-code {
+  font-weight: 700;
+  color: #1d4ed8;
+  font-family: monospace;
+  min-width: 72px;
+  font-size: 0.75rem;
+}
+.gestion-route {
+  flex: 1;
+  color: #6b7280;
+  font-size: 0.71rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-gestion {
+  flex-shrink: 0;
+  background: none;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: all 0.12s;
+  line-height: 1;
+}
+.btn-gestion-cancelar {
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+.btn-gestion-cancelar:hover { background: #fef2f2; }
+.btn-gestion-reactivar {
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+.btn-gestion-reactivar:hover { background: #f0fdf4; }
+
+/* ── DIALOG CONFIRMACIÓN ─────────────────────────────────────── */
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+}
+.confirm-icon { font-size: 2.2rem; color: #f59e0b; }
+.confirm-body p { margin: 0; font-size: 0.88rem; color: #111827; }
+.confirm-sub  { color: #6b7280 !important; font-size: 0.8rem !important; }
+.confirm-hint { color: #9ca3af !important; font-size: 0.73rem !important; font-style: italic; }
+.confirm-footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}

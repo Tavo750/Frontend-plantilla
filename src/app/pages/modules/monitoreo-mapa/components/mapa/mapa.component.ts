@@ -38,12 +38,12 @@ export class MapaComponent implements OnInit, OnDestroy {
   // El SVG es equirectangular con escala uniforme de 5.556 px/grado
   // (2000px / 360° = 5.556; 857px / 154.3° = 5.556)
   // Lat top = 84°N  ·  Lat bottom = -70.3°S  ·  Lng -180° a +180°
-  private readonly SVG_W    = 2000;
-  private readonly SVG_H    = 857;
-  private readonly LAT_MAX  = 84;
-  private readonly LAT_MIN  = -70.3;
-  private readonly LNG_MIN  = -180;
-  private readonly LNG_MAX  = 180;
+  private readonly SVG_W = 2000;
+  private readonly SVG_H = 857;
+  private readonly LAT_MAX = 84;
+  private readonly LAT_MIN = -70.3;
+  private readonly LNG_MIN = -180;
+  private readonly LNG_MAX = 180;
 
   readonly worldMapUrl = '/world.svg';
 
@@ -51,7 +51,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     private readonly aeropuertoService: AeropuertoService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.cargarAeropuertos();
@@ -107,7 +107,7 @@ export class MapaComponent implements OnInit, OnDestroy {
 
     this.renderBounds = {
       left: (cw - imgW) / 2,
-      top:  (ch - imgH) / 2,
+      top: (ch - imgH) / 2,
       imgW, imgH, cw, ch
     };
   }
@@ -128,7 +128,7 @@ export class MapaComponent implements OnInit, OnDestroy {
 
     // Corregir el letterbox: convertir fracción de SVG a píxeles dentro del contenedor
     const px = this.renderBounds.left + fx * this.renderBounds.imgW;
-    const py = this.renderBounds.top  + fy * this.renderBounds.imgH;
+    const py = this.renderBounds.top + fy * this.renderBounds.imgH;
 
     return {
       x: (px / this.renderBounds.cw) * 100,

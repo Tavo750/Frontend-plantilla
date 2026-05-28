@@ -16,13 +16,8 @@
       <label class="btn-upload" [class.loading]="cargandoCSV" title="Cargar múltiples envíos desde archivo CSV">
         <i [class]="cargandoCSV ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"></i>
         {{ cargandoCSV ? 'Cargando ' + csvProgreso + '%...' : 'Carga Masiva' }}
-        <input
-          type="file"
-          accept=".csv,.txt"
-          (change)="onArchivoCSV($event)"
-          style="display:none"
-          [disabled]="cargandoCSV"
-        />
+        <input type="file" accept=".csv,.txt" (change)="onArchivoCSV($event)" style="display:none"
+          [disabled]="cargandoCSV" />
       </label>
       <!-- Nuevo envío individual -->
       <button class="btn-primary" (click)="mostrarFormulario = !mostrarFormulario">
@@ -69,32 +64,16 @@
 
         <div class="form-field">
           <label>Aerolínea Cliente *</label>
-          <p-select
-            [(ngModel)]="idAerolinea"
-            [options]="aerolineas"
-            optionLabel="nombre"
-            optionValue="idAerolinea"
-            placeholder="Seleccione la aerolínea"
-            [filter]="true"
-            filterBy="nombre"
-            [showClear]="true"
-            styleClass="w-full"
-          ></p-select>
+          <p-select [(ngModel)]="idAerolinea" [options]="aerolineas" optionLabel="nombre" optionValue="idAerolinea"
+            placeholder="Seleccione la aerolínea" [filter]="true" filterBy="nombre" [showClear]="true"
+            styleClass="w-full"></p-select>
         </div>
 
         <div class="form-field">
           <label>Aeropuerto de Origen *</label>
-          <p-select
-            [(ngModel)]="idOrigen"
-            [options]="aeropuertos"
-            optionLabel="ciudad"
-            optionValue="idAeropuerto"
-            placeholder="Seleccione el aeropuerto de origen"
-            [filter]="true"
-            filterBy="ciudad,codigoOaci"
-            [showClear]="true"
-            styleClass="w-full"
-          ></p-select>
+          <p-select [(ngModel)]="idOrigen" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
+            placeholder="Seleccione el aeropuerto de origen" [filter]="true" filterBy="ciudad,codigoOaci"
+            [showClear]="true" styleClass="w-full"></p-select>
           <span *ngIf="getAeropuertoById(idOrigen) as ap" style="font-size:0.75rem;color:#9ca3af;">
             Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
           </span>
@@ -102,17 +81,9 @@
 
         <div class="form-field">
           <label>Aeropuerto de Destino *</label>
-          <p-select
-            [(ngModel)]="idDestino"
-            [options]="aeropuertos"
-            optionLabel="ciudad"
-            optionValue="idAeropuerto"
-            placeholder="Seleccione el aeropuerto de destino"
-            [filter]="true"
-            filterBy="ciudad,codigoOaci"
-            [showClear]="true"
-            styleClass="w-full"
-          ></p-select>
+          <p-select [(ngModel)]="idDestino" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
+            placeholder="Seleccione el aeropuerto de destino" [filter]="true" filterBy="ciudad,codigoOaci"
+            [showClear]="true" styleClass="w-full"></p-select>
           <span *ngIf="getAeropuertoById(idDestino) as ap" style="font-size:0.75rem;color:#9ca3af;">
             Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
           </span>
@@ -120,14 +91,8 @@
 
         <div class="form-field">
           <label>Cantidad de Maletas *</label>
-          <p-inputnumber
-            [(ngModel)]="cantidad"
-            [min]="1"
-            [max]="400"
-            [showButtons]="true"
-            styleClass="w-full"
-            placeholder="1 – 400"
-          ></p-inputnumber>
+          <p-inputnumber [(ngModel)]="cantidad" [min]="1" [max]="400" [showButtons]="true" styleClass="w-full"
+            placeholder="1 – 400"></p-inputnumber>
           <span style="font-size:0.75rem;color:#9ca3af;">Máximo 400 maletas por envío</span>
         </div>
 
@@ -137,12 +102,8 @@
         <button class="btn-secondary" (click)="mostrarFormulario = false; limpiarFormulario()">
           <i class="pi pi-times"></i> Cancelar
         </button>
-        <p-button
-          label="Registrar Envío"
-          icon="pi pi-check"
-          (onClick)="registrarEnvio()"
-          [loading]="enviando"
-        ></p-button>
+        <p-button label="Registrar Envío" icon="pi pi-check" (onClick)="registrarEnvio()"
+          [loading]="enviando"></p-button>
       </div>
     </div>
 
@@ -183,10 +144,7 @@
             </div>
           </div>
 
-          <div
-            class="info-alert"
-            [class.green]="isSameContinente()"
-            [class.blue]="!isSameContinente()">
+          <div class="info-alert" [class.green]="isSameContinente()" [class.blue]="!isSameContinente()">
             <i [class]="isSameContinente() ? 'pi pi-check-circle' : 'pi pi-info-circle'"></i>
             <span *ngIf="isSameContinente()">
               Mismo continente: Entrega garantizada en 1 día (tiempo de traslado: 12 horas)
@@ -225,12 +183,8 @@
 
   <!-- ── FILTROS ─────────────────────────────────────────────── -->
   <div class="filter-chips" *ngIf="!cargandoLista">
-    <button
-      *ngFor="let op of ESTADOS"
-      class="chip"
-      [class.active]="estadoFiltro === op.value"
-      (click)="filtrarPorEstado(op.value)"
-    >{{ op.label }}</button>
+    <button *ngFor="let op of ESTADOS" class="chip" [class.active]="estadoFiltro === op.value"
+      (click)="filtrarPorEstado(op.value)">{{ op.label }}</button>
   </div>
 
   <!-- ── LOADING ────────────────────────────────────────────── -->
@@ -243,32 +197,21 @@
   <div class="table-card" *ngIf="!cargandoLista">
     <div class="table-toolbar">
       <p-iconfield>
-        <p-inputicon styleClass="pi pi-search"/>
-        <input
-          pInputText
-          type="text"
-          (input)="onBuscar($event)"
-          placeholder="Buscar por aeropuerto, ciudad o aerolínea..."
-          style="width: 22rem"
-        />
+        <p-inputicon styleClass="pi pi-search" />
+        <input pInputText type="text" (input)="onBuscar($event)"
+          placeholder="Buscar por aeropuerto, ciudad o aerolínea..." style="width: 22rem" />
       </p-iconfield>
       <span class="toolbar-info">
         {{ enviosFiltrados.length }} envíos · {{ getTotalMaletas() | number }} maletas
       </span>
     </div>
 
-    <p-table
-      [value]="enviosFiltrados"
-      [paginator]="true"
-      [rows]="15"
-      [rowsPerPageOptions]="[10, 15, 25, 50]"
-      [showCurrentPageReport]="true"
-      currentPageReportTemplate="{first}–{last} de {totalRecords}"
-      styleClass="p-datatable-sm p-datatable-gridlines"
-    >
+    <p-table [value]="enviosFiltrados" [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 25, 50]"
+      [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} de {totalRecords}"
+      styleClass="p-datatable-sm p-datatable-gridlines">
       <ng-template #header>
         <tr>
-          <th>ID</th>
+          
           <th>Aerolínea</th>
           <th>Origen</th>
           <th>Destino</th>
@@ -282,7 +225,7 @@
 
       <ng-template #body let-e>
         <tr>
-          <td class="id-cell">#{{ e.idEnvio }}</td>
+            
           <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
           <td>
             <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
@@ -294,8 +237,7 @@
           </td>
           <td style="text-align:center; font-weight:700">{{ e.cantidad }}</td>
           <td>
-            <span class="estado-chip"
-              [style.color]="getEstadoColor(e.estado)"
+            <span class="estado-chip" [style.color]="getEstadoColor(e.estado)"
               [style.border-color]="getEstadoColor(e.estado)">
               {{ e.estado }}
             </span>

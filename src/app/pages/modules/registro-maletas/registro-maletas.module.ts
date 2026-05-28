@@ -15,4 +15,4 @@ import { PrimeNgModule } from '../../../prime-ng/prime-ng.module';
   ],
   providers: [MessageService]
 })
-export class RegistroMaletasModule {}
+export class RegistroMaletasModule { }

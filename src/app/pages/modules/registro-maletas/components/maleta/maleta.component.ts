@@ -56,7 +56,7 @@ export class MaletaComponent implements OnInit {
     private readonly aerolineaService: AerolineaService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.cargarReferencias();
@@ -344,16 +344,16 @@ export class MaletaComponent implements OnInit {
   /** Descarga una plantilla CSV con datos de ejemplo del sistema */
   descargarPlantillaCSV(): void {
     const aerolineaEj = this.aerolineas[0]?.nombre ?? 'Mi Aerolínea';
-    const origenEj    = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
-    const destinoEj   = this.aeropuertos[1]?.codigoOaci ?? 'DEST';
+    const origenEj = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
+    const destinoEj = this.aeropuertos[1]?.codigoOaci ?? 'DEST';
     const csv = [
       'aerolinea,origen,destino,cantidad',
       `${aerolineaEj},${origenEj},${destinoEj},10`,
       `${aerolineaEj},${destinoEj},${origenEj},15`
     ].join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url;
     a.download = 'plantilla-carga-masiva.csv';
     a.click();
