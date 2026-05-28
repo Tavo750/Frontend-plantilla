@@ -3,6 +3,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { RegisterBody } from '../../interfaces/registerBody';
+import { AerolineaService, Aerolinea } from '../../../../../core/services/aerolinea.service';
 
 @Component({
   selector: 'app-crear-usuario',
@@ -16,11 +17,14 @@ export class CrearUsuario implements OnInit {
   errorMessage = '';
   successMessage = '';
   showPassword = false;
+  aerolineas: Aerolinea[] = [];
+  loadingAerolineas = false;
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly authService: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly aerolineaService: AerolineaService
   ) {}
 
   ngOnInit(): void {
@@ -32,7 +36,22 @@ export class CrearUsuario implements OnInit {
       contrasena:      ['', [Validators.required, Validators.minLength(6)]],
       puesto:          ['', [Validators.required]],
       fotoUrl:         [''],
-      idAerolinea:     [null, [Validators.required, Validators.min(1)]]
+      idAerolinea:     [null, [Validators.required]]
+    });
+
+    this.cargarAerolineas();
+  }
+
+  cargarAerolineas(): void {
+    this.loadingAerolineas = true;
+    this.aerolineaService.listarAerolineas().subscribe({
+      next: (res) => {
+        this.aerolineas = res.data ?? [];
+        this.loadingAerolineas = false;
+      },
+      error: () => {
+        this.loadingAerolineas = false;
+      }
     });
   }
 

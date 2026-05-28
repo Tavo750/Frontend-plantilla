@@ -171,21 +171,25 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="reg-id-aerolinea">ID Aerolínea</label>
+            <label class="form-label" for="reg-id-aerolinea">Aerolínea</label>
             <div class="input-wrapper" [class.input-error]="idAerolinea.invalid && idAerolinea.touched">
-              <i class="pi pi-tag input-icon"></i>
-              <input
+              <i class="pi pi-send input-icon"></i>
+              <select
                 id="reg-id-aerolinea"
-                type="number"
-                class="form-input"
+                class="form-input form-select"
                 formControlName="idAerolinea"
-                placeholder="Ej: 1"
-                min="1"
-              />
+                [disabled]="loadingAerolineas"
+              >
+                <option [ngValue]="null" disabled selected>
+                  {{ loadingAerolineas ? 'Cargando...' : 'Selecciona una aerolínea' }}
+                </option>
+                <option *ngFor="let a of aerolineas" [ngValue]="a.idAerolinea">
+                  {{ a.nombre }} ({{ a.codigo }})
+                </option>
+              </select>
             </div>
             <span class="field-error" *ngIf="idAerolinea.invalid && idAerolinea.touched">
               <ng-container *ngIf="idAerolinea.errors?.['required']">Requerido.</ng-container>
-              <ng-container *ngIf="idAerolinea.errors?.['min']">Debe ser mayor a 0.</ng-container>
             </span>
           </div>
         </div>
