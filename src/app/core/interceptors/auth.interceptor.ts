@@ -36,9 +36,12 @@ export class AuthInterceptor implements HttpInterceptor {
       });
     }
 
+    // Rutas de autenticación: el error lo maneja el propio componente
+    const isAuthEndpoint = req.url.includes('/auth/login') || req.url.includes('/auth/register');
+
     return next.handle(authReq).pipe(
       catchError((error: HttpErrorResponse) => {
-        if (error.status === 401 || error.status === 403) {
+        if (!isAuthEndpoint && (error.status === 401 || error.status === 403)) {
           this.authService.logout().subscribe(() => {
             this.router.navigate(['/error']);
           });
