@@ -105,6 +105,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   mostrarConfirmCancelar = false;
   busquedaGestion    = '';
   cancelando         = false;
+  cancelacionExitosa = false;
+  codigoVueloCancelado = '';
 
   // ── Tooltip flotante ───────────────────────────────────────
   tooltip: { visible: boolean; x: number; y: number; lines: string[] } = {
@@ -194,6 +196,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.vuelosCancelados.clear();
     this.vueloParaCancelar = null;
     this.mostrarConfirmCancelar = false;
+    this.cancelacionExitosa = false;
+    this.codigoVueloCancelado = '';
     this.busquedaGestion = '';
     this.cancelando = false;
 
@@ -270,13 +274,12 @@ export class SimulacionComponent implements OnInit, OnDestroy {
           this.resumen = data.resumen as ResumenSimulacion;
           this.estado = 'listo';
           this.mensajeProgreso = '';
-          this.detener(); // Stop streaming auto-play
+          this.detener(); // Detener reproducción de streaming
           if (this.vuelos.length > 0) {
-            if (!this.tiempoInicioMs) {
-              this.tiempoInicioMs = Math.min(...this.vuelos.map(v => v.horaSalida.getTime()));
-              this.tiempoActualMs = this.tiempoInicioMs;
-            }
-            this.tiempoFinMs = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
+            // Recalcular tiempos con todos los vuelos recibidos
+            this.tiempoInicioMs = Math.min(...this.vuelos.map(v => v.horaSalida.getTime()));
+            this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
+            this.tiempoActualMs = this.tiempoInicioMs; // Rebobinar al inicio para ver todo el recorrido
           }
           this.computarArcos();
           this.actualizarEstado();
@@ -285,6 +288,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
             severity: 'success', summary: 'Simulación completa',
             detail: `${this.vuelos.length} vuelos · ${this.resumen?.enviosAsignados ?? 0} envíos asignados`
           });
+          // Reproducir automáticamente desde el día 1
+          this.iniciar();
         });
         this.cerrarSSE();
       });
@@ -325,6 +330,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.vuelosCancelados.clear();
     this.vueloParaCancelar = null;
     this.mostrarConfirmCancelar = false;
+    this.cancelacionExitosa = false;
+    this.codigoVueloCancelado = '';
     this.busquedaGestion = '';
     this.cancelando = false;
     this.cdr.detectChanges();
@@ -451,9 +458,9 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     return `Día ${dia} · ${hora}`;
   }
 
-  /** Arcos que se deben renderizar: excluye los ya aterrizados para no saturar el mapa */
+  /** Arcos que se deben renderizar: solo vuelos actualmente en tránsito */
   get arcosVisibles(): ArcoVuelo[] {
-    return this.arcosVuelo.filter(a => a.estado !== 'ATERRIZADO');
+    return this.arcosVuelo.filter(a => a.estado === 'EN_VUELO');
   }
 
   get progresoSlider(): number {
@@ -698,13 +705,9 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.simulacionService.cancelarVuelo(codigo).subscribe({
       next: () => {
         this.vuelosCancelados.add(codigo);
-        this.mostrarConfirmCancelar = false;
-        this.vueloParaCancelar = null;
+        this.codigoVueloCancelado = codigo;
         this.cancelando = false;
-        this.messageService.add({
-          severity: 'warn', summary: 'Vuelo cancelado',
-          detail: `${codigo} cancelado. Re-ejecuta la simulación para re-rutear los envíos.`
-        });
+        this.cancelacionExitosa = true; // Cambiar a fase 2: ofrecer reprogramar
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -714,6 +717,43 @@ export class SimulacionComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  cerrarDialogoCancelacion(): void {
+    this.mostrarConfirmCancelar = false;
+    this.cancelacionExitosa = false;
+    this.vueloParaCancelar = null;
+    this.codigoVueloCancelado = '';
+  }
+
+  reprogramarEnvios(): void {
+    const codigo = this.codigoVueloCancelado;
+    this.cerrarDialogoCancelacion();
+
+    // Resetear estado de animación sin re-importar datos de BD.
+    // El ALNS usará los vuelos ya guardados, con el cancelado marcado como CANCELADO.
+    this.detener();
+    this.cerrarSSE();
+    this.vuelos = []; this.vueloMap.clear();
+    this.arcosVuelo = []; this.planosEnMapa = [];
+    this.maletasEnAeropuerto.clear();
+    this.resumen = null; this.vueloSeleccionado = null;
+    this.diasRecibidos = 0; this.diasEsperados = this.dias;
+    this.tiempoInicioMs = 0; this.tiempoFinMs = 0; this.tiempoActualMs = 0;
+    this.eventosRecientes = []; this.estadosAnteriores.clear();
+    this.vuelosBuscados = []; this.busqueda = '';
+    this.resumenesAeropuerto.clear();
+    this.busquedaAeropuerto = '';
+    this.primerosVuelosRecibidos = false;
+    this.vuelosCancelados.clear();
+    this.busquedaGestion = '';
+    this.cancelando = false;
+
+    // Saltar importación y ejecutar directamente el streaming SSE
+    this.mostrarConfig = false;
+    this.mensajeProgreso = `Re-enrutando envíos (vuelo ${codigo} excluido)...`;
+    this.cdr.detectChanges();
+    this.iniciarStreaming();
   }
 
   reactivarVuelo(v: VueloSimulacion): void {

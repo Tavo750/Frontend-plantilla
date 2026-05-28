@@ -105,6 +105,21 @@
 }
 .btn-detener:hover { background: #dc2626; }
 
+.btn-reprogramar {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: #2563eb;
+  border: none;
+  color: white;
+  padding: 0.4rem 1rem;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-reprogramar:hover { background: #1d4ed8; }
+
 /* ── CONFIG BAR ──────────────────────────────────────────────── */
 .config-bar {
   background: #ffffff;
