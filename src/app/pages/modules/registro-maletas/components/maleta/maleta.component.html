@@ -211,7 +211,7 @@
       styleClass="p-datatable-sm p-datatable-gridlines">
       <ng-template #header>
         <tr>
-          <th>ID</th>
+          
           <th>Aerolínea</th>
           <th>Origen</th>
           <th>Destino</th>
@@ -225,7 +225,7 @@
 
       <ng-template #body let-e>
         <tr>
-          <td class="id-cell">#{{ e.idEnvio }}</td>
+            
           <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
           <td>
             <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
