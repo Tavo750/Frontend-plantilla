@@ -82,7 +82,7 @@ export class CrearUsuario implements OnInit {
     this.authService.register(body).subscribe({
       next: () => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/auth/login']);
       },
       error: (err) => {
         this.isLoading = false;
