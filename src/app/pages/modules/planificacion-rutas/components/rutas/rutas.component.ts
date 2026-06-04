@@ -1,6 +1,15 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { MessageService } from 'primeng/api';
-import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
+
+import {
+  EnvioService,
+  EnvioMaletas
+} from '../../../../../core/services/envio.service';
+
+import {
+  AeropuertoService,
+  Aeropuerto
+} from '../../../../../core/services/aeropuerto.service';
 
 @Component({
   selector: 'app-rutas',
@@ -9,29 +18,31 @@ import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.s
   styleUrl: './rutas.component.css'
 })
 export class RutasComponent implements OnInit {
+
   envios: EnvioMaletas[] = [];
-  enviosFiltrados: EnvioMaletas[] = [];
+  aeropuertos: Aeropuerto[] = [];
+  continentes: string[] = [];
+
+  envioSeleccionado: EnvioMaletas | null = null;
+  enviosSeleccionados: EnvioMaletas[] = [];
+
   cargando = false;
   error = false;
 
-  estadoOpciones = [
-    { label: 'Todos', value: null },
-    { label: 'Registrada', value: 'REGISTRADA' },
-    { label: 'En tránsito', value: 'EN_TRANSITO' },
-    { label: 'Entregada', value: 'ENTREGADA' },
-    { label: 'Retrasada', value: 'RETRASADA' },
-    { label: 'En espera', value: 'EN_ESPERA' }
-  ];
-  estadoSeleccionado: string | null = null;
-
   constructor(
     private readonly envioService: EnvioService,
+    private readonly aeropuertoService: AeropuertoService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit(): void {
+    this.cargarDatos();
+  }
+
+  cargarDatos(): void {
     this.cargarEnvios();
+    this.cargarAeropuertos();
   }
 
   cargarEnvios(): void {
@@ -41,7 +52,6 @@ export class RutasComponent implements OnInit {
     this.envioService.listarEnvios().subscribe({
       next: (response) => {
         this.envios = response.data ?? [];
-        this.enviosFiltrados = [...this.envios];
         this.cargando = false;
         this.cdr.detectChanges();
       },
@@ -49,36 +59,57 @@ export class RutasComponent implements OnInit {
         this.cargando = false;
         this.error = true;
         this.cdr.detectChanges();
+
         this.messageService.add({
           severity: 'error',
           summary: 'Error',
-          detail: 'No se pudo cargar la lista de envíos. Verifica que el backend esté activo.'
+          detail: 'No se pudo cargar la lista de envíos'
         });
       }
     });
   }
 
-  filtrarPorEstado(estado: string | null): void {
-    this.estadoSeleccionado = estado;
-    if (!estado) {
-      this.enviosFiltrados = [...this.envios];
-    } else {
-      this.enviosFiltrados = this.envios.filter(e => e.estado === estado);
-    }
+  cargarAeropuertos(): void {
+    this.aeropuertoService.listarAeropuertos().subscribe({
+      next: (response) => {
+        this.aeropuertos = response.data ?? [];
+
+        this.continentes = [
+          ...new Set(this.aeropuertos.map(a => a.continente))
+        ].sort();
+
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Advertencia',
+          detail: 'No se pudieron cargar los aeropuertos'
+        });
+      }
+    });
   }
 
-  filtrarTabla(event: Event): void {
-    const texto = (event.target as HTMLInputElement).value.toLowerCase();
-    const base = this.estadoSeleccionado
-      ? this.envios.filter(e => e.estado === this.estadoSeleccionado)
-      : this.envios;
+  agregarEnvioSeleccionado(): void {
+    if (!this.envioSeleccionado) return;
 
-    this.enviosFiltrados = base.filter(e =>
-      (e.aeropuertoOrigen?.codigoOaci ?? '').toLowerCase().includes(texto) ||
-      (e.aeropuertoOrigen?.ciudad ?? '').toLowerCase().includes(texto) ||
-      (e.aeropuertoDestino?.codigoOaci ?? '').toLowerCase().includes(texto) ||
-      (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(texto) ||
-      (e.aerolinea?.nombre ?? '').toLowerCase().includes(texto)
+    const existe = this.enviosSeleccionados.some(
+      env => env.idEnvio === this.envioSeleccionado?.idEnvio
+    );
+
+    if (!existe) {
+      this.enviosSeleccionados = [
+        ...this.enviosSeleccionados,
+        this.envioSeleccionado
+      ];
+    }
+
+    this.envioSeleccionado = null;
+  }
+
+  eliminarEnvio(idEnvio: number): void {
+    this.enviosSeleccionados = this.enviosSeleccionados.filter(
+      env => env.idEnvio !== idEnvio
     );
   }
 
@@ -90,10 +121,80 @@ export class RutasComponent implements OnInit {
       RETRASADA: 'badge-retrasada',
       EN_ESPERA: 'badge-espera'
     };
+
     return mapa[estado] ?? 'badge-default';
   }
 
   getTotalMaletas(): number {
-    return this.enviosFiltrados.reduce((sum, e) => sum + e.cantidad, 0);
+    return this.enviosSeleccionados.reduce(
+      (sum, env) => sum + env.cantidad,
+      0
+    );
+  }
+
+  getTotalEnvios(): number {
+    return this.enviosSeleccionados.length;
+  }
+
+  getRutasNacionales(): number {
+    return this.enviosSeleccionados.filter(
+      env => env.aeropuertoOrigen?.pais === env.aeropuertoDestino?.pais
+    ).length;
+  }
+
+  getRutasInternacionales(): number {
+    return this.enviosSeleccionados.filter(
+      env => env.aeropuertoOrigen?.pais !== env.aeropuertoDestino?.pais
+    ).length;
+  }
+
+  getRutasMismoContinente(): number {
+    return this.enviosSeleccionados.filter(env => {
+      const origen = this.obtenerAeropuertoPorCodigo(
+        env.aeropuertoOrigen?.codigoOaci ?? ''
+      );
+
+      const destino = this.obtenerAeropuertoPorCodigo(
+        env.aeropuertoDestino?.codigoOaci ?? ''
+      );
+
+      return origen?.continente === destino?.continente;
+    }).length;
+  }
+
+  getRutasDistintoContinente(): number {
+    return this.enviosSeleccionados.filter(env => {
+      const origen = this.obtenerAeropuertoPorCodigo(
+        env.aeropuertoOrigen?.codigoOaci ?? ''
+      );
+
+      const destino = this.obtenerAeropuertoPorCodigo(
+        env.aeropuertoDestino?.codigoOaci ?? ''
+      );
+
+      return origen?.continente !== destino?.continente;
+    }).length;
+  }
+
+  obtenerAeropuertoPorCodigo(codigoOaci: string): Aeropuerto | undefined {
+    return this.aeropuertos.find(
+      a => a.codigoOaci === codigoOaci
+    );
+  }
+
+  trackByEnvio(index: number, envio: EnvioMaletas): number {
+    return envio.idEnvio;
+  }
+
+  getPaisAeropuerto(codigoOaci?: string): string {
+  if (!codigoOaci) return '—';
+
+  return this.obtenerAeropuertoPorCodigo(codigoOaci)?.pais ?? '—';
+  }
+
+  getContinenteAeropuerto(codigoOaci?: string): string {
+    if (!codigoOaci) return '—';
+
+    return this.obtenerAeropuertoPorCodigo(codigoOaci)?.continente ?? '—';
   }
 }

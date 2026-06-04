@@ -63,9 +63,34 @@ export interface DiaSimulacion {
   providedIn: 'root'
 })
 export class SimulacionService {
-  private readonly apiUrl = `${environment.apiUrl}simulacion`;
+  private readonly apiUrl    = `${environment.apiUrl}simulacion`;
+  private readonly importUrl = `${environment.apiUrl}maestro/importacion`;
 
   constructor(private readonly http: HttpClient) {}
+
+  /** Importa los planes de vuelo generando vuelos para el rango dado */
+  importarVuelos(fechaInicio: string, dias: number): Observable<ApiResponse<any>> {
+    const params = new HttpParams()
+      .set('fechaInicio', fechaInicio)
+      .set('dias', dias.toString());
+    return this.http.post<ApiResponse<any>>(
+      `${this.importUrl}/vuelos`,
+      null,
+      { params }
+    );
+  }
+
+  /** Importa los envíos de todos los aeropuertos de _envios_preliminar_ para el rango dado */
+  importarTodosEnvios(fechaInicio: string, dias: number): Observable<ApiResponse<any>> {
+    const params = new HttpParams()
+      .set('fechaInicio', fechaInicio)
+      .set('dias', dias.toString());
+    return this.http.post<ApiResponse<any>>(
+      `${this.importUrl}/envios/todos`,
+      null,
+      { params }
+    );
+  }
 
   /** Endpoint batch (devuelve todo de una vez) */
   simularPeriodo(fechaInicio: string, dias: number): Observable<ApiResponse<any>> {
@@ -78,6 +103,18 @@ export class SimulacionService {
       null,
       { params }
     );
+  }
+
+  /** Cancela un vuelo por su código */
+  cancelarVuelo(codigoVuelo: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(
+      `${environment.apiUrl}maestro/vuelos/${encodeURIComponent(codigoVuelo)}/cancelar`, null);
+  }
+
+  /** Reactiva un vuelo cancelado */
+  reactivarVuelo(codigoVuelo: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(
+      `${environment.apiUrl}maestro/vuelos/${encodeURIComponent(codigoVuelo)}/reactivar`, null);
   }
 
   /** URL del endpoint SSE para usar con EventSource */

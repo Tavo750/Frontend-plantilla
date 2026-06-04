@@ -2,7 +2,6 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
-import { AerolineaService, Aerolinea } from '../../../../../core/services/aerolinea.service';
 
 @Component({
   selector: 'app-maleta',
@@ -13,13 +12,11 @@ import { AerolineaService, Aerolinea } from '../../../../../core/services/aeroli
 export class MaletaComponent implements OnInit {
 
   // ── Formulario ─────────────────────────────────────────────
-  idAerolinea: number | null = null;
   idOrigen: number | null = null;
   idDestino: number | null = null;
   cantidad: number = 1;
 
   // ── Opciones select ────────────────────────────────────────
-  aerolineas: Aerolinea[] = [];
   aeropuertos: Aeropuerto[] = [];
 
   // ── Estado UI ──────────────────────────────────────────────
@@ -53,7 +50,6 @@ export class MaletaComponent implements OnInit {
   constructor(
     private readonly envioService: EnvioService,
     private readonly aeropuertoService: AeropuertoService,
-    private readonly aerolineaService: AerolineaService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
   ) { }
@@ -64,12 +60,6 @@ export class MaletaComponent implements OnInit {
   }
 
   private cargarReferencias(): void {
-    this.aerolineaService.listarAerolineas().subscribe({
-      next: resp => {
-        this.aerolineas = resp.data ?? [];
-        this.cdr.detectChanges();
-      }
-    });
     this.aeropuertoService.listarAeropuertos().subscribe({
       next: resp => {
         this.aeropuertos = resp.data ?? [];
@@ -96,7 +86,7 @@ export class MaletaComponent implements OnInit {
   }
 
   registrarEnvio(): void {
-    if (!this.idAerolinea || !this.idOrigen || !this.idDestino || this.cantidad < 1) {
+    if (!this.idOrigen || !this.idDestino || this.cantidad < 1) {
       this.messageService.add({ severity: 'warn', summary: 'Campos requeridos', detail: 'Completa todos los campos del formulario.' });
       return;
     }
@@ -106,7 +96,6 @@ export class MaletaComponent implements OnInit {
     }
     this.enviando = true;
     this.envioService.crearEnvio({
-      idAerolinea: this.idAerolinea,
       idAeropuertoOrigen: this.idOrigen,
       idAeropuertoDestino: this.idDestino,
       cantidad: this.cantidad
@@ -128,7 +117,6 @@ export class MaletaComponent implements OnInit {
   }
 
   limpiarFormulario(): void {
-    this.idAerolinea = null;
     this.idOrigen = null;
     this.idDestino = null;
     this.cantidad = 1;
@@ -154,8 +142,7 @@ export class MaletaComponent implements OnInit {
         (e.aeropuertoOrigen?.codigoOaci ?? '').toLowerCase().includes(this.textoBusqueda) ||
         (e.aeropuertoOrigen?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda) ||
         (e.aeropuertoDestino?.codigoOaci ?? '').toLowerCase().includes(this.textoBusqueda) ||
-        (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda) ||
-        (e.aerolinea?.nombre ?? '').toLowerCase().includes(this.textoBusqueda)
+        (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda)
       );
     }
     this.enviosFiltrados = base;
@@ -242,27 +229,16 @@ export class MaletaComponent implements OnInit {
 
     for (let idx = 0; idx < filas.length; idx++) {
       const cols = filas[idx].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
-      if (cols.length < 4) {
+      if (cols.length < 3) {
         fallidos++;
-        errores.push(`Fila ${idx + 2}: formato inválido (4 columnas requeridas)`);
+        errores.push(`Fila ${idx + 2}: formato inválido (3 columnas requeridas: origen, destino, cantidad)`);
         this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
         this.cdr.detectChanges();
         continue;
       }
 
-      const [nombreAero, codigoOrigen, codigoDestino, cantidadStr] = cols;
+      const [codigoOrigen, codigoDestino, cantidadStr] = cols;
       const cantidad = parseInt(cantidadStr, 10);
-
-      const aerolinea = this.aerolineas.find(a =>
-        a.nombre.toLowerCase() === nombreAero.toLowerCase()
-      );
-      if (!aerolinea) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: aerolínea "${nombreAero}" no encontrada`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
-        continue;
-      }
 
       const origen = this.aeropuertos.find(a =>
         a.codigoOaci.toLowerCase() === codigoOrigen.toLowerCase()
@@ -304,7 +280,6 @@ export class MaletaComponent implements OnInit {
 
       await new Promise<void>(resolve => {
         this.envioService.crearEnvio({
-          idAerolinea: aerolinea.idAerolinea,
           idAeropuertoOrigen: origen.idAeropuerto,
           idAeropuertoDestino: destino.idAeropuerto,
           cantidad
@@ -343,13 +318,12 @@ export class MaletaComponent implements OnInit {
 
   /** Descarga una plantilla CSV con datos de ejemplo del sistema */
   descargarPlantillaCSV(): void {
-    const aerolineaEj = this.aerolineas[0]?.nombre ?? 'Mi Aerolínea';
-    const origenEj = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
+    const origenEj  = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
     const destinoEj = this.aeropuertos[1]?.codigoOaci ?? 'DEST';
     const csv = [
-      'aerolinea,origen,destino,cantidad',
-      `${aerolineaEj},${origenEj},${destinoEj},10`,
-      `${aerolineaEj},${destinoEj},${origenEj},15`
+      'origen,destino,cantidad',
+      `${origenEj},${destinoEj},10`,
+      `${destinoEj},${origenEj},15`
     ].join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

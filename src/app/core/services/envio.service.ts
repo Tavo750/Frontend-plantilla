@@ -43,7 +43,6 @@ export class EnvioService {
   }
 
   crearEnvio(body: {
-    idAerolinea: number;
     idAeropuertoOrigen: number;
     idAeropuertoDestino: number;
     cantidad: number;

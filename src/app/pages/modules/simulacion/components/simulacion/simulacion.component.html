@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <div class="header-center" *ngIf="estado === 'listo'">
+    <div class="header-center" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
       <span class="day-chip"><i class="pi pi-clock"></i> {{ diaActualLabel }}</span>
     </div>
 
@@ -18,12 +18,18 @@
       <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
         <i class="pi pi-sliders-h"></i>
       </button>
+      <ng-container *ngIf="estado === 'streaming' && tiempoInicioMs > 0">
+        <button class="btn-pausar" (click)="togglePlay()">
+          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
+          {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
+        </button>
+      </ng-container>
       <ng-container *ngIf="estado === 'listo'">
         <button class="btn-pausar" (click)="togglePlay()">
           <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
           {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
         </button>
-        <button class="btn-detener" (click)="detenerTodo()">
+        <button class="btn-detener" (click)="detener()">
           <i class="pi pi-stop-circle"></i> Detener
         </button>
       </ng-container>
@@ -45,22 +51,24 @@
         label="Ejecutar Simulación"
         icon="pi pi-play"
         (onClick)="ejecutarSimulacion()"
-        [loading]="estado === 'cargando' || estado === 'streaming'"
-        [disabled]="estado === 'cargando' || estado === 'streaming'"
+        [loading]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
+        [disabled]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
       ></p-button>
     </div>
   </div>
 
   <!-- ── STREAMING PROGRESS ─────────────────────────────────── -->
-  <div class="streaming-bar" *ngIf="estado === 'streaming'">
+  <div class="streaming-bar" *ngIf="estado === 'importando' || estado === 'cargando' || estado === 'streaming'">
     <div class="stream-info">
       <i class="pi pi-spin pi-spinner"></i>
       <span>{{ mensajeProgreso }}</span>
     </div>
-    <div class="stream-track">
-      <div class="stream-fill" [style.width.%]="progresoStreaming"></div>
-    </div>
-    <span class="stream-pct">{{ progresoStreaming }}%</span>
+    <ng-container *ngIf="estado === 'streaming'">
+      <div class="stream-track">
+        <div class="stream-fill" [style.width.%]="progresoStreaming"></div>
+      </div>
+      <span class="stream-pct">{{ progresoStreaming }}%</span>
+    </ng-container>
   </div>
 
   <!-- ── STATS BAR ─────────────────────────────────────────── -->
@@ -120,9 +128,9 @@
           [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
           preserveAspectRatio="xMidYMid meet"
         >
-          <!-- Arcos de vuelo -->
+          <!-- Arcos de vuelo (se ocultan al aterrizar) -->
           <path
-            *ngFor="let arco of arcosVuelo; trackBy: trackArco"
+            *ngFor="let arco of arcosVisibles; trackBy: trackArco"
             [attr.d]="arco.d"
             [class]="'arco arco-' + arco.estado"
             fill="none"
@@ -169,9 +177,7 @@
 
         <!-- Leyenda -->
         <div class="leyenda">
-          <div class="ley-item"><span class="ley-dot dot-pendiente"></span>Pendiente</div>
-          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En vuelo</div>
-          <div class="ley-item"><span class="ley-dot dot-aterrizado"></span>Aterrizado</div>
+          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
           <div class="ley-item"><span class="ley-dot dot-badge"></span>Almacén</div>
         </div>
 
@@ -229,6 +235,65 @@
           </div>
           <div class="search-hint" *ngIf="!busqueda && estado === 'listo'">
             {{ vuelos.length }} vuelos disponibles
+          </div>
+        </div>
+
+        <!-- Envíos por Aeropuerto -->
+        <div class="sidebar-card" *ngIf="resumenesAeropuerto.size > 0">
+          <div class="sidebar-card-title"><i class="pi pi-list"></i> Envíos por Aeropuerto</div>
+          <div class="search-wrap" style="margin-bottom:0.5rem">
+            <input class="sidebar-search" type="text" placeholder="Filtrar por OACI..."
+              [value]="busquedaAeropuerto" (input)="onBuscarAeropuerto($event)" />
+            <button class="search-clear" *ngIf="busquedaAeropuerto" (click)="limpiarBusquedaAeropuerto()">✕</button>
+          </div>
+          <div class="aero-list-header">
+            <span style="flex:1">OACI</span>
+            <span class="aero-col-asig">✓ Asig.</span>
+            <span class="aero-col-noasig">✗ Pend.</span>
+          </div>
+          <div class="aero-list">
+            <div class="aero-list-item" *ngFor="let r of resumenesAeropuertoFiltrados">
+              <span class="aero-code">{{ r.codigoOaci }}</span>
+              <span class="aero-asig">{{ r.asignados }}</span>
+              <span class="aero-noasig">{{ r.noAsignados }}</span>
+            </div>
+            <div *ngIf="resumenesAeropuertoFiltrados.length === 0" class="search-empty">Sin coincidencias</div>
+          </div>
+        </div>
+
+        <!-- Gestionar Vuelos -->
+        <div class="sidebar-card" *ngIf="vuelos.length > 0">
+          <div class="sidebar-card-title">
+            <i class="pi pi-ban"></i> Gestionar Vuelos
+            <span class="gestion-badge" *ngIf="vuelosCancelados.size > 0">
+              {{ vuelosCancelados.size }} cancelado(s)
+            </span>
+          </div>
+          <div class="search-wrap" style="margin-bottom:0.5rem">
+            <input class="sidebar-search" type="text"
+              placeholder="Buscar código, origen o destino..."
+              [value]="busquedaGestion" (input)="onBuscarGestion($event)" />
+            <button class="search-clear" *ngIf="busquedaGestion" (click)="limpiarBusquedaGestion()">✕</button>
+          </div>
+          <div class="gestion-list">
+            <div class="gestion-item" *ngFor="let v of vuelosGestionFiltrados"
+              [class.gestion-cancelado]="vuelosCancelados.has(v.codigoVuelo)">
+              <span class="gestion-code">{{ v.codigoVuelo }}</span>
+              <span class="gestion-route">{{ v.origen }} → {{ v.destino }}</span>
+              <button *ngIf="!vuelosCancelados.has(v.codigoVuelo)"
+                class="btn-gestion btn-gestion-cancelar"
+                (click)="pedirCancelarVuelo(v)"
+                title="Cancelar este vuelo">
+                <i class="pi pi-times-circle"></i>
+              </button>
+              <button *ngIf="vuelosCancelados.has(v.codigoVuelo)"
+                class="btn-gestion btn-gestion-reactivar"
+                (click)="reactivarVuelo(v)"
+                title="Reactivar este vuelo">
+                <i class="pi pi-check-circle"></i>
+              </button>
+            </div>
+            <div *ngIf="vuelosGestionFiltrados.length === 0" class="search-empty">Sin coincidencias</div>
           </div>
         </div>
 
@@ -374,6 +439,57 @@
     </div>
 
   </ng-container>
+
+  <!-- ── DIALOG: Cancelar vuelo / Reprogramar envíos ──────────── -->
+  <p-dialog
+    [(visible)]="mostrarConfirmCancelar"
+    [modal]="true"
+    [closable]="true"
+    [header]="cancelacionExitosa ? 'Vuelo cancelado' : 'Cancelar vuelo'"
+    [style]="{'width':'360px'}"
+    [draggable]="false"
+    [resizable]="false"
+    (onHide)="cerrarDialogoCancelacion()"
+  >
+
+    <!-- Fase 1: Confirmación de cancelación -->
+    <div class="confirm-body" *ngIf="!cancelacionExitosa && vueloParaCancelar">
+      <i class="pi pi-exclamation-triangle confirm-icon"></i>
+      <p>¿Cancelar el vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong>?</p>
+      <p class="confirm-sub">{{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
+      <p class="confirm-hint">
+        Los envíos afectados podrán reprogramarse con rutas alternativas.
+      </p>
+      <div class="confirm-footer">
+        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()" [disabled]="cancelando">
+          No, mantener
+        </button>
+        <button class="btn-detener" (click)="confirmarCancelar()" [disabled]="cancelando">
+          <i class="pi pi-spin pi-spinner" *ngIf="cancelando"></i>
+          <i class="pi pi-ban" *ngIf="!cancelando"></i>
+          {{ cancelando ? 'Cancelando...' : 'Sí, cancelar' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Fase 2: Vuelo cancelado → ofrecer reprogramar -->
+    <div class="confirm-body" *ngIf="cancelacionExitosa">
+      <i class="pi pi-check-circle" style="font-size:2.4rem;color:#4ade80;"></i>
+      <p>Vuelo <strong>{{ codigoVueloCancelado }}</strong> cancelado correctamente.</p>
+      <p class="confirm-hint">
+        ¿Deseas reprogramar ahora los envíos afectados con rutas alternativas?
+      </p>
+      <div class="confirm-footer">
+        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()">
+          Más tarde
+        </button>
+        <button class="btn-reprogramar" (click)="reprogramarEnvios()">
+          <i class="pi pi-refresh"></i> Reprogramar envíos
+        </button>
+      </div>
+    </div>
+
+  </p-dialog>
 
   <p-toast></p-toast>
 </div>

@@ -48,7 +48,7 @@
       </div>
     </div>
     <div class="csv-format-hint">
-      <strong>Formato CSV:</strong> aerolinea, origen (OACI), destino (OACI), cantidad
+      <strong>Formato CSV:</strong> origen (OACI), destino (OACI), cantidad
     </div>
   </div>
 
@@ -61,13 +61,6 @@
       <div class="card-desc">Complete la información del envío de maletas</div>
 
       <div class="form-grid">
-
-        <div class="form-field">
-          <label>Aerolínea Cliente *</label>
-          <p-select [(ngModel)]="idAerolinea" [options]="aerolineas" optionLabel="nombre" optionValue="idAerolinea"
-            placeholder="Seleccione la aerolínea" [filter]="true" filterBy="nombre" [showClear]="true"
-            styleClass="w-full"></p-select>
-        </div>
 
         <div class="form-field">
           <label>Aeropuerto de Origen *</label>
@@ -199,7 +192,7 @@
       <p-iconfield>
         <p-inputicon styleClass="pi pi-search" />
         <input pInputText type="text" (input)="onBuscar($event)"
-          placeholder="Buscar por aeropuerto, ciudad o aerolínea..." style="width: 22rem" />
+          placeholder="Buscar por aeropuerto o ciudad..." style="width: 22rem" />
       </p-iconfield>
       <span class="toolbar-info">
         {{ enviosFiltrados.length }} envíos · {{ getTotalMaletas() | number }} maletas
@@ -211,22 +204,17 @@
       styleClass="p-datatable-sm p-datatable-gridlines">
       <ng-template #header>
         <tr>
-          <th>ID</th>
-          <th>Aerolínea</th>
           <th>Origen</th>
           <th>Destino</th>
           <th style="text-align:center">Maletas</th>
           <th>Estado</th>
           <th>Fecha Registro</th>
           <th>Fecha Límite</th>
-          <th style="text-align:center">Prioridad</th>
         </tr>
       </ng-template>
 
       <ng-template #body let-e>
         <tr>
-          <td class="id-cell">#{{ e.idEnvio }}</td>
-          <td>{{ e.aerolinea?.nombre ?? '—' }}</td>
           <td>
             <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
             <span class="city">{{ e.aeropuertoOrigen?.ciudad }}</span>
@@ -244,13 +232,12 @@
           </td>
           <td>{{ e.fechaRegistro | date:'dd/MM/yy HH:mm' }}</td>
           <td>{{ e.fechaLimiteEntrega | date:'dd/MM/yy HH:mm' }}</td>
-          <td style="text-align:center">{{ e.prioridad }}</td>
         </tr>
       </ng-template>
 
       <ng-template #emptymessage>
         <tr>
-          <td colspan="9" class="empty-row">No hay envíos que mostrar.</td>
+          <td colspan="6" class="empty-row">No hay envíos que mostrar.</td>
         </tr>
       </ng-template>
     </p-table>
