@@ -130,7 +130,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   /** Milisegundos entre ticks de animación */
   private readonly TICK_MS  = 80;
   private readonly HORA_MS  = 3_600_000;
-  /** Horas de simulación que avanzan por tick a velocidad 1×  (0.25 = 15 min) */
+  /** Horas de simulación que avanzan por tick a velocidad 1×  (0.25 = 15 min) osea 1 es 1 hora */
   private readonly AVANCE_H = 0.05;
 
   private intervalId: any = null;

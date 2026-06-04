@@ -1,188 +1,266 @@
-<div class="container">
+<div class="monitor-wrap">
 
-  <!-- HEADER -->
-  <div class="header">
-    <div>
-      <h1>Monitoreo en Mapa</h1>
-      <p>Visualización en tiempo real de operaciones globales</p>
-    </div>
-    <button class="btn" (click)="toggleRefresh()">
-      {{ autoRefresh ? 'Actualizando...' : 'Actualizar' }}
-    </button>
-  </div>
+  <!-- ════════════════════════════════════════════════════════════
+       PANTALLA DE CARGA  (cargando / procesando)
+       ════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="estadoMonitoreo === 'cargando' || estadoMonitoreo === 'procesando'">
 
-  <!-- LOADING -->
-  <div *ngIf="cargando" class="loading-container">
-    <p-progressspinner strokeWidth="4" animationDuration=".8s"></p-progressspinner>
-    <span>Cargando aeropuertos...</span>
-  </div>
+    <div class="loading-screen">
 
-  <!-- ERROR -->
-  <div *ngIf="error && !cargando" class="error-container">
-    <i class="pi pi-exclamation-triangle" style="font-size: 3rem; display: block; margin-bottom: 1rem;"></i>
-    <p>No se pudo conectar con el servidor.</p>
-    <p-button label="Reintentar" icon="pi pi-refresh" (onClick)="cargarAeropuertos()"></p-button>
-  </div>
-
-  <!-- MAIN CONTENT -->
-  <ng-container *ngIf="!cargando && !error">
-
-    <!-- CONTROLS -->
-    <div class="card controls">
-
-      <div class="filters">
-
-        <span>🌍 Continente:</span>
-
-        <select (change)="onContinenteChange($event)">
-          <option value="">Todos los Continentes</option>
-          <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
-        </select>
-
-        <input type="text" class="search-input" (input)="filtrarTabla($event)"
-          placeholder="Buscar por código, ciudad o país..." />
-
+      <div class="ls-brand">
+        <i class="pi pi-globe ls-globe-icon"></i>
+        <span>Monitoreo en Mapa</span>
       </div>
 
-      <div class="zoom-buttons">
-        <button class="btn-icon">+</button>
-        <button class="btn-icon">−</button>
-      </div>
+      <!-- Estado: cargando aeropuertos + config -->
+      <ng-container *ngIf="estadoMonitoreo === 'cargando'">
+        <p-progressspinner strokeWidth="3" animationDuration=".7s" styleClass="ls-spinner"></p-progressspinner>
+        <h2 class="ls-title">Iniciando sistema de monitoreo</h2>
+        <p class="ls-sub">Cargando aeropuertos y configuración operativa...</p>
+      </ng-container>
 
-    </div>
-
-    <!-- MAIN GRID -->
-    <div class="main-grid">
-
-      <!-- MAP SECTION -->
-      <div class="map-section">
-
-        <div class="card">
-
-          <div class="card-header">
-            <h2>Mapa Global de Operaciones</h2>
-            <p>Aeropuertos posicionados con coordenadas reales del backend</p>
-          </div>
-
-          <!-- #mapContainerEl: referencia para medir el área real del mapa -->
-          <div class="map-container" #mapContainerEl>
-
-            <!-- Imagen del mapa: (load) dispara la medición y posicionamiento -->
-            <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
-
-            <!-- Overlay oscuro sobre el mapa -->
-            <div class="overlay"></div>
-
-            <!-- AEROPUERTOS sobre el mapa -->
-            <div *ngFor="let aeropuerto of aeropuertosFiltrados" class="airport" [style.left.%]="aeropuerto.x"
-              [style.top.%]="aeropuerto.y"
-              [title]="aeropuerto.codigoOaci + ' – ' + aeropuerto.ciudad + ', ' + aeropuerto.pais">
-              <div class="pulse" *ngIf="aeropuerto.activo"></div>
-              <div class="marker" [ngClass]="aeropuerto.activo ? 'active' : 'inactive'"></div>
-              <span>{{ aeropuerto.codigoOaci }}</span>
-            </div>
-
-            <!-- LEYENDA -->
-            <div class="legend">
-
-              <h3>Leyenda</h3>
-
-              <div class="legend-item">
-                <div class="legend-dot green"></div>
-                <span>Aeropuerto activo</span>
-              </div>
-
-              <div class="legend-item">
-                <div class="legend-dot gray"></div>
-                <span>Aeropuerto inactivo</span>
-              </div>
-
-            </div>
-
-            <!-- ESTADÍSTICAS EN VIVO -->
-            <div class="stats-box">
-
-              <h3>Estadísticas</h3>
-
-              <div class="stat-row">
-                <span>Aeropuertos</span>
-                <strong>{{ aeropuertosFiltrados.length }}</strong>
-              </div>
-
-              <div class="stat-row">
-                <span>Activos</span>
-                <strong>{{ getActivosCount() }}</strong>
-              </div>
-
-              <div class="stat-row">
-                <span>Capacidad total</span>
-                <strong>{{ getTotalCapacidad() }}</strong>
-              </div>
-
-            </div>
-
-          </div>
-
+      <!-- Estado: ALNS corriendo (con countdown visible) -->
+      <ng-container *ngIf="estadoMonitoreo === 'procesando'">
+        <div class="ls-processing-anim">
+          <i class="pi pi-cog ls-cog-spin"></i>
+          <i class="pi pi-send ls-plane-icon"></i>
+          <i class="pi pi-cog ls-cog-spin ls-cog-small"></i>
         </div>
-
-      </div>
-
-      <!-- SIDEBAR -->
-      <div class="sidebar">
-
-        <div class="card">
-
-          <div class="card-header">
-            <h2>Estado de Aeropuertos</h2>
-            <p>{{ aeropuertosFiltrados.length }} aeropuertos mostrados</p>
-          </div>
-
-          <div class="airport-status">
-
-            <div class="airport-card" *ngFor="let aeropuerto of aeropuertosFiltrados">
-
-              <div class="airport-top">
-
-                <div>
-                  <h4>{{ aeropuerto.codigoOaci }}</h4>
-                  <p>{{ aeropuerto.ciudad }}, {{ aeropuerto.pais }}</p>
-                </div>
-
-                <span [class]="getActivoClass(aeropuerto.activo)">
-                  {{ aeropuerto.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-
-              </div>
-
-              <div class="storage">
-
-                <div class="storage-label">
-                  <span>Capacidad</span>
-                  <span>{{ aeropuerto.capacidad }} maletas</span>
-                </div>
-
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="aeropuerto.storagePct"></div>
-                </div>
-
-              </div>
-
-            </div>
-
-            <div *ngIf="aeropuertosFiltrados.length === 0" class="empty-state">
-              No hay aeropuertos para mostrar.
-            </div>
-
-          </div>
-
+        <h2 class="ls-title">Calculando rutas óptimas</h2>
+        <p class="ls-sub">Asignando vuelos a los envíos pendientes...</p>
+        <!-- Countdown visible: el mapa aparece cuando llega a 0 -->
+        <div class="ls-countdown-box">
+          <div class="ls-cd-label">El mapa estará listo en</div>
+          <div class="ls-cd-timer">{{ cuentaRegresivaLabel }}</div>
         </div>
-
-      </div>
+      </ng-container>
 
     </div>
 
   </ng-container>
 
-  <p-toast></p-toast>
+  <!-- ════════════════════════════════════════════════════════════
+       MAPA OPERATIVO  (animando / agotado)
+       ════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="estadoMonitoreo === 'animando' || estadoMonitoreo === 'agotado'">
 
+    <!-- ── BARRA SUPERIOR ──────────────────────────────────────── -->
+    <div class="op-header">
+
+      <div class="op-brand">
+        <i class="pi pi-globe"></i>
+        <div>
+          <div class="op-brand-name">Monitoreo en Mapa</div>
+          <div class="op-brand-sub">Operaciones en tiempo real</div>
+        </div>
+      </div>
+
+      <!-- Reloj simulado -->
+      <div class="op-clock" *ngIf="estadoMonitoreo === 'animando'">
+        <i class="pi pi-clock"></i>
+        <span class="op-clock-time">{{ horaSimuladaLabel }}</span>
+      </div>
+
+      <!-- Stats rápidas -->
+      <div class="op-stats" *ngIf="estadoMonitoreo === 'animando'">
+        <div class="op-stat">
+          <span class="os-label">Vuelos activos</span>
+          <span class="os-val os-blue">{{ planosActivos }}</span>
+        </div>
+        <div class="op-stat-divider"></div>
+        <div class="op-stat">
+          <span class="os-label">Maletas asignadas</span>
+          <span class="os-val os-green">{{ statsAsignados }}</span>
+        </div>
+        <div class="op-stat-divider" *ngIf="statsNoAsignados > 0"></div>
+        <div class="op-stat" *ngIf="statsNoAsignados > 0">
+          <span class="os-label">Sin asignar</span>
+          <span class="os-val os-red">{{ statsNoAsignados }}</span>
+        </div>
+      </div>
+
+      <!-- Próxima replanificación -->
+      <div class="op-replan" *ngIf="estadoMonitoreo === 'animando'">
+        <ng-container *ngIf="!procesandoEnBackground">
+          <i class="pi pi-refresh"></i>
+          <span>Replanificando en <strong>{{ cuentaRegresivaLabel }}</strong></span>
+        </ng-container>
+        <ng-container *ngIf="procesandoEnBackground">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Calculando nuevas rutas...</span>
+        </ng-container>
+      </div>
+
+      <!-- Completado -->
+      <div class="op-done-badge" *ngIf="estadoMonitoreo === 'agotado'">
+        <i class="pi pi-check-circle"></i>
+        Todos los pedidos procesados · {{ numeroCiclo }} ciclo(s)
+      </div>
+
+    </div>
+
+    <!-- ── FILTROS ─────────────────────────────────────────────── -->
+    <div class="op-filters">
+      <span class="of-label">🌍 Continente:</span>
+      <select (change)="onContinenteChange($event)">
+        <option value="">Todos</option>
+        <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
+      </select>
+      <input type="text" class="of-search" (input)="filtrarTabla($event)"
+        placeholder="Buscar aeropuerto..." />
+    </div>
+
+    <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────── -->
+    <div class="op-content">
+
+      <!-- MAPA -->
+      <div class="map-container" #mapContainerEl
+           [style.cursor]="cursorStyle"
+           (mousedown)="onMapMouseDown($event)"
+           (mousemove)="onMapMouseMove($event)"
+           (mouseup)="onMapMouseUp()"
+           (mouseleave)="onMapMouseUp()"
+           (wheel)="onMapWheel($event)">
+
+        <!-- Capa transformable (zoom + pan) -->
+        <div class="map-transform-layer" [style.transform]="transformStyle">
+          <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
+          <div class="overlay"></div>
+
+          <!-- SVG overlay: arcos + aviones (estilo Simulación) -->
+          <svg class="svg-overlay"
+               [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
+               preserveAspectRatio="xMidYMid meet">
+
+            <!-- Aeropuertos en SVG (círculos + labels) -->
+            <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+              <circle [attr.cx]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
+                      [attr.cy]="aeropuertoSvgMap.get(a.codigoOaci)?.y"
+                      r="7"
+                      [class]="a.activo ? 'aero-nodo aero-activo' : 'aero-nodo'" />
+              <text [attr.x]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
+                    [attr.y]="(aeropuertoSvgMap.get(a.codigoOaci)?.y ?? 0) - 12"
+                    class="aero-label" text-anchor="middle">
+                {{ a.codigoOaci }}
+              </text>
+            </g>
+
+            <!-- Arcos de vuelos en tránsito -->
+            <path
+              *ngFor="let arco of arcosVuelo; trackBy: trackArco"
+              [attr.d]="arco.d"
+              class="arco arco-EN_VUELO"
+              fill="none" />
+
+            <!-- Aviones (misma forma que módulo Simulación) -->
+            <g
+              *ngFor="let plano of planosEnMapa; trackBy: trackPlano"
+              [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
+              class="avion"
+              (mouseenter)="onPlaneHover($event, plano)"
+              (mouseleave)="onHoverEnd()"
+              style="cursor:pointer">
+              <polygon points="0,-13 5,4 0,-2 -5,4"   class="avion-body"/>
+              <polygon points="-12,0 12,0 8,5 -8,5"  class="avion-wings"/>
+            </g>
+
+          </svg>
+        </div><!-- /map-transform-layer -->
+
+        <!-- Leyenda (fija, no escala con zoom) -->
+        <div class="leyenda">
+          <div class="ley-item"><span class="ley-dot dot-activo"></span>Aeropuerto activo</div>
+          <div class="ley-item"><span class="ley-dot dot-inactivo"></span>Inactivo</div>
+          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
+        </div>
+
+        <!-- Stats box (fija) -->
+        <div class="stats-box">
+          <div class="sb-title">Estado operativo</div>
+          <div class="sb-row">
+            <span>Hora simulada</span>
+            <strong class="sb-clock">{{ horaSimuladaLabel }}</strong>
+          </div>
+          <div class="sb-row">
+            <span>Aeropuertos</span>
+            <strong>{{ getActivosCount() }} / {{ aeropuertosFiltrados.length }}</strong>
+          </div>
+          <div class="sb-row">
+            <span>Vuelos activos</span>
+            <strong class="sb-blue">{{ planosActivos }}</strong>
+          </div>
+          <div class="sb-row" *ngIf="statsAsignados > 0">
+            <span>Maletas asignadas</span>
+            <strong class="sb-green">{{ statsAsignados }}</strong>
+          </div>
+          <div class="sb-row" *ngIf="statsNoAsignados > 0">
+            <span class="sb-red-lbl">Sin asignar</span>
+            <strong class="sb-red">{{ statsNoAsignados }}</strong>
+          </div>
+          <div class="sb-row">
+            <span>Ciclo actual</span>
+            <strong>#{{ numeroCiclo }}</strong>
+          </div>
+        </div>
+
+        <!-- Controles de zoom (solo visibles en fullscreen) -->
+        <div class="zoom-controls" *ngIf="isFullscreen">
+          <button class="zoom-btn" (click)="zoomIn()" title="Acercar">+</button>
+          <button class="zoom-btn zoom-reset" (click)="resetZoom()" title="Restablecer zoom">⊙</button>
+          <button class="zoom-btn" (click)="zoomOut()" title="Alejar">−</button>
+        </div>
+
+        <!-- Botón pantalla completa (siempre visible sobre el mapa) -->
+        <button class="fullscreen-btn" (click)="toggleFullscreen()" [title]="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'">
+          <i [class]="isFullscreen ? 'pi pi-times' : 'pi pi-arrows-alt'"></i>
+        </button>
+
+        <!-- Badge de replanificación en background -->
+        <div class="replan-badge" *ngIf="procesandoEnBackground">
+          <i class="pi pi-spin pi-spinner"></i> Actualizando rutas...
+        </div>
+
+        <!-- Tooltip de avión -->
+        <div class="map-tooltip" *ngIf="tooltip.visible"
+             [style.left.px]="tooltip.x" [style.top.px]="tooltip.y">
+          <div class="tt-title">{{ tooltip.lines[0] }}</div>
+          <div class="tt-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
+        </div>
+
+      </div><!-- /map-container -->
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-card">
+          <div class="sc-title">Estado de Aeropuertos</div>
+          <p class="sc-sub">{{ aeropuertosFiltrados.length }} aeropuertos</p>
+          <div class="airport-list">
+            <div class="airport-card" *ngFor="let a of aeropuertosFiltrados">
+              <div class="ac-top">
+                <div>
+                  <div class="ac-code">{{ a.codigoOaci }}</div>
+                  <div class="ac-city">{{ a.ciudad }}, {{ a.pais }}</div>
+                </div>
+                <span [class]="getActivoClass(a.activo)">{{ a.activo ? 'Activo' : 'Inactivo' }}</span>
+              </div>
+              <div class="ac-bar-label">
+                <span>Capacidad</span>
+                <span>{{ a.capacidad }}</span>
+              </div>
+              <div class="ac-bar">
+                <div class="ac-bar-fill" [style.width.%]="a.storagePct"></div>
+              </div>
+            </div>
+            <div *ngIf="aeropuertosFiltrados.length === 0" class="empty-state">
+              Sin aeropuertos.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /op-content -->
+
+  </ng-container>
+
+  <p-toast></p-toast>
 </div>
