@@ -1,11 +1,12 @@
 export const environment = {
   production: true,
 
-  // ── Producción ────────────────────────────────────────────────────────────
-  // Las URLs son RELATIVAS al dominio actual (sin host ni puerto).
-  // Nginx escucha en el puerto 80 y redirige el tráfico de /api/*
-  // hacia el backend interno en http://127.0.0.1:8080/.
-  // De esta forma nunca se expone el puerto 8080 al exterior.
-  apiUrl: 'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',       // Peticiones generales  → Nginx → :8080/api/
-  authUrl: '/api/auth/', // Peticiones de auth     → Nginx → :8080/auth/
+  // ── Producción (Dokploy) ───────────────────────────────────────────────────
+  // El frontend corre en su propio contenedor Docker administrado por Dokploy.
+  // El backend corre en un contenedor separado y se expone públicamente
+  // a través del dominio generado por Dokploy (sslip.io).
+  // El navegador hace las peticiones directamente al backend; Nginx solo
+  // sirve los archivos estáticos de Angular (SPA).
+  apiUrl:  'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',
+  authUrl: 'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/auth/',
 };
