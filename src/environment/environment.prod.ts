@@ -8,5 +8,5 @@ export const environment = {
   // El navegador hace las peticiones directamente al backend; Nginx solo
   // sirve los archivos estáticos de Angular (SPA).
   apiUrl:  'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',
-  authUrl: 'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',
+  authUrl: 'http://frontend7g-tasfb2bfrontend-fvm1gb-41d9b0-200-16-7-153.sslip.io/auth',
 };
