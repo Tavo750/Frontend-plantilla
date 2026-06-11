@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from '../interfaces/api-response.interface';
+import { CacheService } from './cache.service';
 
 export interface Aeropuerto {
   idAeropuerto: number;
@@ -18,15 +20,30 @@ export interface Aeropuerto {
   activo: boolean;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class AeropuertoService {
-  private readonly apiUrl = `${environment.apiUrl}maestro/aeropuertos`;
 
-  constructor(private readonly http: HttpClient) {}
+  private readonly apiUrl = `${environment.apiUrl}maestro/aeropuertos`;
+  private readonly CACHE_KEY = 'dp1_cache_aeropuertos';
+
+  constructor(
+    private readonly http: HttpClient,
+    private readonly cache: CacheService
+  ) {}
 
   listarAeropuertos(): Observable<ApiResponse<Aeropuerto[]>> {
-    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl);
+    const cached = this.cache.get<ApiResponse<Aeropuerto[]>>(this.CACHE_KEY);
+    if (cached) return of(cached);
+    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl).pipe(
+      tap(resp => { if (resp?.data?.length) this.cache.set(this.CACHE_KEY, resp); })
+    );
+  }
+
+  /** Fuerza recarga desde la BD e invalida el caché. */
+  refrescar(): Observable<ApiResponse<Aeropuerto[]>> {
+    this.cache.invalidate(this.CACHE_KEY);
+    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl).pipe(
+      tap(resp => { if (resp?.data?.length) this.cache.set(this.CACHE_KEY, resp); })
+    );
   }
 }

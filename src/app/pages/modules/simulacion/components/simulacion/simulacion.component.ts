@@ -5,6 +5,7 @@ import {
 import { MessageService } from 'primeng/api';
 import { SimulacionService, EventoSimulacion, ResumenSimulacion } from '../../../../../core/services/simulacion.service';
 import { AeropuertoService } from '../../../../../core/services/aeropuerto.service';
+import { SimulacionSesionService } from '../../services/simulacion-sesion.service';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────
 
@@ -143,11 +144,93 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     private readonly aeropuertoService: AeropuertoService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef,
-    private readonly ngZone: NgZone
+    private readonly ngZone: NgZone,
+    private readonly sesion: SimulacionSesionService
   ) {}
 
-  ngOnInit(): void  { this.cargarAeropuertos(); }
-  ngOnDestroy(): void { this.detener(); this.cerrarSSE(); }
+  ngOnInit(): void {
+    this.cargarAeropuertos();
+    // Si había una reproducción en curso, retomarla en vez de empezar de cero
+    if (this.sesion.tieneSesion) { this.restaurarSesion(); }
+  }
+
+  ngOnDestroy(): void {
+    // Guardar la sesión antes de soltar timer/SSE para poder retomarla al volver
+    this.guardarSesion();
+    this.detener();
+    this.cerrarSSE();
+  }
+
+  // ── PERSISTENCIA DE SESIÓN (sobrevive a la navegación) ─────
+
+  private guardarSesion(): void {
+    // Solo vale la pena conservar una reproducción ya lista para ver
+    if (this.estado !== 'listo') { return; }
+    this.sesion.guardar({
+      estado: this.estado,
+      vuelos: this.vuelos,
+      vueloMap: this.vueloMap,
+      arcosVuelo: this.arcosVuelo,
+      resumen: this.resumen,
+      eventosRecientes: this.eventosRecientes,
+      estadosAnteriores: this.estadosAnteriores,
+      resumenesAeropuerto: this.resumenesAeropuerto,
+      vuelosCancelados: this.vuelosCancelados,
+      tiempoInicioMs: this.tiempoInicioMs,
+      tiempoFinMs: this.tiempoFinMs,
+      tiempoActualMs: this.tiempoActualMs,
+      reproduciendo: this.reproduciendo,
+      velocidad: this.velocidad,
+      diasRecibidos: this.diasRecibidos,
+      diasEsperados: this.diasEsperados,
+      mostrarConfig: this.mostrarConfig,
+      primerosVuelosRecibidos: this.primerosVuelosRecibidos,
+      fechaInicio: this.fechaInicio,
+      dias: this.dias
+    });
+  }
+
+  private restaurarSesion(): void {
+    const m = this.sesion.obtener();
+    if (!m) return;
+
+    this.estado = m.estado;
+    this.vuelos = m.vuelos;
+    this.vueloMap = m.vueloMap;
+    this.arcosVuelo = m.arcosVuelo;
+    this.resumen = m.resumen;
+    this.eventosRecientes = m.eventosRecientes;
+    this.estadosAnteriores = m.estadosAnteriores;
+    this.resumenesAeropuerto = m.resumenesAeropuerto;
+    this.vuelosCancelados = m.vuelosCancelados;
+    this.tiempoInicioMs = m.tiempoInicioMs;
+    this.tiempoFinMs = m.tiempoFinMs;
+    this.velocidad = m.velocidad;
+    this.diasRecibidos = m.diasRecibidos;
+    this.diasEsperados = m.diasEsperados;
+    this.mostrarConfig = m.mostrarConfig;
+    this.primerosVuelosRecibidos = m.primerosVuelosRecibidos;
+    this.fechaInicio = m.fechaInicio;
+    this.dias = m.dias;
+
+    // Adelantar el reloj por el tiempo real que el usuario estuvo fuera
+    let t = m.tiempoActualMs;
+    if (m.reproduciendo && m.guardadoEnMs) {
+      const elapsedReal = Date.now() - m.guardadoEnMs;
+      const avanceSim = (elapsedReal / this.TICK_MS) * this.velocidad * this.HORA_MS * this.AVANCE_H;
+      t = Math.min(this.tiempoFinMs, m.tiempoActualMs + avanceSim);
+    }
+    this.tiempoActualMs = t;
+
+    this.computarArcos();
+    this.actualizarEstado();
+    this.cdr.detectChanges();
+
+    // Reanudar la reproducción si seguía corriendo y no llegó al final
+    if (m.reproduciendo && this.tiempoActualMs < this.tiempoFinMs) {
+      this.iniciar();
+    }
+  }
 
   @HostListener('window:resize') onResize(): void {}
 
@@ -180,6 +263,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   ejecutarSimulacion(): void {
     // Resetear estado
+    this.sesion.limpiar(); // descartar cualquier sesión previa guardada
     this.detener();
     this.cerrarSSE();
     this.vuelos = []; this.vueloMap.clear();
@@ -320,6 +404,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   }
 
   detenerTodo(): void {
+    this.sesion.limpiar(); // el usuario detuvo: no conservar sesión
     this.detener(); this.cerrarSSE();
     this.estado = 'idle'; this.mostrarConfig = true;
     this.vuelos = []; this.vueloMap.clear();

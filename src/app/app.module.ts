@@ -31,7 +31,8 @@ import { PrimeNgModule } from './prime-ng/prime-ng.module';
       theme: {
         preset: Aura,
         options: {
-          darkModeSelector: false
+          // Tema oscuro fijo: la clase .app-dark vive en <html> (index.html)
+          darkModeSelector: '.app-dark'
         }
       }
     })

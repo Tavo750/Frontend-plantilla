@@ -49,4 +49,13 @@ export class EnvioService {
   }): Observable<ApiResponse<EnvioMaletas>> {
     return this.http.post<ApiResponse<EnvioMaletas>>(this.apiUrl, body);
   }
+
+  /** Crea múltiples envíos en una sola petición (carga masiva CSV). */
+  crearEnviosBatch(envios: {
+    idAeropuertoOrigen: number;
+    idAeropuertoDestino: number;
+    cantidad: number;
+  }[]): Observable<ApiResponse<EnvioMaletas[]>> {
+    return this.http.post<ApiResponse<EnvioMaletas[]>>(`${this.apiUrl}/batch`, envios);
+  }
 }

@@ -155,7 +155,7 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
   border: 1px solid var(--color-border);

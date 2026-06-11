@@ -159,18 +159,54 @@ export class ReportesComponent implements OnInit {
       }));
   }
 
+  // ── Filtros ──────────────────────────────────────────────────
+  textoBusqueda   = '';
+  estadoFiltro    = '';
+  fechaRango:     Date[] = [];
+
   onBuscar(event: Event): void {
-    const txt = (event.target as HTMLInputElement).value.toLowerCase();
-    this.enviosFiltrados = txt
-      ? this.envios.filter(e =>
-          (e.aerolinea?.nombre ?? '').toLowerCase().includes(txt) ||
-          (e.aeropuertoOrigen?.codigoOaci ?? '').toLowerCase().includes(txt) ||
-          (e.aeropuertoOrigen?.ciudad ?? '').toLowerCase().includes(txt) ||
-          (e.aeropuertoDestino?.codigoOaci ?? '').toLowerCase().includes(txt) ||
-          (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(txt) ||
-          e.estado.toLowerCase().includes(txt)
-        )
-      : [...this.envios];
+    this.textoBusqueda = (event.target as HTMLInputElement).value;
+    this.aplicarFiltros();
+  }
+
+  onEstadoCambia(): void { this.aplicarFiltros(); }
+
+  onFechaCambia(): void { this.aplicarFiltros(); }
+
+  aplicarFiltros(): void {
+    let lista = [...this.envios];
+    const txt = this.textoBusqueda.toLowerCase();
+    if (txt) {
+      lista = lista.filter(e =>
+        (e.aerolinea?.nombre ?? '').toLowerCase().includes(txt) ||
+        (e.aeropuertoOrigen?.codigoOaci ?? '').toLowerCase().includes(txt) ||
+        (e.aeropuertoOrigen?.ciudad ?? '').toLowerCase().includes(txt) ||
+        (e.aeropuertoDestino?.codigoOaci ?? '').toLowerCase().includes(txt) ||
+        (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(txt) ||
+        e.estado.toLowerCase().includes(txt)
+      );
+    }
+    if (this.estadoFiltro) {
+      lista = lista.filter(e => e.estado === this.estadoFiltro);
+    }
+    if (this.fechaRango?.length === 2 && this.fechaRango[0] && this.fechaRango[1]) {
+      const desde = this.fechaRango[0].getTime();
+      const hasta = this.fechaRango[1].getTime() + 86399999; // hasta fin del día
+      lista = lista.filter(e => {
+        const t = new Date(e.fechaRegistro).getTime();
+        return t >= desde && t <= hasta;
+      });
+    }
+    this.enviosFiltrados = lista;
+    this.calcularEstadisticas();
+  }
+
+  limpiarFiltros(): void {
+    this.textoBusqueda   = '';
+    this.estadoFiltro    = '';
+    this.fechaRango      = [];
+    this.enviosFiltrados = [...this.envios];
+    this.calcularEstadisticas();
   }
 
   exportarCSV(): void {
@@ -184,13 +220,9 @@ export class ReportesComponent implements OnInit {
       `"${e.aeropuertoOrigen?.ciudad ?? ''}"`,
       e.aeropuertoDestino?.codigoOaci ?? '',
       `"${e.aeropuertoDestino?.ciudad ?? ''}"`,
-      e.cantidad,
-      e.estado,
-      e.prioridad,
-      e.fechaRegistro,
-      e.fechaLimiteEntrega
+      e.cantidad, e.estado, e.prioridad, e.fechaRegistro, e.fechaLimiteEntrega
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv  = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -200,6 +232,64 @@ export class ReportesComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 
+  exportarPDF(): void {
+    const printWin = window.open('', '_blank', 'width=900,height=700');
+    if (!printWin) return;
+
+    const fechaHoy = new Date().toLocaleString('es-PE');
+    const rangoLabel = this.fechaRango?.length === 2 && this.fechaRango[0] && this.fechaRango[1]
+      ? `${this.fechaRango[0].toLocaleDateString('es-PE')} — ${this.fechaRango[1].toLocaleDateString('es-PE')}`
+      : 'Todas las fechas';
+
+    const filas = this.enviosFiltrados.map(e => `
+      <tr>
+        <td>${e.idEnvio}</td>
+        <td>${e.aeropuertoOrigen?.codigoOaci ?? ''}</td>
+        <td>${e.aeropuertoDestino?.codigoOaci ?? ''}</td>
+        <td>${e.aerolinea?.nombre ?? ''}</td>
+        <td>${e.cantidad}</td>
+        <td><span class="estado ${e.estado.toLowerCase().replace('_','-')}">${e.estado.replace('_',' ')}</span></td>
+        <td>${e.prioridad}</td>
+        <td>${new Date(e.fechaRegistro).toLocaleDateString('es-PE')}</td>
+      </tr>`).join('');
+
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Reporte de Envíos</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #0f172a; margin: 20px; }
+  h1 { font-size: 18px; margin: 0 0 4px; color: #1d4ed8; }
+  .meta { color: #64748b; font-size: 10px; margin-bottom: 14px; }
+  .kpis { display: flex; gap: 16px; margin-bottom: 14px; }
+  .kpi { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 14px; min-width: 100px; }
+  .kpi-val { font-size: 18px; font-weight: 700; color: #1d4ed8; }
+  .kpi-lbl { font-size: 9px; color: #64748b; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .estado { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+  .registrada    { background: #dbeafe; color: #1d4ed8; }
+  .en-transito   { background: #fef3c7; color: #b45309; }
+  .entregada     { background: #dcfce7; color: #166534; }
+  .retrasada     { background: #fee2e2; color: #b91c1c; }
+  .en-espera     { background: #ede9fe; color: #6d28d9; }
+  @media print { body { margin: 10px; } }
+</style></head><body>
+<h1>Reporte de Envíos de Maletas</h1>
+<div class="meta">Generado: ${fechaHoy} &nbsp;|&nbsp; Rango: ${rangoLabel} &nbsp;|&nbsp; Total mostrados: ${this.enviosFiltrados.length}</div>
+<div class="kpis">
+  ${this.kpis.map(k => `<div class="kpi"><div class="kpi-val">${k.value}</div><div class="kpi-lbl">${k.label}</div></div>`).join('')}
+</div>
+<table>
+  <thead><tr><th>ID</th><th>Origen</th><th>Destino</th><th>Aerolínea</th><th>Cant.</th><th>Estado</th><th>Prior.</th><th>Registro</th></tr></thead>
+  <tbody>${filas}</tbody>
+</table>
+</body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+  }
+
   getEstadoColor(estado: string): string {
     return this.ESTADO_COLORS[estado] ?? '#94a3b8';
   }
@@ -207,4 +297,13 @@ export class ReportesComponent implements OnInit {
   getTotalMaletasFiltradas(): number {
     return this.enviosFiltrados.reduce((s, e) => s + e.cantidad, 0);
   }
+
+  readonly ESTADOS_LISTA = [
+    { label: 'Todos', value: '' },
+    { label: 'Registrada',  value: 'REGISTRADA'  },
+    { label: 'En Tránsito', value: 'EN_TRANSITO'  },
+    { label: 'Entregada',   value: 'ENTREGADA'    },
+    { label: 'Retrasada',   value: 'RETRASADA'    },
+    { label: 'En Espera',   value: 'EN_ESPERA'    }
+  ];
 }
