@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 14px;
   padding: 1.25rem;
   border: 1px solid var(--color-border);

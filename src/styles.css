@@ -25,21 +25,21 @@
   --color-success: #10b981;
   --color-info: #3b82f6;
 
-  /* -- Superficies -- */
-  --color-bg: #f4f6fa;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f0f2f5;
-  --color-border: #e5e7eb;
+  /* -- Superficies (paleta oscura slate, coherente con el Monitoreo Mapa) -- */
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-hover: #2b3a52;
+  --color-border: #334155;
 
   /* -- Texto -- */
-  --color-text-primary: #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-muted: #9ca3af;
+  --color-text-primary: #e2e8f0;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
 
   /* -- Sombras -- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
 
   /* -- Radios -- */
   --radius-sm: 6px;
@@ -109,12 +109,12 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c7d0;
+  background: #475569;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a0a7b5;
+  background: #5b6c84;
 }
 
 /* ========== SELECTION ========== */

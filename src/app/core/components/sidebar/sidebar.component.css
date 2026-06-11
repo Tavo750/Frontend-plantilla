@@ -4,7 +4,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #172554;       /* blue-950 */
+  background: #0b1120;       /* slate-950, armoniza con el fondo #0f172a */
   color: #ffffff;
   overflow: hidden;
   overflow-y: auto;

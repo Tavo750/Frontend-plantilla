@@ -1,52 +1,37 @@
 <div class="monitor-wrap">
 
   <!-- ════════════════════════════════════════════════════════════
-       PANTALLA DE CARGA  (cargando / procesando)
+       PANTALLA DE CARGA (solo arranque inicial)
        ════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="estadoMonitoreo === 'cargando' || estadoMonitoreo === 'procesando'">
-
+  <ng-container *ngIf="estadoMonitoreo === 'cargando'">
     <div class="loading-screen">
-
       <div class="ls-brand">
         <i class="pi pi-globe ls-globe-icon"></i>
         <span>Monitoreo en Mapa</span>
       </div>
-
-      <!-- Estado: cargando aeropuertos + config -->
-      <ng-container *ngIf="estadoMonitoreo === 'cargando'">
-        <p-progressspinner strokeWidth="3" animationDuration=".7s" styleClass="ls-spinner"></p-progressspinner>
-        <h2 class="ls-title">Iniciando sistema de monitoreo</h2>
-        <p class="ls-sub">Cargando aeropuertos y configuración operativa...</p>
-      </ng-container>
-
-      <!-- Estado: ALNS corriendo (con countdown visible) -->
-      <ng-container *ngIf="estadoMonitoreo === 'procesando'">
-        <div class="ls-processing-anim">
-          <i class="pi pi-cog ls-cog-spin"></i>
-          <i class="pi pi-send ls-plane-icon"></i>
-          <i class="pi pi-cog ls-cog-spin ls-cog-small"></i>
-        </div>
-        <h2 class="ls-title">Calculando rutas óptimas</h2>
-        <p class="ls-sub">Asignando vuelos a los envíos pendientes...</p>
-        <!-- Countdown visible: el mapa aparece cuando llega a 0 -->
-        <div class="ls-countdown-box">
-          <div class="ls-cd-label">El mapa estará listo en</div>
-          <div class="ls-cd-timer">{{ cuentaRegresivaLabel }}</div>
-        </div>
-      </ng-container>
-
+      <p-progressspinner strokeWidth="3" animationDuration=".7s" styleClass="ls-spinner"></p-progressspinner>
+      <h2 class="ls-title">Iniciando sistema de monitoreo</h2>
+      <p class="ls-sub">Cargando aeropuertos y configuración operativa...</p>
     </div>
-
   </ng-container>
 
   <!-- ════════════════════════════════════════════════════════════
-       MAPA OPERATIVO  (animando / agotado)
+       MAPA OPERATIVO (visible desde "procesando" en adelante)
        ════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="estadoMonitoreo === 'animando' || estadoMonitoreo === 'agotado'">
+  <ng-container *ngIf="estadoMonitoreo !== 'cargando'">
 
-    <!-- ── BARRA SUPERIOR ──────────────────────────────────────── -->
+    <!-- Overlay transparente: primer cálculo ALNS en curso -->
+    <div class="computing-overlay" *ngIf="estadoMonitoreo === 'procesando'">
+      <div class="co-badge">
+        <i class="pi pi-cog co-spin"></i>
+        <span>Calculando primeras rutas…</span>
+      </div>
+    </div>
+
+
+
+    <!-- ── BARRA SUPERIOR ─────────────────────────────────────── -->
     <div class="op-header">
-
       <div class="op-brand">
         <i class="pi pi-globe"></i>
         <div>
@@ -55,63 +40,112 @@
         </div>
       </div>
 
-      <!-- Reloj simulado -->
       <div class="op-clock" *ngIf="estadoMonitoreo === 'animando'">
         <i class="pi pi-clock"></i>
         <span class="op-clock-time">{{ horaSimuladaLabel }}</span>
       </div>
 
-      <!-- Stats rápidas -->
       <div class="op-stats" *ngIf="estadoMonitoreo === 'animando'">
-        <div class="op-stat">
-          <span class="os-label">Vuelos activos</span>
+        <div class="op-stat" title="Vuelos actualmente en el aire">
+          <span class="os-label">Vuelos en el aire</span>
           <span class="os-val os-blue">{{ planosActivos }}</span>
         </div>
         <div class="op-stat-divider"></div>
-        <div class="op-stat">
-          <span class="os-label">Maletas asignadas</span>
-          <span class="os-val os-green">{{ statsAsignados }}</span>
+        <div class="op-stat" title="Pedidos (envíos) que el algoritmo logró asignar a una ruta">
+          <span class="os-label">Pedidos asignados</span>
+          <span class="os-val os-green">{{ statsPedidosAsignados | number }}</span>
         </div>
-        <div class="op-stat-divider" *ngIf="statsNoAsignados > 0"></div>
-        <div class="op-stat" *ngIf="statsNoAsignados > 0">
-          <span class="os-label">Sin asignar</span>
-          <span class="os-val os-red">{{ statsNoAsignados }}</span>
+        <div class="op-stat-divider"></div>
+        <div class="op-stat" title="Total de maletas físicas en los pedidos asignados">
+          <span class="os-label">Maletas físicas</span>
+          <span class="os-val os-blue">{{ statsMaletasFisicas | number }}</span>
+        </div>
+        <div class="op-stat-divider" *ngIf="statsPedidosNoAsignados > 0"></div>
+        <div class="op-stat" *ngIf="statsPedidosNoAsignados > 0" title="Pedidos que no se pudieron asignar a ninguna ruta">
+          <span class="os-label">Pedidos sin asignar</span>
+          <span class="os-val os-red">{{ statsPedidosNoAsignados | number }}</span>
         </div>
       </div>
 
-      <!-- Próxima replanificación -->
+      <!-- Indicadores globales en header -->
+      <div class="op-indicadores" *ngIf="indicadoresGlobales">
+        <div class="op-ind-item">
+          <span class="op-ind-label">Flota</span>
+          <span class="op-ind-dot" [class]="getSemaforoClass(indicadoresGlobales.semaforoFlota)"></span>
+          <span class="op-ind-pct">{{ indicadoresGlobales.pctFlota }}%</span>
+        </div>
+        <div class="op-ind-sep"></div>
+        <div class="op-ind-item">
+          <span class="op-ind-label">Almacenes</span>
+          <span class="op-ind-dot" [class]="getSemaforoClass(indicadoresGlobales.semaforoAlmacenes)"></span>
+          <span class="op-ind-pct">{{ indicadoresGlobales.pctAlmacenes }}%</span>
+        </div>
+      </div>
+
       <div class="op-replan" *ngIf="estadoMonitoreo === 'animando'">
-        <ng-container *ngIf="!procesandoEnBackground">
-          <i class="pi pi-refresh"></i>
-          <span>Replanificando en <strong>{{ cuentaRegresivaLabel }}</strong></span>
-        </ng-container>
-        <ng-container *ngIf="procesandoEnBackground">
-          <i class="pi pi-spin pi-spinner"></i>
-          <span>Calculando nuevas rutas...</span>
-        </ng-container>
+        <i class="pi pi-circle-fill op-live-dot"></i>
+        <span>Simulación en vivo</span>
       </div>
 
-      <!-- Completado -->
       <div class="op-done-badge" *ngIf="estadoMonitoreo === 'agotado'">
         <i class="pi pi-check-circle"></i>
         Todos los pedidos procesados · {{ numeroCiclo }} ciclo(s)
       </div>
 
+      <!-- Botón configurar semáforo -->
+      <button class="btn-config-sem" (click)="abrirConfigSemaforo()" title="Configurar umbrales de semáforo">
+        <i class="pi pi-sliders-h"></i>
+      </button>
     </div>
 
-    <!-- ── FILTROS ─────────────────────────────────────────────── -->
+    <!-- ── MODAL: Configuración de semáforo ──────────────────── -->
+    <p-dialog header="Configurar umbrales de semáforo"
+              [(visible)]="mostrarConfigSemaforo"
+              [modal]="true" [style]="{width:'400px'}"
+              [closable]="true" [dismissableMask]="true">
+      <div class="sem-config-body" *ngIf="parametroEditando">
+        <p class="sem-config-desc">
+          Define los porcentajes de ocupación que activan cada nivel de alerta.
+        </p>
+        <div class="sem-config-row">
+          <div class="sem-config-dot sem-verde"></div>
+          <span>Verde: 0% — &lt; {{ parametroEditando.umbralAmbar }}%</span>
+        </div>
+        <div class="sem-config-row">
+          <div class="sem-config-dot sem-amarillo"></div>
+          <label>Umbral Ámbar (%)</label>
+          <input type="number" [(ngModel)]="parametroEditando.umbralAmbar"
+                 min="1" max="99" class="sem-input" />
+        </div>
+        <div class="sem-config-row">
+          <div class="sem-config-dot sem-rojo"></div>
+          <label>Umbral Rojo (%)</label>
+          <input type="number" [(ngModel)]="parametroEditando.umbralRojo"
+                 min="2" max="100" class="sem-input" />
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <button class="btn-cfg-cancel" (click)="mostrarConfigSemaforo = false">Cancelar</button>
+        <button class="btn-cfg-save" (click)="guardarParametroSemaforo()" [disabled]="guardandoParametro">
+          <i [class]="guardandoParametro ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
+          Guardar
+        </button>
+      </ng-template>
+    </p-dialog>
+
+    <!-- ── FILTROS DEL MAPA ───────────────────────────────────── -->
     <div class="op-filters">
-      <span class="of-label">🌍 Continente:</span>
+      <span class="of-label">Continente:</span>
       <select (change)="onContinenteChange($event)">
         <option value="">Todos</option>
         <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
       </select>
       <input type="text" class="of-search" (input)="filtrarTabla($event)"
-        placeholder="Buscar aeropuerto..." />
+             placeholder="Buscar aeropuerto..." />
     </div>
 
-    <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────── -->
-    <div class="op-content">
+    <!-- ── CONTENIDO PRINCIPAL ───────────────────────────────── -->
+    <div class="op-content" [class.panel-collapsed]="panelCollapsed">
 
       <!-- MAPA -->
       <div class="map-container" #mapContainerEl
@@ -122,22 +156,23 @@
            (mouseleave)="onMapMouseUp()"
            (wheel)="onMapWheel($event)">
 
-        <!-- Capa transformable (zoom + pan) -->
+        <!-- Capa transformable -->
         <div class="map-transform-layer" [style.transform]="transformStyle">
           <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
           <div class="overlay"></div>
 
-          <!-- SVG overlay: arcos + aviones (estilo Simulación) -->
           <svg class="svg-overlay"
                [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
                preserveAspectRatio="xMidYMid meet">
 
-            <!-- Aeropuertos en SVG (círculos + labels) -->
-            <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+            <!-- Aeropuertos (clicables → selección en panel) — usa la lista filtrada por continente -->
+            <g *ngFor="let a of aeropuertosFiltrados; trackBy: trackAero"
+               (click)="seleccionarAeropuerto(a.codigoOaci, 'mapa')"
+               style="cursor:pointer">
               <circle [attr.cx]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
                       [attr.cy]="aeropuertoSvgMap.get(a.codigoOaci)?.y"
                       r="7"
-                      [class]="a.activo ? 'aero-nodo aero-activo' : 'aero-nodo'" />
+                      [class]="'aero-nodo' + (a.activo ? ' aero-activo' : '') + (selectedAeropuertoCod === a.codigoOaci ? ' aero-selected' : '')" />
               <text [attr.x]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
                     [attr.y]="(aeropuertoSvgMap.get(a.codigoOaci)?.y ?? 0) - 12"
                     class="aero-label" text-anchor="middle">
@@ -146,35 +181,41 @@
             </g>
 
             <!-- Arcos de vuelos en tránsito -->
-            <path
-              *ngFor="let arco of arcosVuelo; trackBy: trackArco"
-              [attr.d]="arco.d"
-              class="arco arco-EN_VUELO"
-              fill="none" />
+            <path *ngFor="let arco of arcosVuelo; trackBy: trackArco"
+                  [attr.d]="arco.d"
+                  class="arco arco-EN_VUELO"
+                  fill="none" />
 
-            <!-- Aviones (misma forma que módulo Simulación) -->
-            <g
-              *ngFor="let plano of planosEnMapa; trackBy: trackPlano"
-              [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
-              class="avion"
-              (mouseenter)="onPlaneHover($event, plano)"
-              (mouseleave)="onHoverEnd()"
-              style="cursor:pointer">
-              <polygon points="0,-13 5,4 0,-2 -5,4"   class="avion-body"/>
+            <!-- Arcos de ruta seleccionada (resaltados) -->
+            <path *ngFor="let arco of rutaArcos; trackBy: trackArco"
+                  [attr.d]="arco.d"
+                  class="arco arco-ruta"
+                  fill="none" />
+
+            <!-- Aviones (clicables → selección en panel) -->
+            <g *ngFor="let plano of planosEnMapa; trackBy: trackPlano"
+               [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
+               [class]="'avion' + (selectedVueloCod === plano.vuelo.codigoVuelo ? ' avion-selected' : '')"
+               (mouseenter)="onPlaneHover($event, plano)"
+               (mouseleave)="onHoverEnd()"
+               (click)="seleccionarVuelo(plano.vuelo.codigoVuelo, 'mapa')"
+               style="cursor:pointer">
+              <polygon points="0,-13 5,4 0,-2 -5,4"  class="avion-body"/>
               <polygon points="-12,0 12,0 8,5 -8,5"  class="avion-wings"/>
             </g>
 
           </svg>
-        </div><!-- /map-transform-layer -->
-
-        <!-- Leyenda (fija, no escala con zoom) -->
-        <div class="leyenda">
-          <div class="ley-item"><span class="ley-dot dot-activo"></span>Aeropuerto activo</div>
-          <div class="ley-item"><span class="ley-dot dot-inactivo"></span>Inactivo</div>
-          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
         </div>
 
-        <!-- Stats box (fija) -->
+        <!-- Leyenda -->
+        <div class="leyenda">
+          <div class="ley-item"><span class="ley-dot dot-activo"></span>Activo</div>
+          <div class="ley-item"><span class="ley-dot dot-inactivo"></span>Inactivo</div>
+          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
+          <div class="ley-item"><span class="ley-dot dot-ruta"></span>Ruta envío</div>
+        </div>
+
+        <!-- Stats box -->
         <div class="stats-box">
           <div class="sb-title">Estado operativo</div>
           <div class="sb-row">
@@ -189,74 +230,250 @@
             <span>Vuelos activos</span>
             <strong class="sb-blue">{{ planosActivos }}</strong>
           </div>
-          <div class="sb-row" *ngIf="statsAsignados > 0">
-            <span>Maletas asignadas</span>
-            <strong class="sb-green">{{ statsAsignados }}</strong>
+          <div class="sb-row" *ngIf="statsPedidosAsignados > 0">
+            <span>Pedidos asignados</span>
+            <strong class="sb-green">{{ statsPedidosAsignados | number }}</strong>
           </div>
-          <div class="sb-row" *ngIf="statsNoAsignados > 0">
-            <span class="sb-red-lbl">Sin asignar</span>
-            <strong class="sb-red">{{ statsNoAsignados }}</strong>
+          <div class="sb-row" *ngIf="statsMaletasFisicas > 0">
+            <span>Maletas físicas</span>
+            <strong class="sb-blue">{{ statsMaletasFisicas | number }}</strong>
+          </div>
+          <div class="sb-row" *ngIf="statsPedidosNoAsignados > 0">
+            <span class="sb-red-lbl">Pedidos sin asignar</span>
+            <strong class="sb-red">{{ statsPedidosNoAsignados | number }}</strong>
           </div>
           <div class="sb-row">
-            <span>Ciclo actual</span>
+            <span>Ciclo de planificación</span>
             <strong>#{{ numeroCiclo }}</strong>
           </div>
         </div>
 
-        <!-- Controles de zoom (solo visibles en fullscreen) -->
+        <!-- Controles de zoom (fullscreen) -->
         <div class="zoom-controls" *ngIf="isFullscreen">
           <button class="zoom-btn" (click)="zoomIn()" title="Acercar">+</button>
-          <button class="zoom-btn zoom-reset" (click)="resetZoom()" title="Restablecer zoom">⊙</button>
+          <button class="zoom-btn zoom-reset" (click)="resetZoom()" title="Restablecer">⊙</button>
           <button class="zoom-btn" (click)="zoomOut()" title="Alejar">−</button>
         </div>
 
-        <!-- Botón pantalla completa (siempre visible sobre el mapa) -->
-        <button class="fullscreen-btn" (click)="toggleFullscreen()" [title]="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'">
+        <!-- Pantalla completa -->
+        <button class="fullscreen-btn" (click)="toggleFullscreen()"
+                [title]="isFullscreen ? 'Salir' : 'Pantalla completa'">
           <i [class]="isFullscreen ? 'pi pi-times' : 'pi pi-arrows-alt'"></i>
         </button>
 
-        <!-- Badge de replanificación en background -->
+        <!-- Badge replanificación en background -->
         <div class="replan-badge" *ngIf="procesandoEnBackground">
           <i class="pi pi-spin pi-spinner"></i> Actualizando rutas...
         </div>
 
-        <!-- Tooltip de avión -->
+        <!-- Tooltip -->
         <div class="map-tooltip" *ngIf="tooltip.visible"
              [style.left.px]="tooltip.x" [style.top.px]="tooltip.y">
           <div class="tt-title">{{ tooltip.lines[0] }}</div>
           <div class="tt-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
         </div>
 
+        <!-- Botón colapsar panel -->
+        <button class="panel-toggle-btn" (click)="togglePanel()"
+                [title]="panelCollapsed ? 'Mostrar panel' : 'Ocultar panel'">
+          <i [class]="panelCollapsed ? 'pi pi-chevron-left' : 'pi pi-chevron-right'"></i>
+        </button>
+
       </div><!-- /map-container -->
 
-      <!-- SIDEBAR -->
-      <div class="sidebar">
-        <div class="sidebar-card">
-          <div class="sc-title">Estado de Aeropuertos</div>
-          <p class="sc-sub">{{ aeropuertosFiltrados.length }} aeropuertos</p>
-          <div class="airport-list">
-            <div class="airport-card" *ngFor="let a of aeropuertosFiltrados">
-              <div class="ac-top">
-                <div>
-                  <div class="ac-code">{{ a.codigoOaci }}</div>
-                  <div class="ac-city">{{ a.ciudad }}, {{ a.pais }}</div>
-                </div>
-                <span [class]="getActivoClass(a.activo)">{{ a.activo ? 'Activo' : 'Inactivo' }}</span>
+      <!-- ════════════════════════════════════════════════
+           PANEL LATERAL (tabbed)
+           ════════════════════════════════════════════════ -->
+      <div class="panel" *ngIf="!panelCollapsed">
+
+        <!-- Filtro semáforo global -->
+        <div class="panel-sem-filter">
+          <span class="psf-label">Filtrar:</span>
+          <button class="sem-chip" [class.active]="semaforoMapFiltro === null"
+                  (click)="filtrarPorSemaforo(null)">Todos</button>
+          <button class="sem-chip chip-verde" [class.active]="semaforoMapFiltro === 'VERDE'"
+                  (click)="filtrarPorSemaforo('VERDE')">Verde</button>
+          <button class="sem-chip chip-amarillo" [class.active]="semaforoMapFiltro === 'AMARILLO'"
+                  (click)="filtrarPorSemaforo('AMARILLO')">Amarillo</button>
+          <button class="sem-chip chip-rojo" [class.active]="semaforoMapFiltro === 'ROJO'"
+                  (click)="filtrarPorSemaforo('ROJO')">Rojo</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="panel-tabs">
+          <button class="ptab" [class.ptab-active]="activeTab === 'almacenes'"
+                  (click)="activeTab = 'almacenes'">
+            Almacenes
+            <span class="ptab-count">{{ panelAlmacenes.length }}</span>
+          </button>
+          <button class="ptab" [class.ptab-active]="activeTab === 'vuelos'"
+                  (click)="activeTab = 'vuelos'">
+            Vuelos / UT
+            <span class="ptab-count">{{ panelVuelos.length }}</span>
+          </button>
+          <button class="ptab" [class.ptab-active]="activeTab === 'envios'"
+                  (click)="activeTab = 'envios'">
+            Envíos
+            <span class="ptab-count">{{ panelEnvios.length }}</span>
+          </button>
+        </div>
+
+        <!-- ══════ TAB: ALMACENES ══════ -->
+        <ng-container *ngIf="activeTab === 'almacenes'">
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="filtroAlmacenCodigo"
+                   (ngModelChange)="aplicarFiltrosAlmacenes()"
+                   placeholder="Código / Ciudad..." class="pf-input" />
+            <select [(ngModel)]="filtroAlmacenContinente"
+                    (ngModelChange)="aplicarFiltrosAlmacenes()" class="pf-select">
+              <option value="">Continente</option>
+              <option *ngFor="let c of continentesPanel" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+          <div class="panel-sort">
+            <span class="ps-label">Ordenar:</span>
+            <button class="sort-btn" [class.sort-active]="sortAlmacen === 'ocupacion'"
+                    (click)="setSortAlmacen('ocupacion')">Ocupación</button>
+            <button class="sort-btn" [class.sort-active]="sortAlmacen === 'salen'"
+                    (click)="setSortAlmacen('salen')">Salen</button>
+            <button class="sort-btn" [class.sort-active]="sortAlmacen === 'entran'"
+                    (click)="setSortAlmacen('entran')">Entran</button>
+          </div>
+          <div class="panel-list" #panelListEl>
+            <div *ngFor="let a of panelAlmacenes; trackBy: trackAlmacen"
+                 class="pitem"
+                 [class.pitem-selected]="selectedAeropuertoCod === a.codigo"
+                 [attr.data-codigo]="a.codigo"
+                 (click)="seleccionarAeropuerto(a.codigo, 'panel')">
+              <div class="pitem-top">
+                <span class="sem-dot" [class]="getSemaforoClass(a.semaforo)"></span>
+                <span class="pitem-code">{{ a.codigo }}</span>
+                <span class="pitem-city">{{ a.ciudad }}</span>
+                <span class="pitem-pct">{{ a.pct }}%</span>
               </div>
-              <div class="ac-bar-label">
-                <span>Capacidad</span>
-                <span>{{ a.capacidad }}</span>
+              <div class="pitem-bar">
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(a.semaforo)"
+                     [style.width.%]="a.pct"></div>
               </div>
-              <div class="ac-bar">
-                <div class="ac-bar-fill" [style.width.%]="a.storagePct"></div>
+              <div class="pitem-meta">
+                <span>Cap: {{ a.capacidad }}</span>
+                <span>Uso: {{ a.ocupacion }}</span>
+                <span class="pitem-continent">{{ a.continente }}</span>
+              </div>
+              <div class="pitem-actions">
+                <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeAlmacen(a, 'origen')"
+                        title="Ver envíos que salen">
+                  ↑ {{ a.enviosSalen }} salen
+                </button>
+                <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeAlmacen(a, 'destino')"
+                        title="Ver envíos que llegan">
+                  ↓ {{ a.enviosEntran }} entran
+                </button>
               </div>
             </div>
-            <div *ngIf="aeropuertosFiltrados.length === 0" class="empty-state">
-              Sin aeropuertos.
+            <div *ngIf="panelAlmacenes.length === 0" class="empty-state">Sin resultados.</div>
+          </div>
+        </ng-container>
+
+        <!-- ══════ TAB: VUELOS / UT ══════ -->
+        <ng-container *ngIf="activeTab === 'vuelos'">
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="filtroVueloCodigo"
+                   (ngModelChange)="aplicarFiltrosVuelos()"
+                   placeholder="Código vuelo..." class="pf-input" />
+            <input type="text" [(ngModel)]="filtroVueloOrigen"
+                   (ngModelChange)="aplicarFiltrosVuelos()"
+                   placeholder="Origen..." class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroVueloDestino"
+                   (ngModelChange)="aplicarFiltrosVuelos()"
+                   placeholder="Destino..." class="pf-input pf-input-sm" />
+          </div>
+          <div class="panel-sort">
+            <span class="ps-label">Ordenar:</span>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'ocupacion'"
+                    (click)="setSortVuelo('ocupacion')">Ocupación</button>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'salida'"
+                    (click)="setSortVuelo('salida')">Salida</button>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'origen'"
+                    (click)="setSortVuelo('origen')">Origen</button>
+          </div>
+          <div class="panel-list">
+            <div *ngFor="let v of panelVuelos; trackBy: trackVueloP"
+                 class="pitem"
+                 [class.pitem-selected]="selectedVueloCod === v.codigoVuelo"
+                 [attr.data-codigo]="'vuelo-' + v.codigoVuelo"
+                 (click)="seleccionarVuelo(v.codigoVuelo, 'panel')">
+              <div class="pitem-top">
+                <span class="sem-dot" [class]="getSemaforoClass(v.semaforo)"></span>
+                <span class="pitem-code">{{ v.codigoVuelo }}</span>
+                <span class="pitem-route">{{ v.origen }} → {{ v.destino }}</span>
+                <span class="pitem-pct">{{ v.ocupacionPct }}%</span>
+              </div>
+              <div class="pitem-bar">
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(v.semaforo)"
+                     [style.width.%]="v.ocupacionPct"></div>
+              </div>
+              <div class="pitem-meta">
+                <span>{{ formatHora(v.horaSalida) }} → {{ formatHora(v.horaLlegada) }}</span>
+                <span>{{ v.totalMaletas }} / {{ v.capacidadMaxima }} mal.</span>
+              </div>
+              <div class="pitem-actions">
+                <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeVuelo(v)"
+                        title="Ver envíos de este vuelo">
+                  Ver envíos ({{ v.totalMaletas }})
+                </button>
+              </div>
+            </div>
+            <div *ngIf="panelVuelos.length === 0" class="empty-state">Sin resultados.</div>
+          </div>
+        </ng-container>
+
+        <!-- ══════ TAB: ENVÍOS ══════ -->
+        <ng-container *ngIf="activeTab === 'envios'">
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="filtroEnvioOrigen"
+                   (ngModelChange)="aplicarFiltrosEnvios()"
+                   placeholder="Origen..." class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioDestino"
+                   (ngModelChange)="aplicarFiltrosEnvios()"
+                   placeholder="Destino..." class="pf-input pf-input-sm" />
+            <button class="pf-clear" (click)="limpiarFiltrosEnvios()" title="Limpiar filtros">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="panel-list">
+            <div *ngFor="let e of panelEnvios; trackBy: trackEnvioP"
+                 class="pitem pitem-envio"
+                 [class.pitem-selected]="selectedEnvioId === e.id"
+                 (click)="seleccionarEnvio(e)">
+              <div class="pitem-top">
+                <span class="pitem-code">{{ e.id }}</span>
+                <span class="pitem-route">{{ e.origen }} → {{ e.destino }}</span>
+                <span class="pitem-prio prio-{{ e.prioridad }}">P{{ e.prioridad }}</span>
+              </div>
+              <div class="pitem-meta">
+                <span>{{ e.cantidad }} maletas</span>
+                <span>{{ e.vuelos.length }} vuelo(s)</span>
+              </div>
+              <div class="pitem-envio-vuelos" *ngIf="e.vuelos.length > 0">
+                <span class="evuelo-tag" *ngFor="let cod of e.vuelos">{{ cod }}</span>
+              </div>
+              <div class="pitem-actions" *ngIf="selectedEnvioId === e.id">
+                <button class="pact-btn pact-ruta"
+                        (click)="$event.stopPropagation(); seleccionarEnvio(e)"
+                        title="Mostrar / quitar ruta en mapa">
+                  <i class="pi pi-map-marker"></i>
+                  {{ rutaArcos.length > 0 ? 'Ocultar ruta' : 'Mostrar ruta' }}
+                </button>
+              </div>
+            </div>
+            <div *ngIf="panelEnvios.length === 0" class="empty-state">
+              Sin envíos. Use los botones de Almacén o Vuelo para filtrar.
             </div>
           </div>
-        </div>
-      </div>
+        </ng-container>
+
+      </div><!-- /panel -->
 
     </div><!-- /op-content -->
 
