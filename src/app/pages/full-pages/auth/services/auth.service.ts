@@ -42,8 +42,8 @@ export class AuthService {
       tap((response: LoginResponse) => {
         const { token, tipo, ...userData } = response.data;
 
-        // Guardar token JWT
-        localStorage.setItem(this.TOKEN_KEY, `${tipo} ${token}`);
+        // Guardar solo el token JWT puro (sin prefijo); el interceptor agrega "Bearer "
+        localStorage.setItem(this.TOKEN_KEY, token);
 
         // Mapear datos del usuario
         const user: Usuario = {
@@ -72,8 +72,8 @@ export class AuthService {
       tap((response: RegisterResponse) => {
         const { token, tipo, ...userData } = response.data;
 
-        // Guardar token JWT
-        localStorage.setItem(this.TOKEN_KEY, `${tipo} ${token}`);
+        // Guardar solo el token JWT puro (sin prefijo); el interceptor agrega "Bearer "
+        localStorage.setItem(this.TOKEN_KEY, token);
 
         // Mapear datos del usuario
         const user: Usuario = {
