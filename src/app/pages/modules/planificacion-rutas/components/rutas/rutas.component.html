@@ -55,23 +55,73 @@
   <!-- CONTENT -->
   <div *ngIf="!cargando && !error">
 
+    <!-- MAPA DE RUTAS -->
+    <div class="route-map-card" *ngIf="aeropuertos.length > 0">
+      <div class="rmc-header">
+        <div>
+          <h2><i class="pi pi-map"></i> Mapa de Rutas</h2>
+          <p>Las rutas seleccionadas se visualizan en tiempo real sobre el mapa mundial.</p>
+        </div>
+        <div class="rmc-legend">
+          <span class="rml-item"><span class="rml-dot dot-aero"></span>Aeropuerto</span>
+          <span class="rml-item"><span class="rml-line"></span>Ruta seleccionada</span>
+        </div>
+      </div>
+      <div class="route-map-container" #mapaContainerEl>
+        <img [src]="worldMapUrl" class="route-world-map" alt="Mapa mundial" />
+        <div class="route-map-overlay"></div>
+        <svg class="route-svg-overlay"
+             [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
+             preserveAspectRatio="xMidYMid meet">
+
+          <!-- Aeropuertos activos -->
+          <g *ngFor="let a of aeropuertosEnMapa">
+            <circle [attr.cx]="a.x" [attr.cy]="a.y" r="5"
+                    class="raero-nodo" />
+            <text [attr.x]="a.x" [attr.y]="a.y - 9"
+                  class="raero-label" text-anchor="middle">{{ a.codigo }}</text>
+          </g>
+
+          <!-- Arcos de rutas seleccionadas -->
+          <path *ngFor="let arco of arcosRuta"
+                [attr.d]="arco.d"
+                class="rarco"
+                fill="none">
+            <title>{{ arco.label }}</title>
+          </path>
+
+          <!-- Puntos resaltados en origen/destino de cada arco -->
+          <ng-container *ngFor="let arco of arcosRuta">
+            <circle [attr.cx]="aeropuertoSvgMap.get(arco.origen)?.x"
+                    [attr.cy]="aeropuertoSvgMap.get(arco.origen)?.y"
+                    r="8" class="raero-highlight" />
+            <circle [attr.cx]="aeropuertoSvgMap.get(arco.destino)?.x"
+                    [attr.cy]="aeropuertoSvgMap.get(arco.destino)?.y"
+                    r="8" class="raero-highlight raero-dest" />
+          </ng-container>
+
+        </svg>
+        <div class="route-map-empty" *ngIf="arcosRuta.length === 0">
+          Seleccione un envío para ver su ruta en el mapa
+        </div>
+      </div>
+    </div>
+
     <!-- SELECTOR -->
     <div class="planner-card">
 
       <div class="planner-header">
         <div class="planner-title">
           <i class="pi pi-send"></i>
-
           <div>
-            <h2>
-              Planificador de Rutas
-            </h2>
-
-            <p>
-              Seleccione un envío para visualizar la ruta
-            </p>
+            <h2>Planificador de Rutas</h2>
+            <p>Seleccione un envío para visualizar la ruta</p>
           </div>
         </div>
+        <button *ngIf="enviosSeleccionados.length > 0" class="btn-limpiar"
+                (click)="limpiarSeleccion()">
+          <i class="pi pi-times"></i> Limpiar
+        </button>
       </div>
 
       <div class="selector-container">
@@ -82,6 +132,11 @@
           optionLabel="idEnvio"
           placeholder="Seleccione un envío"
           [showClear]="true"
+          [filter]="true"
+          filterBy="idEnvio,aeropuertoOrigen.codigoOaci,aeropuertoDestino.codigoOaci"
+          filterPlaceholder="Buscar por ID o código OACI…"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="46"
           appendTo="body"
           styleClass="custom-select"
           [fluid]="true"
@@ -261,25 +316,28 @@
 
       <div class="airport-table-header">
         <div>
-          <h2>
-            <i class="pi pi-map-marker"></i>
-            Aeropuertos disponibles
-          </h2>
-
-          <p>
-            Listado actual de aeropuertos registrados
-          </p>
+          <h2><i class="pi pi-map-marker"></i> Aeropuertos disponibles</h2>
+          <p>Listado actual de aeropuertos registrados</p>
         </div>
+        <span class="airport-count">{{ aeropuertosFiltrados.length }} / {{ aeropuertos.length }}</span>
+      </div>
 
-        <span class="airport-count">
-          {{ aeropuertos.length }} aeropuertos
-        </span>
+      <!-- Filtros tabla -->
+      <div class="airport-filters">
+        <input type="text" [(ngModel)]="filtroTexto"
+               (ngModelChange)="filtrarTablaAeropuertos()"
+               placeholder="Buscar por código, ciudad, país..."
+               class="af-input" />
+        <select [(ngModel)]="filtroContinente"
+                (ngModelChange)="filtrarTablaAeropuertos()"
+                class="af-select">
+          <option value="">Todos los continentes</option>
+          <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
+        </select>
       </div>
 
       <div class="airport-table-wrapper">
-
         <table class="airport-table">
-
           <thead>
             <tr>
               <th>ID</th>
@@ -293,9 +351,8 @@
               <th>Estado</th>
             </tr>
           </thead>
-
           <tbody>
-            <tr *ngFor="let aeropuerto of aeropuertos">
+            <tr *ngFor="let aeropuerto of aeropuertosFiltrados; trackBy: trackByAero">
               <td>
                 #{{ aeropuerto.idAeropuerto }}
               </td>

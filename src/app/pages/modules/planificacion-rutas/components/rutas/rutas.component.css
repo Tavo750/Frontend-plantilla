@@ -4,7 +4,7 @@
 
 .route-page {
   padding: 2rem;
-  background: #f5f7fb;
+  background: var(--color-bg);
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
 }
@@ -24,12 +24,12 @@
   font-size: 2.2rem;
   font-weight: 700;
   margin: 0;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .page-subtitle {
   margin-top: .4rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: .95rem;
 }
 
@@ -39,8 +39,8 @@
 
 .planner-card,
 .detail-card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
 
   padding: 1rem; /* antes 1.5rem */
@@ -68,7 +68,7 @@
 .planner-title i {
   font-size: 1.2rem;
   margin-top: .2rem;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .planner-title h2 {
@@ -79,7 +79,7 @@
 
 .planner-title p {
   margin-top: .35rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 /* =========================================================
@@ -108,16 +108,16 @@
 .envio-id {
   font-family: monospace;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .route-text {
-  color: #111827;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
 .qty-badge {
-  background: #eef2ff;
+  background: rgba(99,102,241,0.18);
   color: #3730a3;
   padding: .3rem .7rem;
   border-radius: 999px;
@@ -138,7 +138,7 @@
 }
 
 .detail-label {
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: .75rem;
 }
 
@@ -171,33 +171,33 @@
 }
 
 .badge-registrada {
-  background: #dbeafe;
-  color: #2563eb;
+  background: rgba(59,130,246,0.18);
+  color: #93c5fd;
 }
 
 .badge-transito {
-  background: #fef3c7;
+  background: rgba(245,158,11,0.18);
   color: #d97706;
 }
 
 .badge-entregada {
-  background: #dcfce7;
-  color: #16a34a;
+  background: rgba(16,185,129,0.18);
+  color: #6ee7b7;
 }
 
 .badge-retrasada {
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(239,68,68,0.18);
+  color: #f87171;
 }
 
 .badge-espera {
-  background: #ede9fe;
-  color: #7c3aed;
+  background: rgba(167,139,250,0.18);
+  color: #c4b5fd;
 }
 
 .badge-default {
-  background: #e2e8f0;
-  color: #475569;
+  background: var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 /* =========================================================
@@ -217,8 +217,8 @@
 
 .airport-card {
 
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
 
   border-radius: 14px;
 
@@ -232,7 +232,7 @@
 }
 
 .airport-label {
-  color: #64748b;
+  color: var(--color-text-secondary);
 
   font-size: .72rem;
 
@@ -245,12 +245,12 @@
 
   font-weight: 800;
 
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .airport-city {
 
-  color: #64748b;
+  color: var(--color-text-secondary);
 
   margin-top: .25rem;
 
@@ -279,7 +279,7 @@
 
   font-size: 1rem; /* antes 1.3rem */
 
-  color: #334155;
+  color: var(--color-text-primary);
 }
 
 /* =========================================================
@@ -297,9 +297,9 @@
 
 .info-card {
 
-  background: #f8fafc;
+  background: var(--color-surface-hover);
 
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 
   border-radius: 12px;
 
@@ -311,7 +311,7 @@
 
 .info-title {
 
-  color: #64748b;
+  color: var(--color-text-secondary);
 
   font-size: .72rem;
 
@@ -324,15 +324,15 @@
 
   font-weight: 700;
 
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 .info-value.primary {
-  color: #2563eb;
+  color: #93c5fd;
 }
 
 .info-date {
 
-  color: #0f172a;
+  color: var(--color-text-primary);
 
   font-size: .82rem;
 
@@ -344,7 +344,7 @@
 
 .loading-container,
 .error-container {
-  background: white;
+  background: var(--color-surface);
   border-radius: 20px;
   padding: 3rem;
   text-align: center;
@@ -426,7 +426,7 @@
 
 .mini-label {
   font-size: .70rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 
   margin-bottom: .25rem;
 
@@ -439,7 +439,7 @@
 .mini-value {
   font-size: .95rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 
   line-height: 1.1;
 }
@@ -450,7 +450,7 @@
 }
 
 .mini-value.primary {
-  color: #2563eb;
+  color: #93c5fd;
 }
 
 /* CITY */
@@ -464,14 +464,14 @@
 
 .mini-date {
   font-size: .82rem;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 /* ARROW */
 
 .compact-arrow {
   font-size: 1rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   padding-top: .8rem;
 }
 
@@ -504,7 +504,7 @@
   align-items: center;
 
   font-size: 1rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 /* =========================================================
@@ -527,13 +527,13 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .airport-count {
   font-size: .8rem;
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--color-border);
+  color: var(--color-text-primary);
 
   padding: .35rem .7rem;
   border-radius: 999px;
@@ -549,9 +549,9 @@
 }
 
 .airport-mini-card {
-  background: white;
+  background: var(--color-surface);
 
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 
   border-radius: 14px;
 
@@ -578,14 +578,14 @@
 .airport-mini-code {
   font-size: 1rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .airport-mini-id {
   font-size: .72rem;
 
-  background: #eff6ff;
-  color: #2563eb;
+  background: rgba(59,130,246,0.12);
+  color: #93c5fd;
 
   padding: .2rem .5rem;
 
@@ -600,12 +600,12 @@
 
 .airport-mini-city {
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .airport-mini-country {
   font-size: .82rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 /* =========================================================
@@ -613,8 +613,8 @@
 ========================================================= */
 
 .airport-table-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 1.4rem;
   margin-top: 1.5rem;
@@ -631,7 +631,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 
   display: flex;
   align-items: center;
@@ -641,7 +641,7 @@
 .airport-table-header p {
   margin: .35rem 0 0;
   font-size: .9rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .airport-table-wrapper {
@@ -658,15 +658,15 @@
   padding: .75rem .6rem;
   font-size: .8rem;
   font-weight: 700;
-  color: #0f172a;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .airport-table td {
   padding: .75rem .6rem;
   font-size: .85rem;
-  color: #0f172a;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .airport-table tr:last-child td {
@@ -681,21 +681,214 @@
   padding: .25rem .65rem;
   border-radius: 8px;
 
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 
   font-size: .78rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .mini-country {
   font-size: .7rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .mini-continent {
   font-size: .68rem;
-  color: #2563eb;
+  color: #93c5fd;
   font-weight: 600;
 }
+
+/* =========================================================
+   MAPA DE RUTAS
+========================================================= */
+
+.route-map-card {
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.rmc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rmc-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rmc-header h2 i { color: #2563eb; }
+.rmc-header p { font-size: 0.78rem; color: #64748b; margin: 0; }
+
+.rmc-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.rml-item { display: flex; align-items: center; gap: 0.35rem; }
+.rml-dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-aero { background: #22c55e; border: 1.5px solid #16a34a; }
+.rml-line {
+  width: 24px; height: 2px;
+  background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+  border-radius: 2px;
+}
+
+.route-map-container {
+  position: relative;
+  height: 340px;
+  background: #020617;
+  overflow: hidden;
+}
+
+.route-world-map {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.route-map-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  pointer-events: none;
+}
+
+.route-svg-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Aeropuertos en el mapa de rutas */
+.raero-nodo {
+  fill: #22c55e;
+  stroke: #bbf7d0;
+  stroke-width: 1;
+  filter: drop-shadow(0 0 3px rgba(34,197,94,0.4));
+}
+
+.raero-label {
+  fill: #94a3b8;
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+}
+
+.raero-highlight {
+  fill: #f97316;
+  stroke: #fed7aa;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 5px rgba(249,115,22,0.7));
+}
+
+.raero-dest {
+  fill: #ef4444;
+  stroke: #fecaca;
+  filter: drop-shadow(0 0 5px rgba(239,68,68,0.7));
+}
+
+/* Arcos de rutas */
+.rarco {
+  stroke: #f97316;
+  stroke-width: 2.2;
+  opacity: 0.85;
+  stroke-dasharray: 8 4;
+  animation: rarco-dash 1.2s linear infinite;
+}
+
+@keyframes rarco-dash { to { stroke-dashoffset: -24; } }
+
+.route-map-empty {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Botón limpiar selección */
+.btn-limpiar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 7px;
+  border: 1px solid #fca5a5;
+  background: transparent;
+  color: #ef4444;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.btn-limpiar:hover { background: #fef2f2; }
+
+/* =========================================================
+   FILTROS TABLA AEROPUERTOS
+========================================================= */
+
+.airport-filters {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.af-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  color: var(--color-text-primary);
+}
+
+.af-input:focus { border-color: #2563eb; }
+
+.af-select {
+  padding: 0.4rem 0.75rem;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.af-select:focus { border-color: #2563eb; }

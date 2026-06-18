@@ -29,14 +29,16 @@ export class AuthService {
    */
   private initMockUser(): void {
     const mockUser: Usuario = {
-      id: 1,
-      nombre: 'Usuario',
-      apellidoPaterno: 'Demo',
-      nombreCompleto: 'Usuario Demo',
-      correo: 'usuario@demo.com',
-      puesto: 'Desarrollador',
+      id: 4,
+      nombre: 'Flavio',
+      apellidoPaterno: 'Ascamar',
+      nombreCompleto: 'Flavio Ascamar Garcia',
+      correo: 'flavioascamar@gmail.com',
+      puesto: 'Administrador',
       estado: true
     };
+    const token = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmbGF2aW9hc2NhbWFyQGdtYWlsLmNvbSIsImlhdCI6MTc4MTgxNTAzNSwiZXhwIjoxNzgxOTAxNDM1fQ.5gMi9dG_MxWlr1UWER2lKzlwBJ6qLXsui2fKuqXkIVr5NwO8lvS9Ma-sK3tuIdM_WjRCRgFIzivoFfQJoC4SNA';
+    localStorage.setItem(this.TOKEN_KEY, token);
     this.currentUserSubject.next(mockUser);
     this.isAuthenticatedSubject.next(true);
   }

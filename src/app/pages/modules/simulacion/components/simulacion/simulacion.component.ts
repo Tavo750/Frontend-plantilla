@@ -66,6 +66,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   // ── Formulario ─────────────────────────────────────────────
   fechaInicio: Date = new Date('2026-01-02');
+  fechaMinima: Date = new Date('2026-01-02');
+  horaInicio: string = '00:00';
   dias = 5;
 
   // ── Estado UI ──────────────────────────────────────────────
@@ -124,14 +126,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   tiempoFinMs    = 0;
   tiempoActualMs = 0;
   reproduciendo  = false;
-  velocidad = 1;
-  readonly VELOCIDADES = [1, 2, 5, 10, 20];
+  mostrarSidebar = true;
+  startTimeReal  = 0;
 
-  /** Milisegundos entre ticks de animación */
-  private readonly TICK_MS  = 80;
+  /** Milisegundos entre ticks de animación (reduce para mejor performance) */
+  private readonly TICK_MS  = 200;
   private readonly HORA_MS  = 3_600_000;
-  /** Horas de simulación que avanzan por tick a velocidad 1×  (0.25 = 15 min) osea 1 es 1 hora */
-  private readonly AVANCE_H = 0.05;
+  /** Horas de simulación que avanzan por tick para K=120 (1 seg real = 120 seg sim) */
+  private readonly AVANCE_H = 0.00667;
 
   private intervalId: any = null;
   private eventSource: EventSource | null = null;
@@ -146,8 +148,21 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     private readonly ngZone: NgZone
   ) {}
 
-  ngOnInit(): void  { this.cargarAeropuertos(); }
+  ngOnInit(): void  {
+    this.cargarAeropuertos();
+    this.cargarFechaMinima();
+  }
   ngOnDestroy(): void { this.detener(); this.cerrarSSE(); }
+
+  private cargarFechaMinima(): void {
+    this.simulacionService.obtenerFechaMinima().subscribe({
+      next: (fecha) => {
+        this.fechaMinima = fecha;
+        this.fechaInicio = new Date(fecha);
+        this.cdr.detectChanges();
+      }
+    });
+  }
 
   @HostListener('window:resize') onResize(): void {}
 
@@ -179,7 +194,6 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   // ── SIMULACIÓN ─────────────────────────────────────────────
 
   ejecutarSimulacion(): void {
-    // Resetear estado
     this.detener();
     this.cerrarSSE();
     this.vuelos = []; this.vueloMap.clear();
@@ -201,50 +215,18 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
-    // Paso 1: importar planes de vuelo para el periodo seleccionado
-    this.estado = 'importando';
-    this.mensajeProgreso = 'Importando planes de vuelo...';
+    // Mostrar mapa inmediatamente con aeropuertos y luego iniciar SSE
+    this.estado = 'cargando';
+    this.mostrarConfig = false;
+    this.mensajeProgreso = 'Conectando con el algoritmo de simulación...';
     this.cdr.detectChanges();
 
-    const fecha = this.formatFecha(this.fechaInicio);
-
-    this.simulacionService.importarVuelos(fecha, this.dias).subscribe({
-      next: (respVuelos) => {
-        const vuelos = respVuelos.data?.vuelosGenerados ?? '?';
-        this.mensajeProgreso = `${vuelos} vuelos generados. Importando envíos...`;
-        this.cdr.detectChanges();
-
-        // Paso 2: importar envíos de todos los aeropuertos
-        this.simulacionService.importarTodosEnvios(fecha, this.dias).subscribe({
-          next: (respEnvios) => {
-            const total      = respEnvios.data?.aeropuertosProcesados ?? '?';
-            const insertados = respEnvios.data?.totalEnviosInsertados ?? '?';
-            this.mensajeProgreso =
-              `${total} aeropuertos · ${insertados} envíos cargados. Iniciando simulación...`;
-            this.cdr.detectChanges();
-            // Paso 3: iniciar streaming SSE
-            this.iniciarStreaming();
-          },
-          error: (err) => {
-            this.estado = 'idle'; this.mensajeProgreso = '';
-            this.cdr.detectChanges();
-            const detalle = err.error?.message ?? err.message ?? 'No se pudo importar los envíos.';
-            this.messageService.add({ severity: 'error', summary: 'Error al importar envíos', detail: detalle });
-          }
-        });
-      },
-      error: (err) => {
-        this.estado = 'idle'; this.mensajeProgreso = '';
-        this.cdr.detectChanges();
-        const detalle = err.error?.message ?? err.message ?? 'No se pudo importar los planes de vuelo.';
-        this.messageService.add({ severity: 'error', summary: 'Error al importar vuelos', detail: detalle });
-      }
-    });
+    this.iniciarStreaming();
   }
 
   private iniciarStreaming(): void {
     this.estado = 'cargando';
-    const url = this.simulacionService.getStreamUrl(this.formatFecha(this.fechaInicio), this.dias);
+    const url = this.simulacionService.getStreamUrl(this.formatFecha(this.fechaInicio), this.horaInicio, this.dias);
 
     this.ngZone.runOutsideAngular(() => {
       this.eventSource = new EventSource(url);
@@ -412,10 +394,11 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   iniciar(): void {
     if (this.tiempoActualMs >= this.tiempoFinMs) this.tiempoActualMs = this.tiempoInicioMs;
     this.reproduciendo = true;
+    this.startTimeReal = Date.now();
     this.ngZone.runOutsideAngular(() => {
       this.intervalId = setInterval(() => {
-        // Avanza AVANCE_H horas × velocidad por cada tick de TICK_MS ms
-        this.tiempoActualMs += this.velocidad * this.HORA_MS * this.AVANCE_H;
+        // Avanza AVANCE_H horas por cada tick de TICK_MS ms
+        this.tiempoActualMs += this.HORA_MS * this.AVANCE_H;
         if (this.tiempoActualMs >= this.tiempoFinMs) {
           this.tiempoActualMs = this.tiempoFinMs;
           this.detener();
@@ -434,11 +417,6 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   onSliderChange(event: Event): void {
     this.tiempoActualMs = +(event.target as HTMLInputElement).value;
     this.actualizarEstado();
-  }
-
-  setVelocidad(v: number): void {
-    this.velocidad = v;
-    if (this.reproduciendo) { this.detener(); this.iniciar(); }
   }
 
   get tiempoLabel(): string {
@@ -593,6 +571,16 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     return this.maletasEnAeropuerto.get(codigo) ?? 0;
   }
 
+  getAeroColorClass(codigo: string): string {
+    const aero = this.aeropuertoMap.get(codigo);
+    if (!aero) return 'aero-libre';
+    const bags = this.getBagsEnAeropuerto(codigo);
+    const pct = (bags / aero.capacidad) * 100;
+    if (pct < 50) return 'aero-libre';
+    if (pct < 75) return 'aero-medio';
+    return 'aero-critico';
+  }
+
   getVuelosActivos():    number { return this.planosEnMapa.length; }
   getVuelosCompletados(): number {
     const now = this.tiempoActualMs;
@@ -677,7 +665,10 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   get vuelosGestionFiltrados(): VueloSimulacion[] {
     const q = this.busquedaGestion.toUpperCase().trim();
-    const lista = this.vuelos.slice().sort((a, b) =>
+    const lista = this.vuelos
+      .filter(v => this.getEstadoVuelo(v) !== 'EN_VUELO')
+      .slice()
+      .sort((a, b) =>
       (a.codigoVuelo ?? '').localeCompare(b.codigoVuelo ?? ''));
     if (!q) return lista;
     return lista.filter(v =>
@@ -705,12 +696,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.simulacionService.cancelarVuelo(codigo).subscribe({
       next: () => {
         this.vuelosCancelados.add(codigo);
-        this.codigoVueloCancelado = codigo;
-        this.cancelando = false;
-        this.cancelacionExitosa = true; // Cambiar a fase 2: ofrecer reprogramar
-        this.cdr.detectChanges();
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Vuelo cancelado',
+          detail: `${codigo} ha sido cancelado y los envíos serán reprogramados automáticamente.`
+        });
+        this.cerrarDialogoCancelacion();
       },
-      error: (err) => {
+      error: (err: any) => {
         this.cancelando = false;
         const detalle = err.error?.message ?? 'No se pudo cancelar el vuelo.';
         this.messageService.add({ severity: 'error', summary: 'Error al cancelar', detail: detalle });
@@ -858,5 +851,114 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   private formatFecha(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  toggleFullscreen(): void {
+    const el = this.mapContainerEl?.nativeElement;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  simularColapso(): void {
+    this.detener();
+    this.cerrarSSE();
+    this.vuelos = []; this.vueloMap.clear();
+    this.arcosVuelo = []; this.planosEnMapa = [];
+    this.maletasEnAeropuerto.clear();
+    this.resumen = null; this.vueloSeleccionado = null;
+    this.diasRecibidos = 0; this.diasEsperados = 5;
+    this.tiempoInicioMs = 0; this.tiempoFinMs = 0; this.tiempoActualMs = 0;
+    this.eventosRecientes = []; this.estadosAnteriores.clear();
+    this.vuelosBuscados = []; this.busqueda = '';
+    this.resumenesAeropuerto.clear();
+    this.busquedaAeropuerto = '';
+    this.primerosVuelosRecibidos = false;
+    this.vuelosCancelados.clear();
+    this.vueloParaCancelar = null;
+    this.mostrarConfirmCancelar = false;
+    this.cancelacionExitosa = false;
+    this.codigoVueloCancelado = '';
+    this.busquedaGestion = '';
+    this.cancelando = false;
+
+    // Mostrar mapa inmediatamente e iniciar streaming de colapso
+    this.estado = 'cargando';
+    this.mostrarConfig = false;
+    this.mensajeProgreso = '🔴 Preparando simulación de colapso...';
+    this.cdr.detectChanges();
+
+    const fechaColapso = this.formatFecha(this.fechaInicio);
+    this.iniciarStreamingColapso(fechaColapso, 5);
+  }
+
+  private iniciarStreamingColapso(fecha: string, dias: number): void {
+    this.estado = 'cargando';
+    const url = this.simulacionService.getStreamUrl(fecha, '00:00', dias);
+
+    this.ngZone.runOutsideAngular(() => {
+      this.eventSource = new EventSource(url);
+
+      this.eventSource.addEventListener('inicio', () => {
+        this.ngZone.run(() => {
+          this.estado = 'streaming';
+          this.mostrarConfig = false;
+          this.mensajeProgreso = '🔴 Simulando colapso del sistema...';
+          this.cdr.detectChanges();
+        });
+      });
+
+      this.eventSource.addEventListener('dia', (e: MessageEvent) => {
+        this.ngZone.run(() => {
+          const data = JSON.parse(e.data);
+          this.diasRecibidos++;
+          this.mensajeProgreso = `🔴 Colapso: Día ${this.diasRecibidos} de ${this.diasEsperados}`;
+          this.procesarEventosDia(data);
+          this.cdr.detectChanges();
+        });
+      });
+
+      this.eventSource.addEventListener('fin', (e: MessageEvent) => {
+        this.ngZone.run(() => {
+          const data = JSON.parse(e.data);
+          this.estado = 'listo';
+          this.resumen = data;
+          this.mensajeProgreso = '🔴 COLAPSO SIMULADO - Sistema al 100% de capacidad';
+          this.cdr.detectChanges();
+          this.cerrarSSE();
+        });
+      });
+
+      this.eventSource.addEventListener('error', () => {
+        this.ngZone.run(() => {
+          this.estado = 'idle';
+          this.cerrarSSE();
+          this.messageService.add({ severity: 'error', summary: 'Error en la simulación', detail: 'La conexión SSE se cerró.' });
+        });
+      });
+    });
+  }
+
+  get fechaRealDisplay(): string {
+    const now = new Date();
+    const d = now.getDate().toString().padStart(2, '0');
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const y = now.getFullYear();
+    const h = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    return `${d}/${m}/${y} ${h}:${min}`;
+  }
+
+  get fechaSimDisplay(): string {
+    const simDate = new Date(this.tiempoActualMs);
+    const d = simDate.getDate().toString().padStart(2, '0');
+    const m = (simDate.getMonth() + 1).toString().padStart(2, '0');
+    const y = simDate.getFullYear();
+    const h = simDate.getHours().toString().padStart(2, '0');
+    const min = simDate.getMinutes().toString().padStart(2, '0');
+    return `${d}/${m}/${y} ${h}:${min}`;
   }
 }

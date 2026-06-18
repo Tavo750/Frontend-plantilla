@@ -1,10 +1,10 @@
 /* ========== WRAP ========== */
 .dash-wrap {
   padding: 1.5rem;
-  background: var(--color-bg, #f4f6fa);
+  background: var(--color-bg, var(--color-bg));
   min-height: 100%;
   font-family: var(--font-family, 'Segoe UI', system-ui, sans-serif);
-  color: var(--color-text-primary, #111827);
+  color: var(--color-text-primary, var(--color-text-primary));
 }
 
 /* ========== HEADER ========== */
@@ -17,20 +17,20 @@
 .dash-title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--color-text-primary, #111827);
+  color: var(--color-text-primary, var(--color-text-primary));
   margin: 0 0 0.25rem;
   letter-spacing: -0.01em;
 }
 .dash-sub {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   margin: 0;
 }
 
 .btn-refresh {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   padding: 0.5rem 1rem;
   border-radius: 8px;
   cursor: pointer;
@@ -43,8 +43,8 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .btn-refresh:hover:not(:disabled) {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -57,10 +57,10 @@
   justify-content: center;
   gap: 1rem;
   padding: 4rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 .error-state .pi { font-size: 3rem; color: #ef4444; }
-.error-state p { color: #6b7280; }
+.error-state p { color: var(--color-text-secondary); }
 
 /* ========== KPI GRID ========== */
 .kpi-grid {
@@ -70,8 +70,8 @@
   margin-bottom: 1.5rem;
 }
 .kpi-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1.2rem;
   display: flex;
@@ -97,7 +97,7 @@
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 1;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 .kpi-label {
   font-size: 0.72rem;
@@ -118,8 +118,8 @@
 
 /* ========== CARDS ========== */
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1.25rem;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -135,7 +135,7 @@
 .card-title {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -146,7 +146,7 @@
   color: #9ca3af;
   margin-bottom: 1rem;
 }
-.card-title .pi { font-size: 1rem; color: #6b7280; }
+.card-title .pi { font-size: 1rem; color: var(--color-text-secondary); }
 
 /* ========== ESTADO / CONTINENTE BAR CHARTS ========== */
 .estado-list, .cont-list {
@@ -165,7 +165,7 @@
   align-items: center;
   gap: 0.45rem;
   font-size: 0.82rem;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 .es-dot {
   width: 9px;
@@ -175,14 +175,14 @@
 }
 .cont-label {
   font-size: 0.82rem;
-  color: #374151;
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .es-bar-wrap {
   height: 7px;
-  background: #f3f4f6;
+  background: var(--color-surface-hover);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -199,7 +199,7 @@
   gap: 0.35rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 .es-pct {
   color: #9ca3af;
@@ -216,8 +216,8 @@
   font-size: 0.82rem;
 }
 .envios-table th {
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
   padding: 0.6rem 0.85rem;
   text-align: left;
   font-size: 0.72rem;
@@ -225,29 +225,29 @@
   letter-spacing: 0.05em;
   font-weight: 600;
   white-space: nowrap;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 .envios-table th.center,
 .envios-table td.center { text-align: center; }
 .envios-table td {
   padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid #f3f4f6;
-  color: #374151;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 .envios-table tr:last-child td { border-bottom: none; }
-.envios-table tr:hover td { background: #f9fafb; }
+.envios-table tr:hover td { background: var(--color-surface-hover); }
 .id-cell { color: #2563eb; font-weight: 700; font-family: monospace; font-size: 0.8rem; }
 
 .oaci-badge {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: rgba(59,130,246,0.12);
+  color: #93c5fd;
   padding: 0.15rem 0.45rem;
   border-radius: 5px;
   font-size: 0.75rem;
   font-weight: 700;
   margin-right: 0.3rem;
-  border: 1px solid #dbeafe;
+  border: 1px solid rgba(59,130,246,0.35);
 }
 .city-sub { color: #9ca3af; font-size: 0.74rem; }
 

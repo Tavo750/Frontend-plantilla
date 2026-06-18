@@ -207,7 +207,11 @@ export class MaletaComponent implements OnInit {
     return (linea.match(/;/g) || []).length > (linea.match(/,/g) || []).length ? ';' : ',';
   }
 
-  private async procesarCSV(texto: string): Promise<void> {
+  /**
+   * Valida todas las filas localmente y registra los envíos válidos
+   * en UNA sola petición (POST /batch) en vez de una petición por fila.
+   */
+  private procesarCSV(texto: string): void {
     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (lineas.length < 2) {
       this.messageService.add({
@@ -220,20 +224,19 @@ export class MaletaComponent implements OnInit {
     const delim = this.detectarDelimitador(lineas[0]);
     const filas = lineas.slice(1); // omitir encabezado
     this.cargandoCSV = true;
-    this.csvProgreso = 0;
+    this.csvProgreso = 30; // validación local
     this.csvResultado = null;
     this.cdr.detectChanges();
 
-    let exitosos = 0, fallidos = 0;
+    // ── 1. Validación local de todas las filas ──
     const errores: string[] = [];
+    const validos: { idAeropuertoOrigen: number; idAeropuertoDestino: number; cantidad: number }[] = [];
 
     for (let idx = 0; idx < filas.length; idx++) {
+      const numFila = idx + 2; // +1 por encabezado, +1 por índice 0-based
       const cols = filas[idx].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
       if (cols.length < 3) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: formato inválido (3 columnas requeridas: origen, destino, cantidad)`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
+        errores.push(`Fila ${numFila}: formato inválido (3 columnas requeridas: origen, destino, cantidad)`);
         continue;
       }
 
@@ -241,79 +244,81 @@ export class MaletaComponent implements OnInit {
       const cantidad = parseInt(cantidadStr, 10);
 
       const origen = this.aeropuertos.find(a =>
-        a.codigoOaci.toLowerCase() === codigoOrigen.toLowerCase()
-      );
+        a.codigoOaci.toLowerCase() === codigoOrigen.toLowerCase());
       if (!origen) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: aeropuerto origen "${codigoOrigen}" no encontrado`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
+        errores.push(`Fila ${numFila}: aeropuerto origen "${codigoOrigen}" no encontrado`);
         continue;
       }
 
       const destino = this.aeropuertos.find(a =>
-        a.codigoOaci.toLowerCase() === codigoDestino.toLowerCase()
-      );
+        a.codigoOaci.toLowerCase() === codigoDestino.toLowerCase());
       if (!destino) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: aeropuerto destino "${codigoDestino}" no encontrado`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
+        errores.push(`Fila ${numFila}: aeropuerto destino "${codigoDestino}" no encontrado`);
         continue;
       }
 
       if (isNaN(cantidad) || cantidad < 1 || cantidad > 400) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: cantidad "${cantidadStr}" inválida (debe ser 1–400)`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
+        errores.push(`Fila ${numFila}: cantidad "${cantidadStr}" inválida (debe ser 1–400)`);
         continue;
       }
 
       if (origen.idAeropuerto === destino.idAeropuerto) {
-        fallidos++;
-        errores.push(`Fila ${idx + 2}: origen y destino son el mismo aeropuerto`);
-        this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-        this.cdr.detectChanges();
+        errores.push(`Fila ${numFila}: origen y destino son el mismo aeropuerto`);
         continue;
       }
 
-      await new Promise<void>(resolve => {
-        this.envioService.crearEnvio({
-          idAeropuertoOrigen: origen.idAeropuerto,
-          idAeropuertoDestino: destino.idAeropuerto,
-          cantidad
-        }).subscribe({
-          next: () => { exitosos++; resolve(); },
-          error: () => {
-            fallidos++;
-            errores.push(`Fila ${idx + 2}: error del servidor al crear envío`);
-            resolve();
-          }
-        });
+      validos.push({
+        idAeropuertoOrigen: origen.idAeropuerto,
+        idAeropuertoDestino: destino.idAeropuerto,
+        cantidad
       });
-
-      this.csvProgreso = Math.round(((idx + 1) / filas.length) * 100);
-      this.cdr.detectChanges();
     }
 
-    this.cargandoCSV = false;
-    this.csvResultado = { exitosos, fallidos, errores };
-    this.cdr.detectChanges();
-
-    if (exitosos > 0) {
-      this.messageService.add({
-        severity: fallidos === 0 ? 'success' : 'warn',
-        summary: `${exitosos} envío(s) registrado(s)`,
-        detail: fallidos > 0 ? `${fallidos} fila(s) con error` : 'Todos los envíos fueron creados correctamente'
-      });
-      this.cargarEnvios();
-    } else {
+    if (validos.length === 0) {
+      this.cargandoCSV = false;
+      this.csvResultado = { exitosos: 0, fallidos: errores.length, errores };
+      this.cdr.detectChanges();
       this.messageService.add({
         severity: 'error', summary: 'Sin registros',
-        detail: 'No se pudo registrar ningún envío del archivo CSV.'
+        detail: 'Ninguna fila del CSV pasó la validación.'
       });
+      return;
     }
+
+    // ── 2. Una sola petición batch al backend ──
+    this.csvProgreso = 60;
+    this.cdr.detectChanges();
+
+    this.envioService.crearEnviosBatch(validos).subscribe({
+      next: (resp) => {
+        const creados = resp.data?.length ?? validos.length;
+        this.cargandoCSV = false;
+        this.csvProgreso = 100;
+        this.csvResultado = { exitosos: creados, fallidos: errores.length, errores };
+        this.cdr.detectChanges();
+        this.messageService.add({
+          severity: errores.length === 0 ? 'success' : 'warn',
+          summary: `${creados} envío(s) registrado(s)`,
+          detail: errores.length > 0
+            ? `${errores.length} fila(s) con error de validación`
+            : 'Todos los envíos fueron creados correctamente'
+        });
+        this.cargarEnvios();
+      },
+      error: (err) => {
+        this.cargandoCSV = false;
+        this.csvResultado = {
+          exitosos: 0,
+          fallidos: errores.length + validos.length,
+          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear los envíos en lote'}`]
+        };
+        this.cdr.detectChanges();
+        this.messageService.add({
+          severity: 'error', summary: 'Error del servidor',
+          detail: err?.error?.message ?? 'No se pudo registrar el lote de envíos.'
+        });
+      }
+    });
   }
 
   /** Descarga una plantilla CSV con datos de ejemplo del sistema */
