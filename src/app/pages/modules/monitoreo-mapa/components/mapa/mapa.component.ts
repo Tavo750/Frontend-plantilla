@@ -2,11 +2,15 @@ import {
   Component, OnInit, OnDestroy, ViewChild, ElementRef,
   HostListener, ChangeDetectorRef, NgZone
 } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
 import { SimulacionPeriodoService } from '../../services/simulacion-periodo.service';
+import { ParametroSemaforoService, ParametroSemaforo } from '../../../../../core/services/parametro-semaforo.service';
 
-// ── Interfaces ──────────────────────────────────────────────────────────────
+// ── Tipos base ───────────────────────────────────────────────────────────────
+
+type SemaforoNivel = 'VACIO' | 'VERDE' | 'AMARILLO' | 'ROJO';
 
 interface AeropuertoMapa extends Aeropuerto {
   x: number;
@@ -31,11 +35,55 @@ interface PlanoEnMapa {
 }
 
 interface ArcoVuelo {
-  d:     string;
-  vuelo: VueloAnimacion;
+  d:        string;
+  vuelo:    VueloAnimacion;
+  esRuta?:  boolean;
+}
+
+// ── Interfaces del panel ─────────────────────────────────────────────────────
+
+interface VueloPanel {
+  codigoVuelo:    string;
+  origen:         string;
+  destino:        string;
+  horaSalida:     string;
+  horaLlegada:    string;
+  totalMaletas:   number;
+  capacidadMaxima:number;
+  ocupacionPct:   number;
+  semaforo:       SemaforoNivel;
+}
+
+interface AlmacenPanel {
+  codigo:       string;
+  ciudad:       string;
+  continente:   string;
+  capacidad:    number;
+  ocupacion:    number;
+  pct:          number;
+  semaforo:     SemaforoNivel;
+  enviosSalen:  number;
+  enviosEntran: number;
+}
+
+interface EnvioPanel {
+  id:       string;
+  origen:   string;
+  destino:  string;
+  cantidad: number;
+  prioridad:number;
+  vuelos:   string[];
+}
+
+interface IndicadoresGlobales {
+  pctFlota:          number;
+  semaforoFlota:     SemaforoNivel;
+  pctAlmacenes:      number;
+  semaforoAlmacenes: SemaforoNivel;
 }
 
 type EstadoMonitoreo = 'cargando' | 'procesando' | 'animando' | 'agotado';
+type TabPanel = 'almacenes' | 'vuelos' | 'envios';
 
 // ── Componente ───────────────────────────────────────────────────────────────
 
@@ -58,6 +106,7 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   // ── ViewChild ────────────────────────────────────────────────
   @ViewChild('mapContainerEl') mapContainerEl!: ElementRef<HTMLDivElement>;
+  @ViewChild('panelListEl') panelListEl?: ElementRef<HTMLDivElement>;
   private renderBounds = { left: 0, top: 0, imgW: 0, imgH: 0, cw: 0, ch: 0 };
 
   // ── Constantes SVG (equirectangular Simplemaps) ──────────────
@@ -69,9 +118,9 @@ export class MapaComponent implements OnInit, OnDestroy {
   readonly LNG_MAX = 180;
   readonly worldMapUrl = '/world.svg';
 
-  // ── Parámetros de planificación (leídos del back, internos) ──
-  K  = 60;  // velocidad de animación (seg simulados / seg real)
-  Sa = 5;   // intervalo entre ejecuciones del algoritmo (min reales)
+  // ── Parámetros de planificación ──────────────────────────────
+  K  = 60;
+  Sa = 5;
 
   // ── Estado del monitoreo ─────────────────────────────────────
   estadoMonitoreo: EstadoMonitoreo = 'cargando';
@@ -83,32 +132,28 @@ export class MapaComponent implements OnInit, OnDestroy {
   private cargasCompletas = 0;
   error = false;
 
-  // ── Cuenta regresiva ─────────────────────────────────────────
-  cuentaRegresivaSeg = 0;
-  private countdownInterval: any = null;
+  // ── WebSocket ─────────────────────────────────────────────────
+  private wsSub: Subscription | null = null;
 
-  // ── Polling y sincronización con el backend ───────────────────
-  private pollingInterval: any = null;
-  private readonly POLLING_MS = 5000;
-  // Ciclo cuyo resultado ya procesamos; evita replicar la misma animación
-  private ultimoCicloVisto = 0;
-  // Resultado disponible pero esperando que el countdown llegue a 0 (1er ciclo)
-  private resultadoPendiente: any = null;
+  // ── Reloj simulado autoritativo (backend) ───────────────────
+  // El backend emite relojSim; el front lo extrapola para animar suave.
+  private relojBaseMs = 0;   // tiempo simulado del backend al recibirlo (ms)
+  private relojRecvMs = 0;   // marca real (Date.now) al recibirlo
+  private kFactor = 90;      // ms simulados por ms real
 
   // ── Animación de vuelos ──────────────────────────────────────
   vuelosAnimacion: VueloAnimacion[] = [];
   planosEnMapa:    PlanoEnMapa[]    = [];
   arcosVuelo:      ArcoVuelo[]      = [];
+  rutaArcos:       ArcoVuelo[]      = [];
   simTimeMs = 0;
-  private animStartReal = 0;
-  private animStartSim  = 0;
   private animInterval: any = null;
   private readonly TICK_MS = 80;
 
-  // ── Estadísticas del último ciclo ────────────────────────────
-  statsTotalEnvios  = 0;
-  statsAsignados    = 0;
-  statsNoAsignados  = 0;
+  // ── Estadísticas acumuladas ──────────────────────────────────
+  statsPedidosAsignados   = 0;   // nº de PEDIDOS asignados
+  statsPedidosNoAsignados = 0;   // nº de PEDIDOS no asignados
+  statsMaletasFisicas     = 0;   // suma de maletas físicas asignadas
 
   // ── Zoom / Pan ───────────────────────────────────────────────
   zoomLevel = 1;
@@ -125,20 +170,74 @@ export class MapaComponent implements OnInit, OnDestroy {
   tooltip: { visible: boolean; x: number; y: number; lines: string[] } =
     { visible: false, x: 0, y: 0, lines: [] };
 
+  // ════════════════════════════════════════════════════════
+  // PANEL LATERAL
+  // ════════════════════════════════════════════════════════
+
+  activeTab: TabPanel = 'almacenes';
+  panelCollapsed = false;
+
+  // Datos crudos del backend
+  private panelVuelosRaw:    VueloPanel[]    = [];
+  private panelAlmacenesRaw: AlmacenPanel[]  = [];
+  private panelEnviosRaw:    EnvioPanel[]    = [];
+
+  // Datos filtrados/ordenados para mostrar
+  panelVuelos:    VueloPanel[]   = [];
+  panelAlmacenes: AlmacenPanel[] = [];
+  panelEnvios:    EnvioPanel[]   = [];
+
+  // Indicadores globales
+  indicadoresGlobales: IndicadoresGlobales | null = null;
+
+  // Filtros UT
+  filtroVueloCodigo = '';
+  filtroVueloOrigen = '';
+  filtroVueloDestino = '';
+  sortVuelo: 'ocupacion' | 'salida' | 'llegada' | 'origen' | 'destino' | '' = '';
+
+  // Filtros almacenes
+  filtroAlmacenCodigo = '';
+  filtroAlmacenContinente = '';
+  sortAlmacen: 'ocupacion' | 'salen' | 'entran' | '' = '';
+
+  // Filtros envíos
+  filtroEnvioOrigen  = '';
+  filtroEnvioDestino = '';
+
+  // Filtro semáforo (global, aplica al tab activo)
+  semaforoMapFiltro: SemaforoNivel | null = null;
+
+  // Selección y vinculación
+  selectedAeropuertoCod: string | null = null;
+  selectedVueloCod:      string | null = null;
+  selectedEnvioId:       string | null = null;
+
+  // Lista de continentes únicos del panel
+  continentesPanel: string[] = [];
+
+  // ── Config semáforo ──────────────────────────────────────────
+  mostrarConfigSemaforo = false;
+  parametrosSemaforo: ParametroSemaforo[] = [];
+  parametroEditando: ParametroSemaforo | null = null;
+  guardandoParametro = false;
+
   constructor(
-    private readonly aeropuertoService:       AeropuertoService,
-    private readonly simulacionPeriodoService: SimulacionPeriodoService,
-    private readonly messageService:           MessageService,
-    private readonly cdr:                      ChangeDetectorRef,
-    private readonly ngZone:                   NgZone
+    private readonly aeropuertoService:         AeropuertoService,
+    private readonly simulacionPeriodoService:   SimulacionPeriodoService,
+    private readonly parametroSemaforoService:   ParametroSemaforoService,
+    private readonly messageService:             MessageService,
+    private readonly cdr:                        ChangeDetectorRef,
+    private readonly ngZone:                     NgZone
   ) {}
 
   ngOnInit(): void {
     this.simulacionPeriodoService.getConfigMonitoreo().subscribe({
       next: (resp: any) => {
         const d = resp.data ?? {};
-        this.K  = d['K']  ?? 60;
-        this.Sa = d['Sa'] ?? 5;
+        this.K  = d['K']  ?? 90;
+        this.Sa = d['SA'] ?? d['Sa'] ?? 5;
+        this.kFactor = this.K;
         this.onCargaCompleta();
       },
       error: () => { this.onCargaCompleta(); }
@@ -146,11 +245,53 @@ export class MapaComponent implements OnInit, OnDestroy {
     this.cargarAeropuertos();
   }
 
+  // ── Configuración de semáforo ────────────────────────────────
+
+  abrirConfigSemaforo(): void {
+    this.mostrarConfigSemaforo = true;
+    this.parametroSemaforoService.listar().subscribe({
+      next: resp => {
+        this.parametrosSemaforo = resp.data ?? [];
+        if (this.parametrosSemaforo.length === 0) {
+          this.parametrosSemaforo = [{
+            idParametro: null, entidad: 'MONITOREO',
+            umbralAmbar: 50, umbralRojo: 80, activo: true
+          }];
+        }
+        this.parametroEditando = { ...this.parametrosSemaforo[0] };
+        this.cdr.detectChanges();
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar configuración.' })
+    });
+  }
+
+  guardarParametroSemaforo(): void {
+    if (!this.parametroEditando) return;
+    this.guardandoParametro = true;
+    const obs = this.parametroEditando.idParametro
+      ? this.parametroSemaforoService.actualizar(this.parametroEditando.idParametro, this.parametroEditando)
+      : this.parametroSemaforoService.crear(this.parametroEditando);
+
+    obs.subscribe({
+      next: resp => {
+        this.guardandoParametro = false;
+        this.mostrarConfigSemaforo = false;
+        this.messageService.add({ severity: 'success', summary: 'Guardado', detail: 'Umbrales de semáforo actualizados.' });
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.guardandoParametro = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar.' });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   ngOnDestroy(): void {
-    // Limpia timers locales; la simulación continúa en el servidor
-    if (this.pollingInterval)   { clearInterval(this.pollingInterval);   this.pollingInterval   = null; }
-    if (this.countdownInterval) { clearInterval(this.countdownInterval); this.countdownInterval = null; }
+    this.wsSub?.unsubscribe();
     this.limpiarAnimacion();
+    // No desconectamos el WS ni detenemos el reloj: el servicio es singleton y la
+    // simulación sigue corriendo server-side. Al volver al módulo se retoma el estado.
   }
 
   @HostListener('window:resize')
@@ -173,187 +314,106 @@ export class MapaComponent implements OnInit, OnDestroy {
     this.arrancarMonitoreo();
   }
 
-  /**
-   * Lógica de arranque con tres caminos mutuamente excluyentes:
-   *
-   *  A) Ya se mostró el primer resultado en alguna visita anterior
-   *     → Restaurar mapa desde caché. SIN POST, SIN countdown.
-   *
-   *  B) El POST ya fue enviado pero el resultado aún no llegó (estamos en countdown)
-   *     → Retomar countdown consultando el tiempo restante al back. SIN POST.
-   *
-   *  C) Primera vez que se entra al módulo en esta sesión
-   *     → Enviar POST UNA SOLA VEZ y arrancar countdown.
-   */
   private arrancarMonitoreo(): void {
     const svc = this.simulacionPeriodoService;
 
-    // ── CASO A: resultado ya visto antes → mapa directo, sin nada más ──
-    if (svc.primerResultadoMostrado) {
-      const res   = svc.ultimoResultadoCacheado;
-      const ciclo = svc.ultimoCicloCacheado;
-      this.ultimoCicloVisto = ciclo;
-      this.numeroCiclo      = ciclo;
-      const vi = res?.['ventanaInicio'] ? new Date(res['ventanaInicio']) : new Date();
-      this.procesarResultadoVentana(res, vi);
-      this.iniciarPolling(); // seguir escuchando nuevos ciclos
-      this.cdr.detectChanges();
-      return;
+    // 1. Bootstrap instantáneo desde el último estado cacheado (al volver al módulo)
+    if (svc.estadoCacheado) {
+      this.aplicarSnapshot(svc.estadoCacheado);
+    } else {
+      this.estadoMonitoreo = 'procesando';
     }
 
-    // ── CASO B: POST enviado pero todavía esperando resultado ──
-    if (svc.monitoreoIniciado) {
-      // Obtener tiempo restante del backend para sincronizar countdown
-      svc.getEstado().subscribe({
-        next: (resp: any) => {
-          const est          = resp.data ?? {};
-          const tiempoRestMs = est['tiempoRestanteCicloMs'] ?? 0;
-          if (est['K'])  this.K  = est['K'];
-          if (est['SA']) this.Sa = est['SA'];
-          this.estadoMonitoreo    = 'procesando';
-          this.cuentaRegresivaSeg = tiempoRestMs > 0
-            ? Math.ceil(tiempoRestMs / 1000)
-            : this.cuentaRegresivaSeg || this.Sa * 60;
-          this.iniciarCountdownTick();
-          this.iniciarPolling();
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          // Si falla el GET, mantener el countdown que teníamos
-          this.estadoMonitoreo = 'procesando';
-          if (this.cuentaRegresivaSeg <= 0) this.cuentaRegresivaSeg = this.Sa * 60;
-          this.iniciarCountdownTick();
-          this.iniciarPolling();
-          this.cdr.detectChanges();
-        }
-      });
-      return;
-    }
+    // 2. Conectar WS para recibir reloj + planes en vivo
+    this.iniciarWs();
 
-    // ── CASO C: primera vez — enviar POST y arrancar countdown ──
-    svc.marcarIniciado();
-    this.estadoMonitoreo    = 'procesando';
-    this.cuentaRegresivaSeg = this.Sa * 60;
-
-    svc.iniciarMonitoreo().subscribe({
-      next:  () => {},
-      error: () => {}
-    });
-
-    this.iniciarCountdownTick();
-    this.iniciarPolling();
-    this.cdr.detectChanges();
-  }
-
-  // ── POLLING (GET /estado cada 5 s) ───────────────────────────
-
-  private iniciarPolling(): void {
-    if (this.pollingInterval) return; // no duplicar si ya corre
-    this.pollingInterval = setInterval(() => {
-      this.simulacionPeriodoService.getEstado().subscribe({
-        next: (resp: any) => this.procesarEstadoBackend(resp.data ?? {}),
+    // 3. Arrancar la simulación server-side una sola vez; siempre traer snapshot fresco
+    if (!svc.arrancado) {
+      svc.marcarArrancado();
+      svc.iniciarMonitoreo().subscribe({
+        next: (resp: any) => { if (resp?.data) this.aplicarSnapshot(resp.data); },
         error: () => {}
       });
-    }, this.POLLING_MS);
-  }
-
-  /**
-   * Procesa cada respuesta del polling.
-   *
-   * Reglas clave:
-   *  1. NUNCA resetea el countdown hacia arriba (eso causaba el loop infinito).
-   *  2. Detecta resultado nuevo tanto en LISTO como en PROCESANDO
-   *     (cuando el backend pasó de LISTO a PROCESANDO antes del próximo poll).
-   *  3. Una vez en 'animando', nunca vuelve a 'procesando' (el contador no reaparece).
-   */
-  private procesarEstadoBackend(est: any): void {
-    const fase: string         = est['fase']    ?? 'INACTIVO';
-    const cicloBack: number    = est['ciclo']   ?? 0;
-    const ultimoResultado: any = est['ultimoResultado'];
-
-    if (est['K'])  this.K  = est['K'];
-    if (est['SA']) this.Sa = est['SA'];
-    if (est['ventanaActual']) this.ventanaActualInicio = new Date(est['ventanaActual']);
-
-    // Actualizar número de ciclo visible
-    this.numeroCiclo = cicloBack;
-
-    // Marcar procesamiento en background (solo badge pequeño, no reinicia el contador)
-    if ((fase === 'PROCESANDO' || fase === 'INICIANDO') && this.estadoMonitoreo === 'animando') {
-      this.procesandoEnBackground = true;
-    }
-
-    // Limpiar badge cuando el ciclo terminó
-    if (fase === 'LISTO') {
-      this.procesandoEnBackground = false;
-    }
-
-    // ── Detección de resultado nuevo ──────────────────────────
-    // Funciona tanto si el backend está en LISTO como si ya pasó a PROCESANDO
-    // (el ciclo anterior lleva su resultado como ultimoResultado).
-    const tieneVuelos = Array.isArray(ultimoResultado?.['vuelos'])
-                        && (ultimoResultado['vuelos'] as any[]).length > 0;
-
-    if (cicloBack > this.ultimoCicloVisto && tieneVuelos) {
-      if (this.estadoMonitoreo === 'animando') {
-        // Ciclos posteriores: actualizar mapa y caché directamente, sin contador
-        this.ultimoCicloVisto = cicloBack;
-        this.numeroCiclo      = cicloBack;
-        this.simulacionPeriodoService.actualizarResultadoCacheado(ultimoResultado, cicloBack);
-        const vi = ultimoResultado['ventanaInicio']
-          ? new Date(ultimoResultado['ventanaInicio']) : new Date();
-        setTimeout(() => this.procesarResultadoVentana(ultimoResultado, vi), 300);
-      } else {
-        // Primer ciclo: guardar y esperar a que el countdown llegue a 0
-        this.resultadoPendiente = ultimoResultado;
-      }
+      // Red de seguridad: si el WS conectó después del primer PLAN, recuperar el snapshot
+      setTimeout(() => svc.getEstado().subscribe({
+        next: (resp: any) => { if (resp?.data?.vuelos?.length) this.aplicarSnapshot(resp.data); },
+        error: () => {}
+      }), 4000);
+    } else {
+      svc.getEstado().subscribe({
+        next: (resp: any) => { if (resp?.data) this.aplicarSnapshot(resp.data); },
+        error: () => {}
+      });
     }
 
     this.cdr.detectChanges();
   }
 
-  // ── COUNTDOWN TICK (1 seg) ───────────────────────────────────
+  // ── WEBSOCKET ─────────────────────────────────────────────────
 
-  private iniciarCountdownTick(): void {
-    if (this.countdownInterval) clearInterval(this.countdownInterval);
-    this.countdownInterval = setInterval(() => {
-      if (this.cuentaRegresivaSeg > 0) {
-        this.cuentaRegresivaSeg--;
-      }
-
-      // Cuando llega a 0 y hay resultado: mostrar el mapa UNA SOLA VEZ
-      if (this.cuentaRegresivaSeg <= 0
-          && this.resultadoPendiente != null
-          && this.estadoMonitoreo !== 'animando') {
-        const data = this.resultadoPendiente;
-        const vi   = data['ventanaInicio'] ? new Date(data['ventanaInicio']) : new Date();
-        this.ultimoCicloVisto   = this.numeroCiclo;
-        this.resultadoPendiente = null;
-        this.aplicarResultado(data, vi);
-      }
-
-      this.cdr.detectChanges();
-    }, 1000);
+  private iniciarWs(): void {
+    if (this.wsSub) return;
+    this.simulacionPeriodoService.conectarWs();
+    this.wsSub = this.simulacionPeriodoService.estadoWs$.subscribe(
+      (est: any) => this.ngZone.run(() => this.procesarEstadoBackend(est))
+    );
   }
-
-  // ── APLICAR RESULTADO AL MAPA ────────────────────────────────
 
   /**
-   * Punto central donde se aplica cualquier resultado al mapa.
-   * Siempre actualiza el caché del servicio singleton.
+   * Procesa mensajes del backend:
+   *  - TICK → solo reloj + contadores (animación sigue suave con extrapolación)
+   *  - PLAN / SNAPSHOT → además reemplaza vuelos y paneles
    */
-  private aplicarResultado(data: any, ventanaInicio: Date): void {
-    this.simulacionPeriodoService.marcarResultadoMostrado(data, this.numeroCiclo);
-    this.procesarResultadoVentana(data, ventanaInicio);
+  private procesarEstadoBackend(est: any): void {
+    if (!est) return;
+    const tipo: string = est['tipo'] ?? '';
+
+    this.sincronizarReloj(est);
+    this.actualizarContadores(est);
+
+    if (tipo === 'PLAN' || tipo === 'SNAPSHOT') {
+      this.aplicarVuelos(est);
+      this.actualizarPanelDesdeResultado(est);
+    }
+
+    this.cdr.detectChanges();
   }
 
-  private procesarResultadoVentana(data: any, ventanaInicio: Date): void {
-    this.statsAsignados   = data['asignados']  ?? 0;
-    this.statsNoAsignados = data['noAsignados'] ?? 0;
-    this.statsTotalEnvios = this.statsAsignados + this.statsNoAsignados;
-    this.procesandoEnBackground = false;
+  /** Aplica un snapshot completo (bootstrap por HTTP o mensaje PLAN/SNAPSHOT). */
+  private aplicarSnapshot(est: any): void {
+    if (!est) return;
+    this.sincronizarReloj(est);
+    this.actualizarContadores(est);
+    this.aplicarVuelos(est);
+    this.actualizarPanelDesdeResultado(est);
+    this.cdr.detectChanges();
+  }
 
-    const vuelosRaw: any[] = data['vuelos'] ?? [];
+  /** Sincroniza el reloj simulado autoritativo del backend para extrapolar la animación. */
+  private sincronizarReloj(est: any): void {
+    if (est['K']) { this.K = est['K']; this.kFactor = est['K']; }
+    if (est['SA']) { this.Sa = est['SA']; }
+    if (est['ciclo'] != null) { this.numeroCiclo = est['ciclo']; }
+
+    if (est['relojSim']) {
+      this.relojBaseMs = new Date(est['relojSim']).getTime();
+      this.relojRecvMs = Date.now();
+      this.ventanaActualInicio = new Date(est['relojSim']);
+    }
+
+    if (this.estadoMonitoreo === 'cargando') this.estadoMonitoreo = 'procesando';
+    this.iniciarAnimacion();
+  }
+
+  private actualizarContadores(est: any): void {
+    if (est['pedidosAsignados']   != null) this.statsPedidosAsignados   = est['pedidosAsignados'];
+    if (est['pedidosNoAsignados'] != null) this.statsPedidosNoAsignados = est['pedidosNoAsignados'];
+    if (est['maletasFisicas']     != null) this.statsMaletasFisicas     = est['maletasFisicas'];
+  }
+
+  /** Reemplaza el set de vuelos animados con la lista acumulada del backend. */
+  private aplicarVuelos(est: any): void {
+    const vuelosRaw: any[] = est['vuelos'] ?? [];
     this.vuelosAnimacion = vuelosRaw.map((v: any) => ({
       codigoVuelo:   v['codigoVuelo'],
       origen:        v['origen'],
@@ -362,25 +422,322 @@ export class MapaComponent implements OnInit, OnDestroy {
       horaLlegadaMs: new Date(v['horaLlegada']).getTime(),
       totalMaletas:  v['totalMaletas'] ?? 0
     }));
+    this.estadoMonitoreo = this.vuelosAnimacion.length > 0 ? 'animando' : 'procesando';
+  }
 
-    this.animStartReal   = Date.now();
-    this.animStartSim    = ventanaInicio.getTime();
-    this.simTimeMs       = this.animStartSim;
-    this.estadoMonitoreo = 'animando';
+  // ── PANEL: extracción de datos del resultado ──────────────────
 
-    this.iniciarAnimacion();
+  private actualizarPanelDesdeResultado(data: any): void {
+    // Vuelos (UT)
+    const vuelosRaw: any[] = data['vuelos'] ?? [];
+    this.panelVuelosRaw = vuelosRaw.map((v: any) => ({
+      codigoVuelo:     v['codigoVuelo'],
+      origen:          v['origen'],
+      destino:         v['destino'],
+      horaSalida:      v['horaSalida'] ?? '',
+      horaLlegada:     v['horaLlegada'] ?? '',
+      totalMaletas:    v['totalMaletas']    ?? 0,
+      capacidadMaxima: v['capacidadMaxima'] ?? 300,
+      ocupacionPct:    v['ocupacionPct']    ?? 0,
+      semaforo:        (v['semaforo'] as SemaforoNivel) ?? 'VACIO'
+    }));
+
+    // Almacenes
+    const almRaw: any[] = data['almacenesDetalle'] ?? [];
+    this.panelAlmacenesRaw = almRaw.map((a: any) => ({
+      codigo:       a['codigo'],
+      ciudad:       a['ciudad']      ?? '',
+      continente:   a['continente']  ?? '',
+      capacidad:    a['capacidad']   ?? 0,
+      ocupacion:    a['ocupacion']   ?? 0,
+      pct:          a['pct']         ?? 0,
+      semaforo:     (a['semaforo'] as SemaforoNivel) ?? 'VACIO',
+      enviosSalen:  a['enviosSalen'] ?? 0,
+      enviosEntran: a['enviosEntran'] ?? 0
+    }));
+
+    // Continentes únicos para el selector
+    this.continentesPanel = [...new Set(this.panelAlmacenesRaw.map(a => a.continente))].sort();
+
+    // Envíos
+    const envRaw: any[] = data['enviosDetalle'] ?? [];
+    this.panelEnviosRaw = envRaw.map((e: any) => ({
+      id:       e['id'],
+      origen:   e['origen']   ?? '',
+      destino:  e['destino']  ?? '',
+      cantidad: e['cantidad'] ?? 0,
+      prioridad:e['prioridad'] ?? 3,
+      vuelos:   e['vuelos']   ?? []
+    }));
+
+    // Indicadores globales
+    const indRaw = data['indicadoresGlobales'];
+    if (indRaw) {
+      this.indicadoresGlobales = {
+        pctFlota:          indRaw['pctFlota']          ?? 0,
+        semaforoFlota:     (indRaw['semaforoFlota']     as SemaforoNivel) ?? 'VACIO',
+        pctAlmacenes:      indRaw['pctAlmacenes']      ?? 0,
+        semaforoAlmacenes: (indRaw['semaforoAlmacenes'] as SemaforoNivel) ?? 'VACIO'
+      };
+    }
+
+    // Aplicar filtros con los nuevos datos
+    this.aplicarFiltrosVuelos();
+    this.aplicarFiltrosAlmacenes();
+    this.aplicarFiltrosEnvios();
+  }
+
+  // ── PANEL: filtros y ordenamiento ────────────────────────────
+
+  aplicarFiltrosVuelos(): void {
+    let lista = [...this.panelVuelosRaw];
+
+    if (this.filtroVueloCodigo) {
+      const q = this.filtroVueloCodigo.toLowerCase();
+      lista = lista.filter(v => v.codigoVuelo.toLowerCase().includes(q));
+    }
+    if (this.filtroVueloOrigen) {
+      const q = this.filtroVueloOrigen.toLowerCase();
+      lista = lista.filter(v => v.origen.toLowerCase().includes(q));
+    }
+    if (this.filtroVueloDestino) {
+      const q = this.filtroVueloDestino.toLowerCase();
+      lista = lista.filter(v => v.destino.toLowerCase().includes(q));
+    }
+    if (this.semaforoMapFiltro) {
+      lista = lista.filter(v => v.semaforo === this.semaforoMapFiltro);
+    }
+
+    switch (this.sortVuelo) {
+      case 'ocupacion': lista.sort((a, b) => b.ocupacionPct - a.ocupacionPct); break;
+      case 'salida':    lista.sort((a, b) => a.horaSalida.localeCompare(b.horaSalida)); break;
+      case 'llegada':   lista.sort((a, b) => a.horaLlegada.localeCompare(b.horaLlegada)); break;
+      case 'origen':    lista.sort((a, b) => a.origen.localeCompare(b.origen)); break;
+      case 'destino':   lista.sort((a, b) => a.destino.localeCompare(b.destino)); break;
+    }
+
+    this.panelVuelos = lista;
+  }
+
+  aplicarFiltrosAlmacenes(): void {
+    let lista = [...this.panelAlmacenesRaw];
+
+    if (this.filtroAlmacenCodigo) {
+      const q = this.filtroAlmacenCodigo.toLowerCase();
+      lista = lista.filter(a =>
+        a.codigo.toLowerCase().includes(q) ||
+        a.ciudad.toLowerCase().includes(q)
+      );
+    }
+    if (this.filtroAlmacenContinente) {
+      lista = lista.filter(a => a.continente === this.filtroAlmacenContinente);
+    }
+    if (this.semaforoMapFiltro) {
+      lista = lista.filter(a => a.semaforo === this.semaforoMapFiltro);
+    }
+
+    switch (this.sortAlmacen) {
+      case 'ocupacion': lista.sort((a, b) => b.pct - a.pct); break;
+      case 'salen':     lista.sort((a, b) => b.enviosSalen - a.enviosSalen); break;
+      case 'entran':    lista.sort((a, b) => b.enviosEntran - a.enviosEntran); break;
+    }
+
+    this.panelAlmacenes = lista;
+  }
+
+  aplicarFiltrosEnvios(): void {
+    let lista = [...this.panelEnviosRaw];
+
+    if (this.filtroEnvioOrigen) {
+      const q = this.filtroEnvioOrigen.toLowerCase();
+      lista = lista.filter(e => e.origen.toLowerCase().includes(q));
+    }
+    if (this.filtroEnvioDestino) {
+      const q = this.filtroEnvioDestino.toLowerCase();
+      lista = lista.filter(e => e.destino.toLowerCase().includes(q));
+    }
+
+    this.panelEnvios = lista;
+  }
+
+  setSortVuelo(campo: typeof this.sortVuelo): void {
+    this.sortVuelo = this.sortVuelo === campo ? '' : campo;
+    this.aplicarFiltrosVuelos();
+  }
+
+  setSortAlmacen(campo: typeof this.sortAlmacen): void {
+    this.sortAlmacen = this.sortAlmacen === campo ? '' : campo;
+    this.aplicarFiltrosAlmacenes();
+  }
+
+  filtrarPorSemaforo(nivel: SemaforoNivel | null): void {
+    this.semaforoMapFiltro = this.semaforoMapFiltro === nivel ? null : nivel;
+    this.aplicarFiltrosVuelos();
+    this.aplicarFiltrosAlmacenes();
+  }
+
+  limpiarFiltrosEnvios(): void {
+    this.filtroEnvioOrigen  = '';
+    this.filtroEnvioDestino = '';
+    this.aplicarFiltrosEnvios();
+  }
+
+  togglePanel(): void {
+    this.panelCollapsed = !this.panelCollapsed;
     this.cdr.detectChanges();
+  }
+
+  // ── PANEL: vinculación con mapa ───────────────────────────────
+
+  seleccionarAeropuerto(codigo: string, fuente: 'mapa' | 'panel' = 'panel'): void {
+    this.selectedAeropuertoCod = this.selectedAeropuertoCod === codigo ? null : codigo;
+
+    if (fuente === 'panel' && this.selectedAeropuertoCod) {
+      this.panToAeropuerto(codigo);
+    }
+    if (fuente === 'mapa') {
+      if (this.activeTab !== 'almacenes') { this.activeTab = 'almacenes'; }
+      this.scrollPanelACodigo(codigo);
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  private panToAeropuerto(codigo: string): void {
+    const svgPos = this.aeropuertoSvgMap.get(codigo);
+    if (!svgPos || !this.renderBounds.cw) return;
+    const rb = this.renderBounds;
+    const screenX = rb.left + (svgPos.x / this.SVG_W) * rb.imgW;
+    const screenY = rb.top  + (svgPos.y / this.SVG_H) * rb.imgH;
+    if (this.zoomLevel < 2.5) { this.zoomLevel = 2.5; }
+    this.panX = (rb.cw / 2 - screenX) * (this.zoomLevel - 1);
+    this.panY = (rb.ch / 2 - screenY) * (this.zoomLevel - 1);
+    this.clampPan();
+    this.cdr.detectChanges();
+  }
+
+  private scrollPanelACodigo(codigo: string): void {
+    setTimeout(() => {
+      const el = document.querySelector(`[data-codigo="${codigo}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+
+  seleccionarVuelo(codigoVuelo: string, fuente: 'mapa' | 'panel' = 'panel'): void {
+    if (fuente === 'mapa') {
+      // Click en avión → ir a su detalle en "Vuelos / UT": seleccionar (no alternar),
+      // abrir el tab, limpiar filtros para garantizar que el vuelo sea visible y hacer scroll.
+      this.selectedVueloCod   = codigoVuelo;
+      this.activeTab          = 'vuelos';
+      this.filtroVueloCodigo  = '';
+      this.filtroVueloOrigen  = '';
+      this.filtroVueloDestino = '';
+      this.aplicarFiltrosVuelos();
+      this.scrollPanelACodigo('vuelo-' + codigoVuelo);
+    } else {
+      this.selectedVueloCod = this.selectedVueloCod === codigoVuelo ? null : codigoVuelo;
+    }
+    this.cdr.detectChanges();
+  }
+
+  seleccionarEnvio(envio: EnvioPanel): void {
+    if (this.selectedEnvioId === envio.id) {
+      this.selectedEnvioId = null;
+      this.rutaArcos = [];
+    } else {
+      this.selectedEnvioId = envio.id;
+      this.mostrarRutaEnMapa(envio.vuelos);
+    }
+    this.cdr.detectChanges();
+  }
+
+  private mostrarRutaEnMapa(vueloCodigos: string[]): void {
+    const arcos: ArcoVuelo[] = [];
+    for (const codigo of vueloCodigos) {
+      const vuelo = this.panelVuelosRaw.find(v => v.codigoVuelo === codigo);
+      const origen  = vuelo?.origen  ?? this.encontrarOrigenDeVuelo(codigo);
+      const destino = vuelo?.destino ?? this.encontrarDestinoDeVuelo(codigo);
+      if (!origen || !destino) continue;
+      const o = this.aeropuertoSvgMap.get(origen);
+      const d = this.aeropuertoSvgMap.get(destino);
+      if (o && d) {
+        const fakeVuelo: VueloAnimacion = {
+          codigoVuelo: codigo, origen, destino,
+          horaSalidaMs: 0, horaLlegadaMs: 0,
+          totalMaletas: vuelo?.totalMaletas ?? 0
+        };
+        arcos.push({ d: this.calcArco(o.x, o.y, d.x, d.y), vuelo: fakeVuelo, esRuta: true });
+      }
+    }
+    this.rutaArcos = arcos;
+  }
+
+  private encontrarOrigenDeVuelo(codigo: string): string | null {
+    const v = this.vuelosAnimacion.find(a => a.codigoVuelo === codigo);
+    return v?.origen ?? null;
+  }
+
+  private encontrarDestinoDeVuelo(codigo: string): string | null {
+    const v = this.vuelosAnimacion.find(a => a.codigoVuelo === codigo);
+    return v?.destino ?? null;
+  }
+
+  verEnviosDeVuelo(vuelo: VueloPanel): void {
+    this.activeTab = 'envios';
+    this.filtroEnvioOrigen  = '';
+    this.filtroEnvioDestino = '';
+    this.panelEnvios = this.panelEnviosRaw.filter(e => e.vuelos.includes(vuelo.codigoVuelo));
+    this.cdr.detectChanges();
+  }
+
+  verEnviosDeAlmacen(almacen: AlmacenPanel, tipo: 'origen' | 'destino'): void {
+    this.activeTab = 'envios';
+    if (tipo === 'origen') {
+      this.filtroEnvioOrigen  = almacen.codigo;
+      this.filtroEnvioDestino = '';
+    } else {
+      this.filtroEnvioOrigen  = '';
+      this.filtroEnvioDestino = almacen.codigo;
+    }
+    this.aplicarFiltrosEnvios();
+    this.cdr.detectChanges();
+  }
+
+  // ── PANEL: helpers de semáforo ────────────────────────────────
+
+  getSemaforoClass(semaforo: string): string {
+    switch (semaforo) {
+      case 'VERDE':    return 'sem-verde';
+      case 'AMARILLO': return 'sem-amarillo';
+      case 'ROJO':     return 'sem-rojo';
+      default:         return 'sem-vacio';
+    }
+  }
+
+  getSemaforoMapClass(codigo: string): string {
+    const a = this.panelAlmacenesRaw.find(a => a.codigo === codigo);
+    return a ? this.getSemaforoClass(a.semaforo) : 'sem-vacio';
+  }
+
+  getSemaforoVueloMapClass(codigo: string): string {
+    const v = this.panelVuelosRaw.find(v => v.codigoVuelo === codigo);
+    return v ? this.getSemaforoClass(v.semaforo) : 'sem-vacio';
+  }
+
+  formatHora(iso: string): string {
+    if (!iso || iso.length < 16) return '--:--';
+    return iso.substring(11, 16);
   }
 
   // ── ANIMACIÓN ────────────────────────────────────────────────
 
   private iniciarAnimacion(): void {
-    if (this.animInterval) { clearInterval(this.animInterval); this.animInterval = null; }
+    if (this.animInterval) return; // ya corriendo — el reloj es continuo
 
     this.ngZone.runOutsideAngular(() => {
       this.animInterval = setInterval(() => {
-        const realElapsed = Date.now() - this.animStartReal;
-        this.simTimeMs = this.animStartSim + realElapsed * this.K;
+        // Extrapolar el reloj autoritativo del backend: simTime = base + (real transcurrido) * K
+        this.simTimeMs = this.relojBaseMs + (Date.now() - this.relojRecvMs) * this.kFactor;
         this.actualizarPosicionAviones();
         this.cdr.detectChanges();
       }, this.TICK_MS);
@@ -412,9 +769,7 @@ export class MapaComponent implements OnInit, OnDestroy {
         const pos = this.bezierPt(t, o.x, o.y, cp.x, cp.y, d.x, d.y);
         const tan = this.bezierTan(t, o.x, o.y, cp.x, cp.y, d.x, d.y);
         return {
-          vuelo:  v,
-          x:      pos.x,
-          y:      pos.y,
+          vuelo: v, x: pos.x, y: pos.y,
           angulo: Math.atan2(tan.dy, tan.dx) * 180 / Math.PI + 90
         };
       })
@@ -426,15 +781,14 @@ export class MapaComponent implements OnInit, OnDestroy {
     this.vuelosAnimacion = [];
     this.planosEnMapa    = [];
     this.arcosVuelo      = [];
+    this.rutaArcos       = [];
   }
 
-  // ── GETTERS PARA TEMPLATE ────────────────────────────────────
+  // ── GETTERS para template ────────────────────────────────────
 
-  get cuentaRegresivaLabel(): string {
-    const seg = Math.max(0, this.cuentaRegresivaSeg);
-    const m = Math.floor(seg / 60).toString().padStart(2, '0');
-    const s = (seg % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+  /** Total de pedidos procesados (asignados + no asignados). */
+  get statsTotalPedidos(): number {
+    return this.statsPedidosAsignados + this.statsPedidosNoAsignados;
   }
 
   get ventanaLabel(): string {
@@ -505,8 +859,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   private clampPan(): void {
     const el = this.mapContainerEl?.nativeElement;
     if (!el) return;
-    const w = el.clientWidth;
-    const h = el.clientHeight;
+    const w = el.clientWidth, h = el.clientHeight;
     const maxX = (w / 2) * (this.zoomLevel - 1);
     const maxY = (h / 2) * (this.zoomLevel - 1);
     this.panX = Math.max(-maxX, Math.min(maxX, this.panX));
@@ -518,28 +871,27 @@ export class MapaComponent implements OnInit, OnDestroy {
   toggleFullscreen(): void {
     const el = this.mapContainerEl?.nativeElement;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) { el.requestFullscreen().catch(() => {}); }
+    else { document.exitFullscreen(); }
   }
 
-  // ── TOOLTIP (hover avión) ────────────────────────────────────
+  // ── TOOLTIP ──────────────────────────────────────────────────
 
   onPlaneHover(event: MouseEvent, p: PlanoEnMapa): void {
     const rect = this.mapContainerEl?.nativeElement?.getBoundingClientRect();
     const relX = rect ? event.clientX - rect.left : event.offsetX;
     const relY = rect ? event.clientY - rect.top  : event.offsetY;
     const flip = rect ? relX > rect.width - 220 : false;
+    const vPanel = this.panelVuelosRaw.find(v => v.codigoVuelo === p.vuelo.codigoVuelo);
+    const pct = vPanel ? `${vPanel.ocupacionPct}%` : '';
     this.tooltip = {
       visible: true,
       x: flip ? relX - 220 : relX + 14,
       y: relY + 14,
       lines: [
-        `✈ Vuelo ${p.vuelo.codigoVuelo}`,
+        `Vuelo ${p.vuelo.codigoVuelo}`,
         `${p.vuelo.origen} → ${p.vuelo.destino}`,
-        `${p.vuelo.totalMaletas} maletas`,
+        `${p.vuelo.totalMaletas} maletas${pct ? ' (' + pct + ')' : ''}`,
         `Llegada: ${new Date(p.vuelo.horaLlegadaMs).toLocaleString('es-PE', { hour: '2-digit', minute: '2-digit' })}`
       ]
     };
@@ -563,11 +915,7 @@ export class MapaComponent implements OnInit, OnDestroy {
         });
 
         this.cdr.detectChanges();
-        setTimeout(() => {
-          this.medirYEnriquecer();
-          this.cdr.detectChanges();
-        }, 50);
-
+        setTimeout(() => { this.medirYEnriquecer(); this.cdr.detectChanges(); }, 50);
         this.onCargaCompleta();
       },
       error: () => {
@@ -581,12 +929,8 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   // ── PROYECCIÓN SVG ───────────────────────────────────────────
 
-  lonToX(lon: number): number {
-    return ((lon + 180) / 360) * this.SVG_W;
-  }
-  latToY(lat: number): number {
-    return ((this.LAT_MAX - lat) / (this.LAT_MAX - this.LAT_MIN)) * this.SVG_H;
-  }
+  lonToX(lon: number): number { return ((lon + 180) / 360) * this.SVG_W; }
+  latToY(lat: number): number { return ((this.LAT_MAX - lat) / (this.LAT_MAX - this.LAT_MIN)) * this.SVG_H; }
 
   // ── BEZIER ───────────────────────────────────────────────────
 
@@ -598,7 +942,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     return { x: mx + (-dy / len) * c, y: my + (dx / len) * c };
   }
 
-  private calcArco(x1: number, y1: number, x2: number, y2: number): string {
+  calcArco(x1: number, y1: number, x2: number, y2: number): string {
     const cp = this.ctrlPoint(x1, y1, x2, y2);
     return `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cp.x.toFixed(1)} ${cp.y.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
   }
@@ -613,15 +957,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     return { dx: 2*u*(cx-x1) + 2*t*(x2-cx), dy: 2*u*(cy-y1) + 2*t*(y2-cy) };
   }
 
-  // ── HELPERS ──────────────────────────────────────────────────
-
-  private formatDateTime(d: Date): string {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` +
-           `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }
-
-  // ── POSICIONAMIENTO CSS aeropuertos ──────────────────────────
+  // ── POSICIONAMIENTO CSS ──────────────────────────────────────
 
   private medirYEnriquecer(): void {
     this.medirContenedor();
@@ -676,7 +1012,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     return decimal;
   }
 
-  // ── FILTROS ──────────────────────────────────────────────────
+  // ── FILTROS DEL MAPA ─────────────────────────────────────────
 
   onContinenteChange(event: Event): void {
     const val = (event.target as HTMLSelectElement).value;
@@ -708,8 +1044,10 @@ export class MapaComponent implements OnInit, OnDestroy {
   getActivoClass(activo: boolean): string { return activo ? 'badge-activo' : 'badge-inactivo'; }
   getActivosCount(): number { return this.aeropuertosFiltrados.filter(a => a.activo).length; }
 
-  // TrackBy
-  trackPlano(_: number, p: PlanoEnMapa):     string { return p.vuelo.codigoVuelo; }
-  trackArco (_: number, a: ArcoVuelo):       string { return a.vuelo.codigoVuelo; }
-  trackAero (_: number, a: Aeropuerto):      string { return a.codigoOaci; }
+  trackPlano(_: number, p: PlanoEnMapa):    string { return p.vuelo.codigoVuelo; }
+  trackArco (_: number, a: ArcoVuelo):      string { return a.vuelo.codigoVuelo + (a.esRuta ? '-r' : ''); }
+  trackAero (_: number, a: Aeropuerto):     string { return a.codigoOaci; }
+  trackAlmacen(_: number, a: AlmacenPanel): string { return a.codigo; }
+  trackVueloP(_: number, v: VueloPanel):    string { return v.codigoVuelo; }
+  trackEnvioP(_: number, e: EnvioPanel):    string { return e.id; }
 }
