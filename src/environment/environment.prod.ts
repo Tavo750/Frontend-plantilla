@@ -7,6 +7,6 @@ export const environment = {
   // a través del dominio generado por Dokploy (sslip.io).
   // El navegador hace las peticiones directamente al backend; Nginx solo
   // sirve los archivos estáticos de Angular (SPA).
-  apiUrl:  'http://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',
-  authUrl: 'http://frontend7g-tasfb2bfrontend-fvm1gb-41d9b0-200-16-7-153.sslip.io/auth',
+  apiUrl: 'https://backend7g-tasfb2bbackend-fvm1gb-41d9b0-200-16-7-153.sslip.io/api/',
+  authUrl: 'https://1inf54-982-7g.inf.pucp.edu.pe/auth',
 };
