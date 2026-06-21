@@ -46,6 +46,10 @@
         <div class="profile-menu-header">
           <span class="profile-name">{{ usuario?.nombreCompleto || 'Usuario' }}</span>
           <span class="profile-role" *ngIf="usuario?.puesto">{{ usuario?.puesto }}</span>
+          <span class="profile-airport" *ngIf="usuario?.codigoOaciAeropuerto">
+            <i class="pi pi-map-marker"></i>
+            {{ usuario?.codigoOaciAeropuerto }} – {{ usuario?.ciudadAeropuerto }}
+          </span>
         </div>
         <div class="profile-menu-divider"></div>
         <button class="profile-menu-item" (click)="onLogout()">

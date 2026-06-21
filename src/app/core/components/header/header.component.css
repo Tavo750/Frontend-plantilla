@@ -194,6 +194,20 @@
   color: var(--color-text-muted);
 }
 
+.profile-airport {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--color-primary, #2a489e);
+  font-weight: 500;
+  margin-top: 0.15rem;
+}
+
+.profile-airport i {
+  font-size: 0.7rem;
+}
+
 .profile-menu-divider {
   height: 1px;
   background: var(--color-border);

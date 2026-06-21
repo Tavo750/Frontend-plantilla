@@ -35,7 +35,10 @@ export class AuthService {
       nombreCompleto: 'Flavio Ascamar Garcia',
       correo: 'flavioascamar@gmail.com',
       puesto: 'Administrador',
-      estado: true
+      estado: true,
+      idAeropuerto: 5,
+      codigoOaciAeropuerto: 'SPIM',
+      ciudadAeropuerto: 'Lima'
     };
     const token = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmbGF2aW9hc2NhbWFyQGdtYWlsLmNvbSIsImlhdCI6MTc4MTgxNTAzNSwiZXhwIjoxNzgxOTAxNDM1fQ.5gMi9dG_MxWlr1UWER2lKzlwBJ6qLXsui2fKuqXkIVr5NwO8lvS9Ma-sK3tuIdM_WjRCRgFIzivoFfQJoC4SNA';
     localStorage.setItem(this.TOKEN_KEY, token);
@@ -63,11 +66,11 @@ export class AuthService {
 
   logout(): Observable<void> {
     localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem('current_user');
     this.currentUserSubject.next(null);
     this.isAuthenticatedSubject.next(false);
     return of(void 0);
   }
-
   private hasToken(): boolean {
     return !!localStorage.getItem(this.TOKEN_KEY);
   }

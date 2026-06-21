@@ -46,12 +46,15 @@ interface VueloPanel {
   codigoVuelo:    string;
   origen:         string;
   destino:        string;
+  ciudadOrigen:   string;
+  ciudadDestino:  string;
   horaSalida:     string;
   horaLlegada:    string;
   totalMaletas:   number;
   capacidadMaxima:number;
   ocupacionPct:   number;
   semaforo:       SemaforoNivel;
+  estadoVuelo:    string;
 }
 
 interface AlmacenPanel {
@@ -194,6 +197,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   filtroVueloCodigo = '';
   filtroVueloOrigen = '';
   filtroVueloDestino = '';
+  filtroEstadoVuelo: 'EN_VUELO' | 'POR_SALIR' | 'LLEGÓ' | '' = '';
   sortVuelo: 'ocupacion' | 'salida' | 'llegada' | 'origen' | 'destino' | '' = '';
 
   // Filtros almacenes
@@ -434,12 +438,15 @@ export class MapaComponent implements OnInit, OnDestroy {
       codigoVuelo:     v['codigoVuelo'],
       origen:          v['origen'],
       destino:         v['destino'],
-      horaSalida:      v['horaSalida'] ?? '',
-      horaLlegada:     v['horaLlegada'] ?? '',
+      ciudadOrigen:    v['ciudadOrigen']    ?? '',
+      ciudadDestino:   v['ciudadDestino']   ?? '',
+      horaSalida:      v['horaSalida']      ?? '',
+      horaLlegada:     v['horaLlegada']     ?? '',
       totalMaletas:    v['totalMaletas']    ?? 0,
       capacidadMaxima: v['capacidadMaxima'] ?? 300,
       ocupacionPct:    v['ocupacionPct']    ?? 0,
-      semaforo:        (v['semaforo'] as SemaforoNivel) ?? 'VACIO'
+      semaforo:        (v['semaforo'] as SemaforoNivel) ?? 'VACIO',
+      estadoVuelo:     v['estadoVuelo']     ?? ''
     }));
 
     // Almacenes
@@ -494,15 +501,30 @@ export class MapaComponent implements OnInit, OnDestroy {
 
     if (this.filtroVueloCodigo) {
       const q = this.filtroVueloCodigo.toLowerCase();
-      lista = lista.filter(v => v.codigoVuelo.toLowerCase().includes(q));
+      lista = lista.filter(v =>
+        v.codigoVuelo.toLowerCase().includes(q) ||
+        v.origen.toLowerCase().includes(q) ||
+        v.destino.toLowerCase().includes(q) ||
+        v.ciudadOrigen.toLowerCase().includes(q) ||
+        v.ciudadDestino.toLowerCase().includes(q)
+      );
     }
     if (this.filtroVueloOrigen) {
       const q = this.filtroVueloOrigen.toLowerCase();
-      lista = lista.filter(v => v.origen.toLowerCase().includes(q));
+      lista = lista.filter(v =>
+        v.origen.toLowerCase().includes(q) ||
+        v.ciudadOrigen.toLowerCase().includes(q)
+      );
     }
     if (this.filtroVueloDestino) {
       const q = this.filtroVueloDestino.toLowerCase();
-      lista = lista.filter(v => v.destino.toLowerCase().includes(q));
+      lista = lista.filter(v =>
+        v.destino.toLowerCase().includes(q) ||
+        v.ciudadDestino.toLowerCase().includes(q)
+      );
+    }
+    if (this.filtroEstadoVuelo) {
+      lista = lista.filter(v => v.estadoVuelo === this.filtroEstadoVuelo);
     }
     if (this.semaforoMapFiltro) {
       lista = lista.filter(v => v.semaforo === this.semaforoMapFiltro);
@@ -517,6 +539,29 @@ export class MapaComponent implements OnInit, OnDestroy {
     }
 
     this.panelVuelos = lista;
+  }
+
+  setFiltroEstadoVuelo(estado: 'EN_VUELO' | 'POR_SALIR' | 'LLEGÓ' | ''): void {
+    this.filtroEstadoVuelo = this.filtroEstadoVuelo === estado ? '' : estado;
+    this.aplicarFiltrosVuelos();
+  }
+
+  getEstadoVueloClass(estado: string): string {
+    switch (estado) {
+      case 'EN_VUELO':  return 'ev-vuelo';
+      case 'POR_SALIR': return 'ev-salir';
+      case 'LLEGÓ':     return 'ev-llego';
+      default:          return 'ev-vacio';
+    }
+  }
+
+  getEstadoVueloLabel(estado: string): string {
+    switch (estado) {
+      case 'EN_VUELO':  return 'En vuelo';
+      case 'POR_SALIR': return 'Por salir';
+      case 'LLEGÓ':     return 'Llegó';
+      default:          return estado;
+    }
   }
 
   aplicarFiltrosAlmacenes(): void {
@@ -632,6 +677,7 @@ export class MapaComponent implements OnInit, OnDestroy {
       this.filtroVueloCodigo  = '';
       this.filtroVueloOrigen  = '';
       this.filtroVueloDestino = '';
+      this.filtroEstadoVuelo  = '';
       this.aplicarFiltrosVuelos();
       this.scrollPanelACodigo('vuelo-' + codigoVuelo);
     } else {
