@@ -488,6 +488,7 @@ export class MaletaComponent implements OnInit {
     this.fechaRegistroDesde = null;
     this.fechaRegistroHasta = null;
     this.aplicarFiltros();
+  }
   private configurarOrigenDesdeUsuario(): void {
     const usuario = this.authService.getCurrentUser();
 
