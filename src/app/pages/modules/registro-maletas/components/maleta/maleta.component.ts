@@ -1,9 +1,10 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
 import { EnvioDiarioService } from '../../../../../core/services/envio-diario.service';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
-
+import { AuthService } from '../../../../../core/services/auth.service';
 @Component({
   selector: 'app-maleta',
   standalone: false,
@@ -52,6 +53,7 @@ export class MaletaComponent implements OnInit {
     private readonly envioService: EnvioService,
     private readonly envioDiarioService: EnvioDiarioService,
     private readonly aeropuertoService: AeropuertoService,
+    private readonly authService: AuthService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
   ) { }
@@ -65,7 +67,15 @@ export class MaletaComponent implements OnInit {
     this.aeropuertoService.listarAeropuertos().subscribe({
       next: resp => {
         this.aeropuertos = resp.data ?? [];
+        this.configurarOrigenDesdeUsuario();
         this.cdr.detectChanges();
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los aeropuertos.'
+        });
       }
     });
   }
@@ -88,8 +98,21 @@ export class MaletaComponent implements OnInit {
   }
 
   registrarEnvio(): void {
-    if (!this.idOrigen || !this.idDestino || this.cantidad < 1) {
-      this.messageService.add({ severity: 'warn', summary: 'Campos requeridos', detail: 'Completa todos los campos del formulario.' });
+    if (!this.idOrigen) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen no asignado',
+        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
+      });
+      return;
+    }
+
+    if (!this.idDestino || this.cantidad < 1) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Campos requeridos',
+        detail: 'Selecciona aeropuerto de destino e ingresa la cantidad de maletas.'
+      });
       return;
     }
     if (this.idOrigen === this.idDestino) {
@@ -119,7 +142,6 @@ export class MaletaComponent implements OnInit {
   }
 
   limpiarFormulario(): void {
-    this.idOrigen = null;
     this.idDestino = null;
     this.cantidad = 1;
   }
@@ -230,30 +252,50 @@ export class MaletaComponent implements OnInit {
     this.csvResultado = null;
     this.cdr.detectChanges();
 
+
     // ── 1. Validación local de todas las filas ──
     const errores: string[] = [];
     const validos: { idAeropuertoOrigen: number; idAeropuertoDestino: number; cantidad: number }[] = [];
 
+    if (!this.idOrigen) {
+      this.cargandoCSV = false;
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen no asignado',
+        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const origen = this.getAeropuertoById(this.idOrigen);
+
+    if (!origen) {
+      this.cargandoCSV = false;
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen inválido',
+        detail: 'No se encontró el aeropuerto de origen del usuario.'
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
     for (let idx = 0; idx < filas.length; idx++) {
       const numFila = idx + 2; // +1 por encabezado, +1 por índice 0-based
       const cols = filas[idx].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
-      if (cols.length < 3) {
-        errores.push(`Fila ${numFila}: formato inválido (3 columnas requeridas: origen, destino, cantidad)`);
+
+      if (cols.length < 2) {
+        errores.push(`Fila ${numFila}: formato inválido (2 columnas requeridas: destino, cantidad)`);
         continue;
       }
 
-      const [codigoOrigen, codigoDestino, cantidadStr] = cols;
+      const [codigoDestino, cantidadStr] = cols;
       const cantidad = parseInt(cantidadStr, 10);
-
-      const origen = this.aeropuertos.find(a =>
-        a.codigoOaci.toLowerCase() === codigoOrigen.toLowerCase());
-      if (!origen) {
-        errores.push(`Fila ${numFila}: aeropuerto origen "${codigoOrigen}" no encontrado`);
-        continue;
-      }
 
       const destino = this.aeropuertos.find(a =>
         a.codigoOaci.toLowerCase() === codigoDestino.toLowerCase());
+
       if (!destino) {
         errores.push(`Fila ${numFila}: aeropuerto destino "${codigoDestino}" no encontrado`);
         continue;
@@ -265,7 +307,7 @@ export class MaletaComponent implements OnInit {
       }
 
       if (origen.idAeropuerto === destino.idAeropuerto) {
-        errores.push(`Fila ${numFila}: origen y destino son el mismo aeropuerto`);
+        errores.push(`Fila ${numFila}: el destino no puede ser igual al aeropuerto de origen del usuario`);
         continue;
       }
 
@@ -291,13 +333,17 @@ export class MaletaComponent implements OnInit {
     this.csvProgreso = 60;
     this.cdr.detectChanges();
 
-    this.envioService.crearEnviosBatch(validos).subscribe({
-      next: (resp) => {
-        const creados = resp.data?.length ?? validos.length;
+    forkJoin(
+      validos.map(envio => this.envioDiarioService.crearEnvio(envio))
+    ).subscribe({
+      next: (respuestas) => {
+        const creados = respuestas.length;
+
         this.cargandoCSV = false;
         this.csvProgreso = 100;
         this.csvResultado = { exitosos: creados, fallidos: errores.length, errores };
         this.cdr.detectChanges();
+
         this.messageService.add({
           severity: errores.length === 0 ? 'success' : 'warn',
           summary: `${creados} envío(s) registrado(s)`,
@@ -305,6 +351,7 @@ export class MaletaComponent implements OnInit {
             ? `${errores.length} fila(s) con error de validación`
             : 'Todos los envíos fueron creados correctamente'
         });
+
         this.cargarEnvios();
       },
       error: (err) => {
@@ -312,12 +359,14 @@ export class MaletaComponent implements OnInit {
         this.csvResultado = {
           exitosos: 0,
           fallidos: errores.length + validos.length,
-          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear los envíos en lote'}`]
+          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear los envíos'}`]
         };
         this.cdr.detectChanges();
+
         this.messageService.add({
-          severity: 'error', summary: 'Error del servidor',
-          detail: err?.error?.message ?? 'No se pudo registrar el lote de envíos.'
+          severity: 'error',
+          summary: 'Error del servidor',
+          detail: err?.error?.message ?? 'No se pudo registrar la carga masiva.'
         });
       }
     });
@@ -325,19 +374,48 @@ export class MaletaComponent implements OnInit {
 
   /** Descarga una plantilla CSV con datos de ejemplo del sistema */
   descargarPlantillaCSV(): void {
-    const origenEj  = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
-    const destinoEj = this.aeropuertos[1]?.codigoOaci ?? 'DEST';
+    const origenUsuario = this.getAeropuertoById(this.idOrigen);
+    const destinos = this.aeropuertos.filter(a => a.idAeropuerto !== this.idOrigen);
+
+    const destinoEj1 = destinos[0]?.codigoOaci ?? 'DEST';
+    const destinoEj2 = destinos[1]?.codigoOaci ?? 'DEST2';
+
     const csv = [
-      'origen,destino,cantidad',
-      `${origenEj},${destinoEj},10`,
-      `${destinoEj},${origenEj},15`
+      'destino,cantidad',
+      `${destinoEj1},10`,
+      `${destinoEj2},15`
     ].join('\n');
+
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'plantilla-carga-masiva.csv';
+    a.download = `plantilla-carga-masiva-${origenUsuario?.codigoOaci ?? 'origen'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  private configurarOrigenDesdeUsuario(): void {
+    const usuario = this.authService.getCurrentUser();
+
+    if (!usuario) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Usuario sin datos',
+        detail: 'No se encontró información del usuario logueado.'
+      });
+      return;
+    }
+
+    if (!usuario.idAeropuerto) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Aeropuerto no asignado',
+        detail: 'El usuario no tiene aeropuerto de origen asignado.'
+      });
+      return;
+    }
+
+    this.idOrigen = Number(usuario.idAeropuerto);
   }
 }

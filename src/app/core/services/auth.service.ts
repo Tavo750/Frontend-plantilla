@@ -66,11 +66,11 @@ export class AuthService {
 
   logout(): Observable<void> {
     localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem('current_user');
     this.currentUserSubject.next(null);
     this.isAuthenticatedSubject.next(false);
     return of(void 0);
   }
-
   private hasToken(): boolean {
     return !!localStorage.getItem(this.TOKEN_KEY);
   }

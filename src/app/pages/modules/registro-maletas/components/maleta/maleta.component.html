@@ -48,7 +48,7 @@
       </div>
     </div>
     <div class="csv-format-hint">
-      <strong>Formato CSV:</strong> origen (OACI), destino (OACI), cantidad
+      <strong>Formato CSV:</strong> destino (OACI), cantidad
     </div>
   </div>
 
@@ -63,35 +63,34 @@
       <div class="form-grid">
 
         <div class="form-field">
-          <label>Aeropuerto de Origen *</label>
-          <p-select [(ngModel)]="idOrigen" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
-            placeholder="Buscar por código OACI, ciudad o país…" [filter]="true" filterBy="ciudad,codigoOaci,pais,continente,codigo"
-            [showClear]="true" styleClass="w-full">
-            <ng-template pTemplate="item" let-a>
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span style="font-weight:700;color:#60a5fa;font-size:0.78rem;min-width:3.2rem;">{{ a.codigoOaci }}</span>
-                <span style="font-size:0.85rem;">{{ a.ciudad }}</span>
-                <span style="font-size:0.72rem;color:#94a3b8;margin-left:auto;">{{ a.pais }}</span>
-              </div>
-            </ng-template>
-            <ng-template pTemplate="selectedItem" let-a>
-              <span style="font-weight:700;color:#60a5fa;font-size:0.8rem;">{{ a.codigoOaci }}</span>
-              <span style="font-size:0.85rem;margin-left:0.4rem;">{{ a.ciudad }}</span>
-            </ng-template>
-          </p-select>
-          <span *ngIf="getAeropuertoById(idOrigen) as ap" style="font-size:0.75rem;color:#9ca3af;">
-            Código OACI: {{ ap.codigoOaci }} · {{ ap.pais }} · Continente: {{ ap.continente }}
-          </span>
+          <label>Aeropuerto de Origen</label>
+
+          <div class="origin-readonly" *ngIf="getAeropuertoById(idOrigen) as ap; else sinOrigenUsuario">
+            <div>
+              <span class="oaci">{{ ap.codigoOaci }}</span>
+              <span class="city">{{ ap.ciudad }}</span>
+            </div>
+            <span style="font-size:0.75rem;color:#9ca3af;">
+              {{ ap.pais }} · Continente: {{ ap.continente }}
+            </span>
+          </div>
+
+          <ng-template #sinOrigenUsuario>
+            <div class="origin-warning">
+              No se encontró aeropuerto asignado para este usuario.
+            </div>
+          </ng-template>
         </div>
 
         <div class="form-field">
           <label>Aeropuerto de Destino *</label>
           <p-select [(ngModel)]="idDestino" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
-            placeholder="Buscar por código OACI, ciudad o país…" [filter]="true" filterBy="ciudad,codigoOaci,pais,continente,codigo"
-            [showClear]="true" styleClass="w-full">
+            placeholder="Buscar por código OACI, ciudad o país…" [filter]="true"
+            filterBy="ciudad,codigoOaci,pais,continente,codigo" [showClear]="true" styleClass="w-full">
             <ng-template pTemplate="item" let-a>
               <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span style="font-weight:700;color:#60a5fa;font-size:0.78rem;min-width:3.2rem;">{{ a.codigoOaci }}</span>
+                <span style="font-weight:700;color:#60a5fa;font-size:0.78rem;min-width:3.2rem;">{{ a.codigoOaci
+                  }}</span>
                 <span style="font-size:0.85rem;">{{ a.ciudad }}</span>
                 <span style="font-size:0.72rem;color:#94a3b8;margin-left:auto;">{{ a.pais }}</span>
               </div>
@@ -175,7 +174,7 @@
         <ng-template #noInfo>
           <div class="info-placeholder">
             <i class="pi pi-map-marker" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>
-            Seleccione origen y destino para ver información de entrega
+            Seleccione un aeropuerto de destino para ver información de entrega
           </div>
         </ng-template>
       </div>
@@ -215,8 +214,8 @@
     <div class="table-toolbar">
       <p-iconfield>
         <p-inputicon styleClass="pi pi-search" />
-        <input pInputText type="text" (input)="onBuscar($event)"
-          placeholder="Buscar por aeropuerto o ciudad..." style="width: 22rem" />
+        <input pInputText type="text" (input)="onBuscar($event)" placeholder="Buscar por aeropuerto o ciudad..."
+          style="width: 22rem" />
       </p-iconfield>
       <span class="toolbar-info">
         {{ enviosFiltrados.length }} envíos · {{ getTotalMaletas() | number }} maletas
