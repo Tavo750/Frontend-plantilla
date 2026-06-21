@@ -530,3 +530,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.advanced-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 12px 20px 14px;
+  box-sizing: border-box;
+}
+
+.advanced-filters .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Separación entre el texto y el selector */
+  margin: 0;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  gap: 0.75rem;
+  border-top: none;
+  border-bottom: none;
+}

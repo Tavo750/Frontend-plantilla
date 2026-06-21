@@ -31,6 +31,17 @@ export class MaletaComponent implements OnInit {
   enviosFiltrados: EnvioMaletas[] = [];
   estadoFiltro: string | null = null;
   textoBusqueda = '';
+  mostrarFiltrosAvanzados = false;
+
+  continenteOrigenFiltro: string | null = null;
+  continenteDestinoFiltro: string | null = null;
+  codigoOrigenFiltro: string | null = null;
+  codigoDestinoFiltro: string | null = null;
+  fechaRegistroDesde: Date | null = null;
+  fechaRegistroHasta: Date | null = null;
+  continentes: string[] = [];
+
+  
 
   readonly ESTADOS = [
     { label: 'Todos', value: null },
@@ -65,6 +76,13 @@ export class MaletaComponent implements OnInit {
     this.aeropuertoService.listarAeropuertos().subscribe({
       next: resp => {
         this.aeropuertos = resp.data ?? [];
+        this.continentes = [
+          ...new Set(
+            this.aeropuertos
+              .map(a => a.continente)
+              .filter(continente => continente)
+          )
+        ].sort();
         this.cdr.detectChanges();
       }
     });
@@ -147,8 +165,74 @@ export class MaletaComponent implements OnInit {
         (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda)
       );
     }
+    if (this.continenteOrigenFiltro) {
+      base = base.filter(envio => {
+        const aeropuertoOrigen = this.buscarAeropuertoCompleto(
+          envio.aeropuertoOrigen?.idAeropuerto
+        );
+
+        return aeropuertoOrigen?.continente === this.continenteOrigenFiltro;
+      });
+    }
+    if (this.continenteDestinoFiltro) {
+      base = base.filter(envio => {
+        const aeropuertoDestino = this.buscarAeropuertoCompleto(
+          envio.aeropuertoDestino?.idAeropuerto
+        );
+
+        return aeropuertoDestino?.continente === this.continenteDestinoFiltro;
+      });
+    }
+    if (this.codigoOrigenFiltro) {
+      base = base.filter(envio =>
+        envio.aeropuertoOrigen?.codigoOaci === this.codigoOrigenFiltro
+      );
+    }
+
+    if (this.codigoDestinoFiltro) {
+      base = base.filter(envio =>
+        envio.aeropuertoDestino?.codigoOaci === this.codigoDestinoFiltro
+      );
+    }
+
+
+    if (this.fechaRegistroDesde) {
+      const desde = new Date(this.fechaRegistroDesde);
+      desde.setHours(0, 0, 0, 0);
+
+      base = base.filter(envio => {
+        const fechaEnvio = new Date(envio.fechaRegistro);
+        return fechaEnvio >= desde;
+      });
+    }
+
+    if (this.fechaRegistroHasta) {
+      const hasta = new Date(this.fechaRegistroHasta);
+      hasta.setHours(23, 59, 59, 999);
+
+      base = base.filter(envio => {
+        const fechaEnvio = new Date(envio.fechaRegistro);
+        return fechaEnvio <= hasta;
+      });
+    }
     this.enviosFiltrados = base;
   }
+
+  //filtrado avanzado
+  aplicarFiltrosAvanzados(): void {
+    this.aplicarFiltros();
+  }
+
+  private buscarAeropuertoCompleto(idAeropuerto?: number): Aeropuerto | null {
+    if (!idAeropuerto) {
+      return null;
+    }
+
+    return this.aeropuertos.find(
+      aeropuerto => aeropuerto.idAeropuerto === idAeropuerto
+    ) ?? null;
+  }
+
 
   getEstadoColor(estado: string): string {
     return this.ESTADO_COLORS[estado] ?? '#94a3b8';
@@ -339,5 +423,16 @@ export class MaletaComponent implements OnInit {
     a.download = 'plantilla-carga-masiva.csv';
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  //limpiar filtros
+  limpiarFiltrosAvanzados(): void {
+    this.continenteOrigenFiltro = null;
+    this.continenteDestinoFiltro = null;
+    this.codigoOrigenFiltro = null;
+    this.codigoDestinoFiltro = null;
+    this.fechaRegistroDesde = null;
+    this.fechaRegistroHasta = null;
+    this.aplicarFiltros();
   }
 }
