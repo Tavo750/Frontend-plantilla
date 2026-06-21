@@ -377,16 +377,21 @@
 
         <!-- ══════ TAB: VUELOS / UT ══════ -->
         <ng-container *ngIf="activeTab === 'vuelos'">
+          <!-- Filtro por estado de vuelo -->
+          <div class="panel-ev-filter">
+            <button class="ev-chip" [class.active]="filtroEstadoVuelo === ''"
+                    (click)="setFiltroEstadoVuelo('')">Todos</button>
+            <button class="ev-chip ev-chip-vuelo" [class.active]="filtroEstadoVuelo === 'EN_VUELO'"
+                    (click)="setFiltroEstadoVuelo('EN_VUELO')">✈ En vuelo</button>
+            <button class="ev-chip ev-chip-salir" [class.active]="filtroEstadoVuelo === 'POR_SALIR'"
+                    (click)="setFiltroEstadoVuelo('POR_SALIR')">⏱ Por salir</button>
+            <button class="ev-chip ev-chip-llego" [class.active]="filtroEstadoVuelo === 'LLEGÓ'"
+                    (click)="setFiltroEstadoVuelo('LLEGÓ')">✓ Llegó</button>
+          </div>
           <div class="panel-filters">
             <input type="text" [(ngModel)]="filtroVueloCodigo"
                    (ngModelChange)="aplicarFiltrosVuelos()"
-                   placeholder="Código vuelo..." class="pf-input" />
-            <input type="text" [(ngModel)]="filtroVueloOrigen"
-                   (ngModelChange)="aplicarFiltrosVuelos()"
-                   placeholder="Origen..." class="pf-input pf-input-sm" />
-            <input type="text" [(ngModel)]="filtroVueloDestino"
-                   (ngModelChange)="aplicarFiltrosVuelos()"
-                   placeholder="Destino..." class="pf-input pf-input-sm" />
+                   placeholder="Buscar vuelo, aeropuerto, ciudad..." class="pf-input" />
           </div>
           <div class="panel-sort">
             <span class="ps-label">Ordenar:</span>
@@ -407,15 +412,18 @@
                 <span class="sem-dot" [class]="getSemaforoClass(v.semaforo)"></span>
                 <span class="pitem-code">{{ v.codigoVuelo }}</span>
                 <span class="pitem-route">{{ v.origen }} → {{ v.destino }}</span>
-                <span class="pitem-pct">{{ v.ocupacionPct }}%</span>
+                <span class="ev-badge" [class]="getEstadoVueloClass(v.estadoVuelo)">
+                  {{ getEstadoVueloLabel(v.estadoVuelo) }}
+                </span>
               </div>
               <div class="pitem-bar">
                 <div class="pitem-bar-fill" [class]="getSemaforoClass(v.semaforo)"
                      [style.width.%]="v.ocupacionPct"></div>
               </div>
               <div class="pitem-meta">
+                <span *ngIf="v.ciudadOrigen">{{ v.ciudadOrigen }} → {{ v.ciudadDestino }}</span>
                 <span>{{ formatHora(v.horaSalida) }} → {{ formatHora(v.horaLlegada) }}</span>
-                <span>{{ v.totalMaletas }} / {{ v.capacidadMaxima }} mal.</span>
+                <span>{{ v.totalMaletas }} / {{ v.capacidadMaxima }} mal. ({{ v.ocupacionPct }}%)</span>
               </div>
               <div class="pitem-actions">
                 <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeVuelo(v)"

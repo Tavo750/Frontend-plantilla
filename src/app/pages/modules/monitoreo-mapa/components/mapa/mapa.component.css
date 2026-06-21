@@ -1050,3 +1050,47 @@
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.25; }
 }
+
+/* ── Chips de estado de vuelo (EN_VUELO / POR_SALIR / LLEGÓ) ── */
+.panel-ev-filter {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem 0.25rem;
+  flex-wrap: wrap;
+}
+.ev-chip {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.ev-chip:hover { border-color: #64748b; color: #cbd5e1; }
+.ev-chip.active { border-color: #94a3b8; background: #1e293b; color: #f1f5f9; }
+.ev-chip-vuelo        { border-color: #3b82f6; color: #93c5fd; }
+.ev-chip-vuelo.active { background: #1e3a5f; border-color: #60a5fa; color: #bfdbfe; }
+.ev-chip-salir        { border-color: #f59e0b; color: #fcd34d; }
+.ev-chip-salir.active { background: #451a03; border-color: #fbbf24; color: #fef08a; }
+.ev-chip-llego        { border-color: #22c55e; color: #86efac; }
+.ev-chip-llego.active { background: #052e16; border-color: #4ade80; color: #bbf7d0; }
+
+/* ── Badge inline del estado de vuelo ── */
+.ev-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.ev-badge.ev-vuelo  { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+.ev-badge.ev-salir  { background: #451a03; color: #fcd34d; border: 1px solid #f59e0b; }
+.ev-badge.ev-llego  { background: #052e16; color: #86efac; border: 1px solid #22c55e; }
+.ev-badge.ev-vacio  { background: #1e293b; color: #64748b; border: 1px solid #334155; }

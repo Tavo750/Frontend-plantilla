@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
+import { EnvioDiarioService } from '../../../../../core/services/envio-diario.service';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
 
 @Component({
@@ -49,6 +50,7 @@ export class MaletaComponent implements OnInit {
 
   constructor(
     private readonly envioService: EnvioService,
+    private readonly envioDiarioService: EnvioDiarioService,
     private readonly aeropuertoService: AeropuertoService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
@@ -70,7 +72,7 @@ export class MaletaComponent implements OnInit {
 
   cargarEnvios(): void {
     this.cargandoLista = true;
-    this.envioService.listarEnvios().subscribe({
+    this.envioDiarioService.listarEnvios().subscribe({
       next: resp => {
         this.envios = resp.data ?? [];
         this.aplicarFiltros();
@@ -95,7 +97,7 @@ export class MaletaComponent implements OnInit {
       return;
     }
     this.enviando = true;
-    this.envioService.crearEnvio({
+    this.envioDiarioService.crearEnvio({
       idAeropuertoOrigen: this.idOrigen,
       idAeropuertoDestino: this.idDestino,
       cantidad: this.cantidad
