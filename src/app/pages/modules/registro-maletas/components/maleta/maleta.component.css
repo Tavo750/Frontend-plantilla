@@ -530,3 +530,129 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.advanced-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 12px 20px 14px;
+  box-sizing: border-box;
+}
+
+.advanced-filters .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Separación entre el texto y el selector */
+  margin: 0;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  gap: 0.75rem;
+  border-top: none;
+  border-bottom: none;
+}
+.origin-readonly {
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.origin-warning {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #f87171;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.8rem;
+}
+
+
+/*estilo para la card que saldra al apretar en la fila de un reigstro de maleta*/
+.row-clickable {
+  cursor: pointer;
+}
+
+.flight-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.flight-code {
+  font-weight: 800;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.flight-route {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.flight-message,
+.flight-status {
+  font-size: 0.85rem;
+}
+
+.flight-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.flight-times div {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: var(--color-surface-hover);
+}
+
+.flight-times span {
+  display: block;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.flight-times strong {
+  color: var(--color-text-primary);
+}
+
+.flight-date {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.flight-kind {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+}
+
+.flight-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.flight-code-inline {
+  color: var(--color-text-primary);
+  font-weight: 800;
+  font-size: 1rem;
+  white-space: nowrap;
+}

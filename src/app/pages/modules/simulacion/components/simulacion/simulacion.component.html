@@ -11,28 +11,20 @@
     </div>
 
     <div class="header-center" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
-      <span class="day-chip"><i class="pi pi-clock"></i> {{ diaActualLabel }}</span>
+      <div style="display: flex; gap: 2rem; align-items: center; font-size: 0.85rem;">
+        <div style="color: #94a3b8;">
+          Real: <span style="color: #60a5fa; font-weight: 600; font-family: monospace;">{{ fechaRealDisplay }}</span>
+        </div>
+        <div style="color: #94a3b8;">
+          Sim: <span style="color: #4ade80; font-weight: 600; font-family: monospace;">{{ fechaSimDisplay }}</span>
+        </div>
+      </div>
     </div>
 
     <div class="header-actions">
       <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
         <i class="pi pi-sliders-h"></i>
       </button>
-      <ng-container *ngIf="estado === 'streaming' && tiempoInicioMs > 0">
-        <button class="btn-pausar" (click)="togglePlay()">
-          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
-          {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
-        </button>
-      </ng-container>
-      <ng-container *ngIf="estado === 'listo'">
-        <button class="btn-pausar" (click)="togglePlay()">
-          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
-          {{ reproduciendo ? 'Pausar' : 'Reanudar' }}
-        </button>
-        <button class="btn-detener" (click)="detener()">
-          <i class="pi pi-stop-circle"></i> Detener
-        </button>
-      </ng-container>
     </div>
   </div>
 
@@ -41,19 +33,33 @@
     <div class="config-inner">
       <div class="cfg-field">
         <label>Fecha de inicio</label>
-        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true"></p-datepicker>
+        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="fechaMinima"></p-datepicker>
       </div>
       <div class="cfg-field">
-        <label>Días a simular</label>
-        <p-inputnumber [(ngModel)]="dias" [min]="1" [max]="14" [showButtons]="true" [style]="{'width':'9rem'}"></p-inputnumber>
+        <label>Hora de inicio</label>
+        <input type="time" [(ngModel)]="horaInicio" class="cfg-time-input" />
       </div>
-      <p-button
+      <div class="cfg-field">
+        <label>Período</label>
+        <span class="cfg-readonly">5 días</span>
+      </div>
+      <button
+        pButton
+        type="button"
+        label="Simular Colapso"
+        icon="pi pi-exclamation-circle"
+        class="p-button-danger"
+        [disabled]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
+        (click)="simularColapso()"
+      ></button>
+      <button
+        pButton
+        type="button"
         label="Ejecutar Simulación"
         icon="pi pi-play"
-        (onClick)="ejecutarSimulacion()"
-        [loading]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
         [disabled]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
-      ></p-button>
+        (click)="ejecutarSimulacion()"
+      ></button>
     </div>
   </div>
 
@@ -87,20 +93,20 @@
       <div class="s-val s-blue">{{ getVuelosActivos() }}</div>
     </div>
     <div class="stat-chip">
-      <div class="s-lbl">Paquetes totales</div>
+      <div class="s-lbl">Maletas Totales</div>
       <div class="s-val">{{ getPaquetesTotales() }}</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-chip">
-      <div class="s-lbl s-green">Entregados</div>
+      <div class="s-lbl s-green">Maletas Entregadas</div>
       <div class="s-val s-green">{{ getMaletasEntregadas() }}</div>
     </div>
     <div class="stat-chip">
-      <div class="s-lbl s-orange">En Tránsito</div>
+      <div class="s-lbl s-orange">Maletas en Tránsito</div>
       <div class="s-val s-orange">{{ getMaletasEnVuelo() }}</div>
     </div>
     <div class="stat-chip">
-      <div class="s-lbl s-red">Retrasados</div>
+      <div class="s-lbl s-red">Maletas Retrasadas</div>
       <div class="s-val s-red">{{ getMaletasRetrasadas() }}</div>
     </div>
   </div>
@@ -112,7 +118,7 @@
   </div>
 
   <!-- ── MAPA + SIDEBAR ─────────────────────────────────────── -->
-  <ng-container *ngIf="estado === 'streaming' || estado === 'listo'">
+  <ng-container *ngIf="estado === 'cargando' || estado === 'streaming' || estado === 'listo'">
 
     <div class="main-content">
 
@@ -143,7 +149,7 @@
             <!-- Círculo interactivo -->
             <circle
               [attr.cx]="a.x" [attr.cy]="a.y" r="9"
-              [class]="getBagsEnAeropuerto(a.codigoOaci) > 0 ? 'aero-nodo aero-activo' : 'aero-nodo'"
+              [class]="'aero-nodo ' + getAeroColorClass(a.codigoOaci)"
               style="pointer-events:all; cursor:pointer"
               (mouseenter)="onAirportHover($event, a)"
               (mouseleave)="onHoverEnd()"
@@ -170,10 +176,15 @@
             (mouseleave)="onHoverEnd()"
             style="cursor:pointer"
           >
-            <polygon points="0,-22 8,6 0,-3 -8,6"    class="avion-body"/>
-            <polygon points="-20,0 20,0 13,8 -13,8"  class="avion-wings"/>
+            <polygon points="0,-12 5,3 0,-2 -5,3"    class="avion-body"/>
+            <polygon points="-10,0 10,0 7,5 -7,5"  class="avion-wings"/>
           </g>
         </svg>
+
+        <!-- Botón de fullscreen -->
+        <button class="btn-fullscreen" title="Pantalla completa" (click)="toggleFullscreen()">
+          <i class="pi pi-window-maximize"></i>
+        </button>
 
         <!-- Leyenda -->
         <div class="leyenda">
@@ -181,11 +192,6 @@
           <div class="ley-item"><span class="ley-dot dot-badge"></span>Almacén</div>
         </div>
 
-        <!-- Badge de progreso streaming -->
-        <div class="streaming-badge" *ngIf="estado === 'streaming'">
-          <i class="pi pi-spin pi-spinner"></i>
-          Día {{ diasRecibidos }}/{{ diasEsperados }}
-        </div>
 
         <!-- Tooltip flotante -->
         <div
@@ -198,10 +204,23 @@
           <div class="tooltip-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
         </div>
 
+        <!-- Leyenda de Semáforo -->
+        <div class="leyenda">
+          <div class="ley-title">Capacidad:</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #22c55e;"></span>Libre (0%)</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #eab308;"></span>Medio (~50%)</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #ef4444;"></span>Crítico (>80%)</div>
+        </div>
+
+        <!-- Botón para ocultar/mostrar sidebar -->
+        <button class="btn-toggle-sidebar" (click)="mostrarSidebar = !mostrarSidebar" title="Mostrar/Ocultar panel">
+          <i [class]="mostrarSidebar ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"></i>
+        </button>
+
       </div><!-- /map-container -->
 
       <!-- ── RIGHT SIDEBAR ──────────────────────────────────── -->
-      <div class="right-sidebar">
+      <div class="right-sidebar" *ngIf="mostrarSidebar">
 
         <!-- Buscar / Rastrear -->
         <div class="sidebar-card">
@@ -416,14 +435,6 @@
         <button class="btn-play" (click)="togglePlay()">
           <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
         </button>
-        <div class="speed-group">
-          <button
-            *ngFor="let v of VELOCIDADES"
-            class="btn-spd"
-            [class.spd-active]="velocidad === v"
-            (click)="setVelocidad(v)"
-          >{{ v }}x</button>
-        </div>
       </div>
       <div class="tl-slider-area">
         <div class="tl-time-label">
@@ -472,22 +483,6 @@
       </div>
     </div>
 
-    <!-- Fase 2: Vuelo cancelado → ofrecer reprogramar -->
-    <div class="confirm-body" *ngIf="cancelacionExitosa">
-      <i class="pi pi-check-circle" style="font-size:2.4rem;color:#4ade80;"></i>
-      <p>Vuelo <strong>{{ codigoVueloCancelado }}</strong> cancelado correctamente.</p>
-      <p class="confirm-hint">
-        ¿Deseas reprogramar ahora los envíos afectados con rutas alternativas?
-      </p>
-      <div class="confirm-footer">
-        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()">
-          Más tarde
-        </button>
-        <button class="btn-reprogramar" (click)="reprogramarEnvios()">
-          <i class="pi pi-refresh"></i> Reprogramar envíos
-        </button>
-      </div>
-    </div>
 
   </p-dialog>
 

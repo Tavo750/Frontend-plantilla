@@ -48,7 +48,7 @@
       </div>
     </div>
     <div class="csv-format-hint">
-      <strong>Formato CSV:</strong> origen (OACI), destino (OACI), cantidad
+      <strong>Formato CSV:</strong> destino (OACI), cantidad
     </div>
   </div>
 
@@ -63,22 +63,45 @@
       <div class="form-grid">
 
         <div class="form-field">
-          <label>Aeropuerto de Origen *</label>
-          <p-select [(ngModel)]="idOrigen" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
-            placeholder="Seleccione el aeropuerto de origen" [filter]="true" filterBy="ciudad,codigoOaci"
-            [showClear]="true" styleClass="w-full"></p-select>
-          <span *ngIf="getAeropuertoById(idOrigen) as ap" style="font-size:0.75rem;color:#9ca3af;">
-            Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
-          </span>
+          <label>Aeropuerto de Origen</label>
+
+          <div class="origin-readonly" *ngIf="getAeropuertoById(idOrigen) as ap; else sinOrigenUsuario">
+            <div>
+              <span class="oaci">{{ ap.codigoOaci }}</span>
+              <span class="city">{{ ap.ciudad }}</span>
+            </div>
+            <span style="font-size:0.75rem;color:#9ca3af;">
+              {{ ap.pais }} · Continente: {{ ap.continente }}
+            </span>
+          </div>
+
+          <ng-template #sinOrigenUsuario>
+            <div class="origin-warning">
+              No se encontró aeropuerto asignado para este usuario.
+            </div>
+          </ng-template>
         </div>
 
         <div class="form-field">
           <label>Aeropuerto de Destino *</label>
           <p-select [(ngModel)]="idDestino" [options]="aeropuertos" optionLabel="ciudad" optionValue="idAeropuerto"
-            placeholder="Seleccione el aeropuerto de destino" [filter]="true" filterBy="ciudad,codigoOaci"
-            [showClear]="true" styleClass="w-full"></p-select>
+            placeholder="Buscar por código OACI, ciudad o país…" [filter]="true"
+            filterBy="ciudad,codigoOaci,pais,continente,codigo" [showClear]="true" styleClass="w-full">
+            <ng-template pTemplate="item" let-a>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-weight:700;color:#60a5fa;font-size:0.78rem;min-width:3.2rem;">{{ a.codigoOaci
+                  }}</span>
+                <span style="font-size:0.85rem;">{{ a.ciudad }}</span>
+                <span style="font-size:0.72rem;color:#94a3b8;margin-left:auto;">{{ a.pais }}</span>
+              </div>
+            </ng-template>
+            <ng-template pTemplate="selectedItem" let-a>
+              <span style="font-weight:700;color:#60a5fa;font-size:0.8rem;">{{ a.codigoOaci }}</span>
+              <span style="font-size:0.85rem;margin-left:0.4rem;">{{ a.ciudad }}</span>
+            </ng-template>
+          </p-select>
           <span *ngIf="getAeropuertoById(idDestino) as ap" style="font-size:0.75rem;color:#9ca3af;">
-            Código OACI: {{ ap.codigoOaci }} · Continente: {{ ap.continente }}
+            Código OACI: {{ ap.codigoOaci }} · {{ ap.pais }} · Continente: {{ ap.continente }}
           </span>
         </div>
 
@@ -151,7 +174,7 @@
         <ng-template #noInfo>
           <div class="info-placeholder">
             <i class="pi pi-map-marker" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>
-            Seleccione origen y destino para ver información de entrega
+            Seleccione un aeropuerto de destino para ver información de entrega
           </div>
         </ng-template>
       </div>
@@ -191,14 +214,128 @@
     <div class="table-toolbar">
       <p-iconfield>
         <p-inputicon styleClass="pi pi-search" />
-        <input pInputText type="text" (input)="onBuscar($event)"
-          placeholder="Buscar por aeropuerto o ciudad..." style="width: 22rem" />
+        <input pInputText type="text" (input)="onBuscar($event)" placeholder="Buscar por aeropuerto o ciudad..."
+          style="width: 22rem" />
       </p-iconfield>
+      <button type="button" class="btn-secondary" (click)="mostrarFiltrosAvanzados = !mostrarFiltrosAvanzados">
+      
+        <i class="pi pi-filter"></i>
+        Filtros Avanzados
+      </button>
+      
       <span class="toolbar-info">
         {{ enviosFiltrados.length }} envíos · {{ getTotalMaletas() | number }} maletas
       </span>
     </div>
+    
+    <div class="advanced-filters" *ngIf="mostrarFiltrosAvanzados">
+      
+      <!-- Código de origen -->
+      <div class="form-field">
+        <label>Código de origen</label>
+        
+        <p-select [(ngModel)]="codigoOrigenFiltro" [options]="aeropuertos" optionLabel="codigoOaci" optionValue="codigoOaci"
+          placeholder="Todos los códigos" [filter]="true" filterBy="codigoOaci,ciudad,pais" [showClear]="true">
+        
+          <ng-template pTemplate="item" let-a>
+            <div style="display:flex; align-items:center; gap:0.6rem; width:100%;">
+              <span style="font-weight:700; color:#60a5fa; min-width:3.5rem;">
+                {{ a.codigoOaci }}
+              </span>
+        
+              <span style="font-size:0.82rem;">
+                {{ a.ciudad }}
+              </span>
+        
+              <span style="font-size:0.72rem; color:#94a3b8; margin-left:auto;">
+                {{ a.pais }}
+              </span>
+            </div>
+          </ng-template>
+        
+        </p-select>
+      </div>
 
+      <!-- Código de destino -->
+      <div class="form-field">
+        <label>Código de destino</label>
+      
+        <p-select [(ngModel)]="codigoDestinoFiltro" [options]="aeropuertos" optionLabel="codigoOaci" optionValue="codigoOaci"
+          placeholder="Todos los códigos" [filter]="true" filterBy="codigoOaci,ciudad,pais" [showClear]="true">
+      
+          <ng-template pTemplate="item" let-a>
+            <div style="display:flex; align-items:center; gap:0.6rem; width:100%;">
+      
+              <span style="font-weight:700; color:#60a5fa; min-width:3.5rem;">
+                {{ a.codigoOaci }}
+              </span>
+      
+              <span style="font-size:0.82rem;">
+                {{ a.ciudad }}
+              </span>
+      
+              <span style="font-size:0.72rem; color:#94a3b8; margin-left:auto;">
+                {{ a.pais }}
+              </span>
+      
+            </div>
+          </ng-template>
+      
+        </p-select>
+      </div>
+      
+      
+      <!-- Continente de origen -->
+      <div class="form-field">
+        <label>Continente de origen</label>
+    
+        <p-select [(ngModel)]="continenteOrigenFiltro" [options]="continentes" placeholder="Todos los continentes"
+          [showClear]="true">
+        </p-select>
+      </div>
+
+      <!-- Continente de destino -->
+      <div class="form-field">
+        <label>Continente de destino</label>
+      
+        <p-select [(ngModel)]="continenteDestinoFiltro" [options]="continentes" placeholder="Todos los continentes"
+          [showClear]="true">
+        </p-select>
+      </div>
+      
+      <!-- Fecha desde -->
+      <div class="form-field">
+        <label>Fecha de registro desde</label>
+      
+        <p-datepicker [(ngModel)]="fechaRegistroDesde" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+          placeholder="Desde">
+        </p-datepicker>
+      </div>
+
+      <!-- Fecha hasta -->
+      <div class="form-field">
+        <label>Fecha de registro hasta</label>
+      
+        <p-datepicker [(ngModel)]="fechaRegistroHasta" dateFormat="dd/mm/yy" [showIcon]="true" [showClear]="true"
+          placeholder="Hasta">
+        </p-datepicker>
+      </div>
+
+      <!-- Botón Aplicar -->
+      <div class="filter-actions">
+        <button type="button" class="btn-primary" (click)="aplicarFiltrosAvanzados()">
+      
+          <i class="pi pi-filter"></i>
+          Aplicar
+        </button>
+        <button type="button" class="btn-secondary" (click)="limpiarFiltrosAvanzados()">
+        
+          <i class="pi pi-times"></i>
+          Limpiar
+        </button>
+      </div>
+    
+    </div>
     <p-table [value]="enviosFiltrados" [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 25, 50]"
       [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} de {totalRecords}"
       styleClass="p-datatable-sm p-datatable-gridlines">
@@ -206,15 +343,22 @@
         <tr>
           <th>Origen</th>
           <th>Destino</th>
-          <th style="text-align:center">Maletas</th>
+          <th pSortableColumn="cantidad" style="text-align:center">
+            Maletas
+            <p-sortIcon field="cantidad"></p-sortIcon>
+          </th>
           <th>Estado</th>
-          <th>Fecha Registro</th>
+          <th pSortableColumn="fechaRegistro">
+            Fecha Registro
+            <p-sortIcon field="fechaRegistro"></p-sortIcon>
+          </th>
           <th>Fecha Límite</th>
         </tr>
       </ng-template>
 
       <ng-template #body let-e>
-        <tr>
+        <tr (click)="abrirDetalleVuelo(e)" [class.row-clickable]="puedeVerVuelo(e)"
+          [title]="puedeVerVuelo(e) ? 'Ver vuelo asignado' : ''">
           <td>
             <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
             <span class="city">{{ e.aeropuertoOrigen?.ciudad }}</span>
@@ -241,6 +385,56 @@
         </tr>
       </ng-template>
     </p-table>
+
+    <!-- Card para ver cuando se hace click en un pedido, ver que vuelo tiene asignado-->
+    <p-dialog [(visible)]="mostrarDetalleVuelo" [modal]="true" [style]="{ width: '420px' }" (onHide)="cerrarDetalleVuelo()">
+      <ng-template pTemplate="header">
+        <div class="flight-kind">
+          {{ getTipoVueloCorto() }}
+        </div>
+        <div class="flight-code-inline">
+          {{ vueloSeleccionado?.codigoVuelo || getRutaVuelo(vueloSeleccionado) }}
+        </div>
+      </ng-template>
+    
+      <div class="flight-detail" *ngIf="!cargandoDetalleVuelo && vueloSeleccionado">
+        <div class="flight-route">
+          {{ getRutaContinentes() }}
+        </div>
+
+        <div class="flight-route">
+          {{ getRutaVueloDetallada() }}
+        </div>
+        
+        <div class="flight-date">
+          Fecha del vuelo: {{ getFechaVuelo(envioSeleccionado) }}
+        </div>
+
+        <div class="flight-times">
+          <div>
+            <span>Salida</span>
+            <strong>{{ formatearHora(vueloSeleccionado.horaSalida) }}</strong>
+          </div>
+    
+          <div>
+            <span>Llegada</span>
+            <strong>{{ formatearHora(vueloSeleccionado.horaLlegada) }}</strong>
+          </div>
+        </div>
+    
+        <div class="flight-status" *ngIf="vueloSeleccionado.estadoVuelo">
+          Estado del vuelo: {{ vueloSeleccionado.estadoVuelo }}
+        </div>
+      </div>
+    
+      <div class="flight-detail" *ngIf="!cargandoDetalleVuelo && !vueloSeleccionado">
+        No se encontró información del vuelo asignado.
+      </div>
+    
+      <div class="flight-detail" *ngIf="cargandoDetalleVuelo">
+        Cargando información del vuelo...
+      </div>
+    </p-dialog>
   </div>
 
 </div>

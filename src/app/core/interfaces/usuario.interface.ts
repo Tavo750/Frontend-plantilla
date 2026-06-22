@@ -12,4 +12,7 @@ export interface Usuario {
   puesto?: string;
   fotoUrl?: string;
   estado: boolean;
+  idAeropuerto?: number;
+  codigoOaciAeropuerto?: string;
+  ciudadAeropuerto?: string;
 }

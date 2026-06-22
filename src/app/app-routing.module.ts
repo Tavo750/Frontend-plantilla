@@ -57,6 +57,13 @@ const routes: Routes = [
     loadChildren: () =>
       import('./pages/modules/simulacion/simulacion.module').then(m => m.SimulacionModule)
   },
+  {
+    path: 'GestionAeropuertos',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/gestion-aeropuertos/gestion-aeropuertos.module').then(m => m.GestionAeropuertosModule)
+  },
 
   // ========== RUTAS PÚBLICAS ==========
   {
