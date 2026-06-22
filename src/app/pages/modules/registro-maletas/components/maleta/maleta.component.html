@@ -357,7 +357,8 @@
       </ng-template>
 
       <ng-template #body let-e>
-        <tr>
+        <tr (click)="abrirDetalleVuelo(e)" [class.row-clickable]="puedeVerVuelo(e)"
+          [title]="puedeVerVuelo(e) ? 'Ver vuelo asignado' : ''">
           <td>
             <span class="oaci">{{ e.aeropuertoOrigen?.codigoOaci }}</span>
             <span class="city">{{ e.aeropuertoOrigen?.ciudad }}</span>
@@ -384,6 +385,56 @@
         </tr>
       </ng-template>
     </p-table>
+
+    <!-- Card para ver cuando se hace click en un pedido, ver que vuelo tiene asignado-->
+    <p-dialog [(visible)]="mostrarDetalleVuelo" [modal]="true" [style]="{ width: '420px' }" (onHide)="cerrarDetalleVuelo()">
+      <ng-template pTemplate="header">
+        <div class="flight-kind">
+          {{ getTipoVueloCorto() }}
+        </div>
+        <div class="flight-code-inline">
+          {{ vueloSeleccionado?.codigoVuelo || getRutaVuelo(vueloSeleccionado) }}
+        </div>
+      </ng-template>
+    
+      <div class="flight-detail" *ngIf="!cargandoDetalleVuelo && vueloSeleccionado">
+        <div class="flight-route">
+          {{ getRutaContinentes() }}
+        </div>
+
+        <div class="flight-route">
+          {{ getRutaVueloDetallada() }}
+        </div>
+        
+        <div class="flight-date">
+          Fecha del vuelo: {{ getFechaVuelo(envioSeleccionado) }}
+        </div>
+
+        <div class="flight-times">
+          <div>
+            <span>Salida</span>
+            <strong>{{ formatearHora(vueloSeleccionado.horaSalida) }}</strong>
+          </div>
+    
+          <div>
+            <span>Llegada</span>
+            <strong>{{ formatearHora(vueloSeleccionado.horaLlegada) }}</strong>
+          </div>
+        </div>
+    
+        <div class="flight-status" *ngIf="vueloSeleccionado.estadoVuelo">
+          Estado del vuelo: {{ vueloSeleccionado.estadoVuelo }}
+        </div>
+      </div>
+    
+      <div class="flight-detail" *ngIf="!cargandoDetalleVuelo && !vueloSeleccionado">
+        No se encontró información del vuelo asignado.
+      </div>
+    
+      <div class="flight-detail" *ngIf="cargandoDetalleVuelo">
+        Cargando información del vuelo...
+      </div>
+    </p-dialog>
   </div>
 
 </div>
