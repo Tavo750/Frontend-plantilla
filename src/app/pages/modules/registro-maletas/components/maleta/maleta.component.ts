@@ -5,6 +5,7 @@ import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.s
 import { EnvioDiarioService } from '../../../../../core/services/envio-diario.service';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
 import { AuthService } from '../../../../../core/services/auth.service';
+import { PlanVueloService, PlanVueloDiario } from '../../../../../core/services/plan-vuelo.service';
 @Component({
   selector: 'app-maleta',
   standalone: false,
@@ -32,8 +33,12 @@ export class MaletaComponent implements OnInit {
   enviosFiltrados: EnvioMaletas[] = [];
   estadoFiltro: string | null = null;
   textoBusqueda = '';
-  mostrarFiltrosAvanzados = false;
 
+
+  
+
+  //para filtros avanzados
+  mostrarFiltrosAvanzados = false;
   continenteOrigenFiltro: string | null = null;
   continenteDestinoFiltro: string | null = null;
   codigoOrigenFiltro: string | null = null;
@@ -60,13 +65,21 @@ export class MaletaComponent implements OnInit {
     EN_ESPERA: '#a78bfa'
   };
 
+  //para mostrar datos de fila de envios ver en que vuelo está yendo
+  readonly ESTADOS_CON_VUELO = new Set(['EN_TRANSITO', 'ENTREGADA', 'RETRASADA']);
+  envioSeleccionado: EnvioMaletas | null = null;
+  vueloSeleccionado: PlanVueloDiario | null = null;
+  mostrarDetalleVuelo = false;
+  cargandoDetalleVuelo = false;
+
   constructor(
     private readonly envioService: EnvioService,
     private readonly envioDiarioService: EnvioDiarioService,
     private readonly aeropuertoService: AeropuertoService,
     private readonly authService: AuthService,
     private readonly messageService: MessageService,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    private readonly planVueloService: PlanVueloService //agrego para mostrar datos de vuelo en detalle de envío
   ) { }
 
   ngOnInit(): void {
@@ -512,4 +525,139 @@ export class MaletaComponent implements OnInit {
 
     this.idOrigen = Number(usuario.idAeropuerto);
   }
+
+  //metodos para detalle de vuelo en fila de envíos
+  puedeVerVuelo(envio: EnvioMaletas): boolean {
+    return this.ESTADOS_CON_VUELO.has(envio.estado);
+  }
+
+  abrirDetalleVuelo(envio: EnvioMaletas): void {
+    
+    
+    if (!this.puedeVerVuelo(envio)) return;
+
+    if (!envio.idPlanVueloAsignado) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sin vuelo asignado',
+        detail: 'Este pedido todavía no tiene un vuelo asociado.'
+      });
+      return;
+    }
+
+    this.envioSeleccionado = envio;
+    this.vueloSeleccionado = null;
+    this.cargandoDetalleVuelo = true;
+    this.mostrarDetalleVuelo = true;
+    this.cdr.detectChanges();
+    
+    this.planVueloService.listar().subscribe({
+      next: resp => {
+        this.vueloSeleccionado =
+          (resp.data ?? []).find(v => v.id === envio.idPlanVueloAsignado) ?? null;
+        this.cargandoDetalleVuelo = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cargandoDetalleVuelo = false;
+        this.cdr.detectChanges();
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo cargar el detalle del vuelo.'
+        });
+      }
+    });
+  }
+
+  cerrarDetalleVuelo(): void {
+    this.mostrarDetalleVuelo = false;
+    this.envioSeleccionado = null;
+    this.vueloSeleccionado = null;
+  }
+
+  getRutaVuelo(vuelo: PlanVueloDiario | null): string {
+    if (!vuelo) return '-';
+    const origen = vuelo.origen ?? vuelo.codigoOrigen;
+    const destino = vuelo.destino ?? vuelo.codigoDestino;
+    return `${origen} → ${destino}`;
+  }
+
+  formatearHora(valor?: string): string {
+    if (!valor) return '-';
+
+    const fecha = new Date(valor);
+    if (!Number.isNaN(fecha.getTime())) {
+      return fecha.toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    return valor.slice(0, 5);
+  }
+
+  getMensajeVuelo(): string {
+    switch (this.envioSeleccionado?.estado) {
+      case 'EN_TRANSITO':
+        return 'Este pedido está viajando en este vuelo.';
+      case 'ENTREGADA':
+        return 'Este pedido fue transportado en este vuelo.';
+      case 'RETRASADA':
+        return 'Este pedido está retrasado y asociado a este vuelo.';
+      default:
+        return '';
+    }
+  }
+
+  getFechaVuelo(envio: EnvioMaletas | null): string {
+    if (!envio?.fechaRegistro) return '-';
+
+    return new Date(envio.fechaRegistro).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  getRutaVueloDetallada(): string {
+  const origen = this.envioSeleccionado?.aeropuertoOrigen;
+  const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+  if (!origen || !destino) return this.getRutaVuelo(this.vueloSeleccionado);
+
+  return `${origen.ciudad} (${origen.pais}) → ${destino.ciudad} (${destino.pais})`;
+}
+
+  getTipoVueloCorto(): string {
+    const origen = this.envioSeleccionado?.aeropuertoOrigen;
+    const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+    if (!origen || !destino) return 'Vuelo';
+
+    const origenCompleto = this.buscarAeropuertoCompleto(origen.idAeropuerto);
+    const destinoCompleto = this.buscarAeropuertoCompleto(destino.idAeropuerto);
+
+    if (origen.pais === destino.pais) return 'Vuelo nacional';
+
+    if (origenCompleto?.continente === destinoCompleto?.continente) {
+      return 'Vuelo internacional';
+    }
+
+    return 'Vuelo intercontinental';
+  }
+
+  getRutaContinentes(): string {
+    const origen = this.envioSeleccionado?.aeropuertoOrigen;
+    const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+    if (!origen || !destino) return '';
+
+    const origenCompleto = this.buscarAeropuertoCompleto(origen.idAeropuerto);
+    const destinoCompleto = this.buscarAeropuertoCompleto(destino.idAeropuerto);
+
+    return `${origenCompleto?.continente ?? '-'} → ${destinoCompleto?.continente ?? '-'}`;
+  }
+
+
 }

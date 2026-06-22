@@ -18,6 +18,8 @@ export interface PlanVueloDiario {
   totalMaletas?: number;
   ocupacionPct?: number;
   semaforo?: string;
+  origen?: string;
+  destino?: string;
 }
 
 @Injectable({ providedIn: 'root' })
