@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../../pages/full-pages/auth/services/auth.service';
 
 /**
  * Guard de autenticación.
@@ -21,7 +21,7 @@ export class AuthGuard implements CanActivate {
     if (this.authService.isAuthenticated()) {
       return true;
     }
-    // Redirigir a la página de error si no está autenticado
-    return this.router.createUrlTree(['/error']);
+    // Redirigir al login si no está autenticado
+    return this.router.createUrlTree(['/auth/login']);
   }
 }

@@ -4,20 +4,20 @@
       <h1><i class="pi pi-building"></i> Gestión de Aeropuertos</h1>
       <p>Administra los aeropuertos, su capacidad y zona horaria</p>
     </div>
-    <button class="btn-nuevo" (click)="abrirFormulario()">
+    <!-- <button class="btn-nuevo" (click)="abrirFormulario()">
       <i class="pi pi-plus"></i> Nuevo Aeropuerto
-    </button>
+    </button> -->
   </div>
 
   <div class="aero-content">
-    <p-table [value]="aeropuertos" [loading]="cargando" responsiveLayout="scroll"
-             [paginator]="true" [rows]="10">
+    <p-table [value]="aeropuertos" [loading]="cargando" responsiveLayout="scroll" [paginator]="true" [rows]="10">
       <ng-template pTemplate="header">
         <tr>
           <th pSortableColumn="codigoOaci" style="width: 12%">Código <p-sortIcon field="codigoOaci"></p-sortIcon></th>
           <th pSortableColumn="ciudad" style="width: 20%">Ciudad <p-sortIcon field="ciudad"></p-sortIcon></th>
           <th pSortableColumn="pais" style="width: 20%">País <p-sortIcon field="pais"></p-sortIcon></th>
-          <th pSortableColumn="capacidadMaxima" style="width: 18%">Capacidad <p-sortIcon field="capacidadMaxima"></p-sortIcon></th>
+          <th pSortableColumn="capacidadMaxima" style="width: 18%">Capacidad <p-sortIcon
+              field="capacidadMaxima"></p-sortIcon></th>
           <th style="width: 15%">Zona Horaria</th>
           <th style="width: 10%">Estado</th>
           <th style="width: 5%">Acciones</th>
@@ -41,9 +41,9 @@
             <button class="btn-editar" (click)="abrirFormulario(aero)" title="Editar">
               <i class="pi pi-pencil"></i>
             </button>
-            <button class="btn-eliminar" (click)="eliminarAeropuerto(aero)" title="Eliminar">
+            <!-- <button class="btn-eliminar" (click)="eliminarAeropuerto(aero)" title="Eliminar">
               <i class="pi pi-trash"></i>
-            </button>
+            </button> -->
           </td>
         </tr>
       </ng-template>
@@ -55,32 +55,33 @@
     </p-table>
   </div>
 
-  <p-dialog [(visible)]="mostrarFormulario" [header]="aeropuertoSeleccionado?.id ? 'Editar Aeropuerto' : 'Nuevo Aeropuerto'"
-            [modal]="true" [style]="{width: '450px'}" (onHide)="cerrarFormulario()">
+  <p-dialog [(visible)]="mostrarFormulario"
+    [header]="aeropuertoSeleccionado?.id ? 'Editar Aeropuerto' : 'Nuevo Aeropuerto'" [modal]="true"
+    [style]="{width: '450px'}" (onHide)="cerrarFormulario()">
     <div class="form-group" *ngIf="aeropuertoSeleccionado">
       <label>Código OACI*</label>
       <input type="text" [(ngModel)]="aeropuertoSeleccionado.codigoOaci" class="form-input"
-             [readonly]="!!aeropuertoSeleccionado.id" maxlength="4" />
+        readonly maxlength="4" />
 
       <label>Nombre de la Ciudad*</label>
       <input type="text" [(ngModel)]="aeropuertoSeleccionado.ciudad" class="form-input"
-             placeholder="Ej: Lima, Madrid, New York" />
+        readonly placeholder="Ej: Lima, Madrid, New York" />
 
       <label>País*</label>
       <input type="text" [(ngModel)]="aeropuertoSeleccionado.pais" class="form-input"
-             placeholder="Ej: Perú, España, Estados Unidos" />
+        readonly placeholder="Ej: Perú, España, Estados Unidos" />
 
       <label>Capacidad Máxima de Almacén (maletas)*</label>
-      <input type="number" [(ngModel)]="aeropuertoSeleccionado.capacidadMaxima" class="form-input"
-             min="1" placeholder="Ej: 500" />
+      <input type="number" [(ngModel)]="aeropuertoSeleccionado.capacidadMaxima" class="form-input" min="1"
+        placeholder="Ej: 500" />
 
       <label>Zona Horaria*</label>
-      <select [(ngModel)]="aeropuertoSeleccionado.zonaHoraria" class="form-input">
+      <select [(ngModel)]="aeropuertoSeleccionado.zonaHoraria" class="form-input" disabled>
         <option *ngFor="let tz of zonas" [value]="tz">{{ tz }}</option>
       </select>
 
       <label class="checkbox">
-        <input type="checkbox" [(ngModel)]="aeropuertoSeleccionado.activo" />
+        <input type="checkbox" [(ngModel)]="aeropuertoSeleccionado.activo" disabled />
         Aeropuerto Activo
       </label>
     </div>

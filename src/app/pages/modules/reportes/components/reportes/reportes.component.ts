@@ -1,6 +1,8 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { MessageService } from 'primeng/api';
-import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
+import { EnvioService, EnvioMaletas, SpringPage } from '../../../../../core/services/envio.service';
+import { ApiResponse } from '../../../../../core/interfaces/api-response.interface';
 
 interface KpiCard {
   label: string;
@@ -27,6 +29,8 @@ export class ReportesComponent implements OnInit {
 
   cargando = true;
   error = false;
+  cargandoPaginas = false;   // true mientras se cargan páginas adicionales
+  totalRegistros = 0;        // total real de la BD (de totalElements)
   envios: EnvioMaletas[] = [];
 
   // KPIs
@@ -62,13 +66,50 @@ export class ReportesComponent implements OnInit {
   cargar(): void {
     this.cargando = true;
     this.error = false;
-    this.envioService.listarEnvios().subscribe({
-      next: resp => {
-        this.envios = resp.data ?? [];
-        this.enviosFiltrados = [...this.envios];
-        this.calcularEstadisticas();
+    this.envios = [];
+
+    // 1. Cargar primera página para conocer totalPages
+    this.envioService.listarEnviosPaginado(0, 200).subscribe({
+      next: (resp: ApiResponse<SpringPage<EnvioMaletas>>) => {
+        const page0 = resp.data;
+        this.totalRegistros = page0.totalElements;
+        this.envios = [...page0.content];
+
+        if (page0.last) {
+          // Sólo había una página
+          this.enviosFiltrados = [...this.envios];
+          this.calcularEstadisticas();
+          this.cargando = false;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        // 2. Cargar el resto de páginas en paralelo
+        this.cargandoPaginas = true;
         this.cargando = false;
         this.cdr.detectChanges();
+
+        const restantes = Array.from(
+          { length: page0.totalPages - 1 },
+          (_, i) => this.envioService.listarEnviosPaginado(i + 1, 200)
+        );
+
+        forkJoin(restantes).subscribe({
+          next: (pages: ApiResponse<SpringPage<EnvioMaletas>>[]) => {
+            pages.forEach(p => this.envios.push(...p.data.content));
+            this.enviosFiltrados = [...this.envios];
+            this.calcularEstadisticas();
+            this.cargandoPaginas = false;
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            // Mostrar con lo que hay si alguna página falla
+            this.enviosFiltrados = [...this.envios];
+            this.calcularEstadisticas();
+            this.cargandoPaginas = false;
+            this.cdr.detectChanges();
+          }
+        });
       },
       error: () => {
         this.error = true;
