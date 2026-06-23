@@ -95,26 +95,26 @@ export class MenuService {
         //   }
         // ]
       },
-      {
-        id: 'PlanificacionRutas',
-        label: 'Planificación de Rutas',
-        icon: 'pi pi-wrench',
-        routerLink: ['PlanificacionRutas']
-        // items: [
-        //   {
-        //     id: 'herram-importar',
-        //     label: 'Importar datos',
-        //     icon: 'pi pi-upload',
-        //     routerLink: ['herramientas', 'importar']
-        //   },
-        //   {
-        //     id: 'herram-exportar',
-        //     label: 'Exportar datos',
-        //     icon: 'pi pi-download',
-        //     routerLink: ['herramientas', 'exportar']
-        //   }
-        // ]
-      },
+      // {
+      //   id: 'PlanificacionRutas',
+      //   label: 'Planificación de Rutas',
+      //   icon: 'pi pi-wrench',
+      //   routerLink: ['PlanificacionRutas']
+      //   // items: [
+      //   //   {
+      //   //     id: 'herram-importar',
+      //   //     label: 'Importar datos',
+      //   //     icon: 'pi pi-upload',
+      //   //     routerLink: ['herramientas', 'importar']
+      //   //   },
+      //   //   {
+      //   //     id: 'herram-exportar',
+      //   //     label: 'Exportar datos',
+      //   //     icon: 'pi pi-download',
+      //   //     routerLink: ['herramientas', 'exportar']
+      //   //   }
+      //   // ]
+      // },
       {
         id: 'MonitoreoMapa',
         label: 'Monitoreo Mapa',
