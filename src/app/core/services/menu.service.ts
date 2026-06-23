@@ -132,6 +132,12 @@ export class MenuService {
         label: 'Gestión de Aeropuertos',
         icon: 'pi pi-building',
         routerLink: ['GestionAeropuertos']
+      },
+      {
+        id: 'GestionVuelos',
+        label: 'Gestión de Vuelos',
+        icon: 'pi pi-send',
+        routerLink: ['GestionVuelos']
       }
     ];
 
