@@ -61,7 +61,8 @@
           <span class="os-val os-blue">{{ statsMaletasFisicas | number }}</span>
         </div>
         <div class="op-stat-divider" *ngIf="statsPedidosNoAsignados > 0"></div>
-        <div class="op-stat" *ngIf="statsPedidosNoAsignados > 0" title="Pedidos que no se pudieron asignar a ninguna ruta">
+        <div class="op-stat" *ngIf="statsPedidosNoAsignados > 0"
+          title="Pedidos que no se pudieron asignar a ninguna ruta">
           <span class="os-label">Pedidos sin asignar</span>
           <span class="os-val os-red">{{ statsPedidosNoAsignados | number }}</span>
         </div>
@@ -99,10 +100,8 @@
     </div>
 
     <!-- ── MODAL: Configuración de semáforo ──────────────────── -->
-    <p-dialog header="Configurar umbrales de semáforo"
-              [(visible)]="mostrarConfigSemaforo"
-              [modal]="true" [style]="{width:'400px'}"
-              [closable]="true" [dismissableMask]="true">
+    <p-dialog header="Configurar umbrales de semáforo" [(visible)]="mostrarConfigSemaforo" [modal]="true"
+      [style]="{width:'400px'}" [closable]="true" [dismissableMask]="true">
       <div class="sem-config-body" *ngIf="parametroEditando">
         <p class="sem-config-desc">
           Define los porcentajes de ocupación que activan cada nivel de alerta.
@@ -114,14 +113,12 @@
         <div class="sem-config-row">
           <div class="sem-config-dot sem-amarillo"></div>
           <label>Umbral Ámbar (%)</label>
-          <input type="number" [(ngModel)]="parametroEditando.umbralAmbar"
-                 min="1" max="99" class="sem-input" />
+          <input type="number" [(ngModel)]="parametroEditando.umbralAmbar" min="1" max="99" class="sem-input" />
         </div>
         <div class="sem-config-row">
           <div class="sem-config-dot sem-rojo"></div>
           <label>Umbral Rojo (%)</label>
-          <input type="number" [(ngModel)]="parametroEditando.umbralRojo"
-                 min="2" max="100" class="sem-input" />
+          <input type="number" [(ngModel)]="parametroEditando.umbralRojo" min="2" max="100" class="sem-input" />
         </div>
       </div>
       <ng-template pTemplate="footer">
@@ -140,68 +137,52 @@
         <option value="">Todos</option>
         <option *ngFor="let c of continentes" [value]="c">{{ c }}</option>
       </select>
-      <input type="text" class="of-search" (input)="filtrarTabla($event)"
-             placeholder="Buscar aeropuerto..." />
+      <input type="text" class="of-search" (input)="filtrarTabla($event)" placeholder="Buscar aeropuerto..." />
     </div>
 
     <!-- ── CONTENIDO PRINCIPAL ───────────────────────────────── -->
     <div class="op-content" [class.panel-collapsed]="panelCollapsed">
 
       <!-- MAPA -->
-      <div class="map-container" #mapContainerEl
-           [style.cursor]="cursorStyle"
-           (mousedown)="onMapMouseDown($event)"
-           (mousemove)="onMapMouseMove($event)"
-           (mouseup)="onMapMouseUp()"
-           (mouseleave)="onMapMouseUp()"
-           (wheel)="onMapWheel($event)">
+      <div class="map-container" #mapContainerEl [style.cursor]="cursorStyle" (mousedown)="onMapMouseDown($event)"
+        (mousemove)="onMapMouseMove($event)" (mouseup)="onMapMouseUp()" (mouseleave)="onMapMouseUp()"
+        (wheel)="onMapWheel($event)">
 
         <!-- Capa transformable -->
         <div class="map-transform-layer" [style.transform]="transformStyle">
           <img [src]="worldMapUrl" class="world-map" alt="Mapa mundial" (load)="onMapLoaded()" />
           <div class="overlay"></div>
 
-          <svg class="svg-overlay"
-               [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
-               preserveAspectRatio="xMidYMid meet">
+          <svg class="svg-overlay" [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H" preserveAspectRatio="xMidYMid meet">
 
             <!-- Aeropuertos (clicables → selección en panel) — usa la lista filtrada por continente -->
             <g *ngFor="let a of aeropuertosFiltrados; trackBy: trackAero"
-               (click)="seleccionarAeropuerto(a.codigoOaci, 'mapa')"
-               style="cursor:pointer">
+              (click)="seleccionarAeropuerto(a.codigoOaci, 'mapa')" style="cursor:pointer">
               <circle [attr.cx]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
-                      [attr.cy]="aeropuertoSvgMap.get(a.codigoOaci)?.y"
-                      r="7"
-                      [class]="'aero-nodo' + (a.activo ? ' aero-activo' : '') + (selectedAeropuertoCod === a.codigoOaci ? ' aero-selected' : '')" />
+                [attr.cy]="aeropuertoSvgMap.get(a.codigoOaci)?.y" r="7"
+                [class]="'aero-nodo' + (a.activo ? ' aero-activo' : '') + (selectedAeropuertoCod === a.codigoOaci ? ' aero-selected' : '')" />
               <text [attr.x]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
-                    [attr.y]="(aeropuertoSvgMap.get(a.codigoOaci)?.y ?? 0) - 12"
-                    class="aero-label" text-anchor="middle">
+                [attr.y]="(aeropuertoSvgMap.get(a.codigoOaci)?.y ?? 0) - 12" class="aero-label" text-anchor="middle">
                 {{ a.codigoOaci }}
               </text>
             </g>
 
             <!-- Arcos de vuelos en tránsito -->
-            <path *ngFor="let arco of arcosVuelo; trackBy: trackArco"
-                  [attr.d]="arco.d"
-                  class="arco arco-EN_VUELO"
-                  fill="none" />
+            <path *ngFor="let arco of arcosVuelo; trackBy: trackArco" [attr.d]="arco.d" class="arco arco-EN_VUELO"
+              fill="none" />
 
             <!-- Arcos de ruta seleccionada (resaltados) -->
-            <path *ngFor="let arco of rutaArcos; trackBy: trackArco"
-                  [attr.d]="arco.d"
-                  class="arco arco-ruta"
-                  fill="none" />
+            <path *ngFor="let arco of rutaArcos; trackBy: trackArco" [attr.d]="arco.d" class="arco arco-ruta"
+              fill="none" />
 
             <!-- Aviones (clicables → selección en panel) -->
             <g *ngFor="let plano of planosEnMapa; trackBy: trackPlano"
-               [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
-               [class]="'avion' + (selectedVueloCod === plano.vuelo.codigoVuelo ? ' avion-selected' : '')"
-               (mouseenter)="onPlaneHover($event, plano)"
-               (mouseleave)="onHoverEnd()"
-               (click)="seleccionarVuelo(plano.vuelo.codigoVuelo, 'mapa')"
-               style="cursor:pointer">
-              <polygon points="0,-13 5,4 0,-2 -5,4"  class="avion-body"/>
-              <polygon points="-12,0 12,0 8,5 -8,5"  class="avion-wings"/>
+              [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
+              [class]="'avion' + (selectedVueloCod === plano.vuelo.codigoVuelo ? ' avion-selected' : '')"
+              (mouseenter)="onPlaneHover($event, plano)" (mouseleave)="onHoverEnd()"
+              (click)="seleccionarVuelo(plano.vuelo.codigoVuelo, 'mapa')" style="cursor:pointer">
+              <polygon points="0,-13 5,4 0,-2 -5,4" class="avion-body" />
+              <polygon points="-12,0 12,0 8,5 -8,5" class="avion-wings" />
             </g>
 
           </svg>
@@ -257,7 +238,7 @@
 
         <!-- Pantalla completa -->
         <button class="fullscreen-btn" (click)="toggleFullscreen()"
-                [title]="isFullscreen ? 'Salir' : 'Pantalla completa'">
+          [title]="isFullscreen ? 'Salir' : 'Pantalla completa'">
           <i [class]="isFullscreen ? 'pi pi-times' : 'pi pi-arrows-alt'"></i>
         </button>
 
@@ -267,15 +248,14 @@
         </div>
 
         <!-- Tooltip -->
-        <div class="map-tooltip" *ngIf="tooltip.visible"
-             [style.left.px]="tooltip.x" [style.top.px]="tooltip.y">
+        <div class="map-tooltip" *ngIf="tooltip.visible" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y">
           <div class="tt-title">{{ tooltip.lines[0] }}</div>
           <div class="tt-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
         </div>
 
         <!-- Botón colapsar panel -->
         <button class="panel-toggle-btn" (click)="togglePanel()"
-                [title]="panelCollapsed ? 'Mostrar panel' : 'Ocultar panel'">
+          [title]="panelCollapsed ? 'Mostrar panel' : 'Ocultar panel'">
           <i [class]="panelCollapsed ? 'pi pi-chevron-left' : 'pi pi-chevron-right'"></i>
         </button>
 
@@ -290,29 +270,26 @@
         <div class="panel-sem-filter">
           <span class="psf-label">Filtrar:</span>
           <button class="sem-chip" [class.active]="semaforoMapFiltro === null"
-                  (click)="filtrarPorSemaforo(null)">Todos</button>
+            (click)="filtrarPorSemaforo(null)">Todos</button>
           <button class="sem-chip chip-verde" [class.active]="semaforoMapFiltro === 'VERDE'"
-                  (click)="filtrarPorSemaforo('VERDE')">Verde</button>
+            (click)="filtrarPorSemaforo('VERDE')">Verde</button>
           <button class="sem-chip chip-amarillo" [class.active]="semaforoMapFiltro === 'AMARILLO'"
-                  (click)="filtrarPorSemaforo('AMARILLO')">Amarillo</button>
+            (click)="filtrarPorSemaforo('AMARILLO')">Amarillo</button>
           <button class="sem-chip chip-rojo" [class.active]="semaforoMapFiltro === 'ROJO'"
-                  (click)="filtrarPorSemaforo('ROJO')">Rojo</button>
+            (click)="filtrarPorSemaforo('ROJO')">Rojo</button>
         </div>
 
         <!-- Tabs -->
         <div class="panel-tabs">
-          <button class="ptab" [class.ptab-active]="activeTab === 'almacenes'"
-                  (click)="activeTab = 'almacenes'">
+          <button class="ptab" [class.ptab-active]="activeTab === 'almacenes'" (click)="activeTab = 'almacenes'">
             Almacenes
             <span class="ptab-count">{{ panelAlmacenes.length }}</span>
           </button>
-          <button class="ptab" [class.ptab-active]="activeTab === 'vuelos'"
-                  (click)="activeTab = 'vuelos'">
+          <button class="ptab" [class.ptab-active]="activeTab === 'vuelos'" (click)="activeTab = 'vuelos'">
             Vuelos / UT
             <span class="ptab-count">{{ panelVuelos.length }}</span>
           </button>
-          <button class="ptab" [class.ptab-active]="activeTab === 'envios'"
-                  (click)="activeTab = 'envios'">
+          <button class="ptab" [class.ptab-active]="activeTab === 'envios'" (click)="activeTab = 'envios'">
             Envíos
             <span class="ptab-count">{{ panelEnvios.length }}</span>
           </button>
@@ -321,11 +298,9 @@
         <!-- ══════ TAB: ALMACENES ══════ -->
         <ng-container *ngIf="activeTab === 'almacenes'">
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="filtroAlmacenCodigo"
-                   (ngModelChange)="aplicarFiltrosAlmacenes()"
-                   placeholder="Código / Ciudad..." class="pf-input" />
-            <select [(ngModel)]="filtroAlmacenContinente"
-                    (ngModelChange)="aplicarFiltrosAlmacenes()" class="pf-select">
+            <input type="text" [(ngModel)]="filtroAlmacenCodigo" (ngModelChange)="aplicarFiltrosAlmacenes()"
+              placeholder="Código / Ciudad..." class="pf-input" />
+            <select [(ngModel)]="filtroAlmacenContinente" (ngModelChange)="aplicarFiltrosAlmacenes()" class="pf-select">
               <option value="">Continente</option>
               <option *ngFor="let c of continentesPanel" [value]="c">{{ c }}</option>
             </select>
@@ -333,18 +308,16 @@
           <div class="panel-sort">
             <span class="ps-label">Ordenar:</span>
             <button class="sort-btn" [class.sort-active]="sortAlmacen === 'ocupacion'"
-                    (click)="setSortAlmacen('ocupacion')">Ocupación</button>
+              (click)="setSortAlmacen('ocupacion')">Ocupación</button>
             <button class="sort-btn" [class.sort-active]="sortAlmacen === 'salen'"
-                    (click)="setSortAlmacen('salen')">Salen</button>
+              (click)="setSortAlmacen('salen')">Salen</button>
             <button class="sort-btn" [class.sort-active]="sortAlmacen === 'entran'"
-                    (click)="setSortAlmacen('entran')">Entran</button>
+              (click)="setSortAlmacen('entran')">Entran</button>
           </div>
           <div class="panel-list" #panelListEl>
-            <div *ngFor="let a of panelAlmacenes; trackBy: trackAlmacen"
-                 class="pitem"
-                 [class.pitem-selected]="selectedAeropuertoCod === a.codigo"
-                 [attr.data-codigo]="a.codigo"
-                 (click)="seleccionarAeropuerto(a.codigo, 'panel')">
+            <div *ngFor="let a of panelAlmacenes; trackBy: trackAlmacen" class="pitem"
+              [class.pitem-selected]="selectedAeropuertoCod === a.codigo" [attr.data-codigo]="a.codigo"
+              (click)="seleccionarAeropuerto(a.codigo, 'panel')">
               <div class="pitem-top">
                 <span class="sem-dot" [class]="getSemaforoClass(a.semaforo)"></span>
                 <span class="pitem-code">{{ a.codigo }}</span>
@@ -352,8 +325,7 @@
                 <span class="pitem-pct">{{ a.pct }}%</span>
               </div>
               <div class="pitem-bar">
-                <div class="pitem-bar-fill" [class]="getSemaforoClass(a.semaforo)"
-                     [style.width.%]="a.pct"></div>
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(a.semaforo)" [style.width.%]="a.pct"></div>
               </div>
               <div class="pitem-meta">
                 <span>Cap: {{ a.capacidad }}</span>
@@ -362,11 +334,11 @@
               </div>
               <div class="pitem-actions">
                 <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeAlmacen(a, 'origen')"
-                        title="Ver envíos que salen">
+                  title="Ver envíos que salen">
                   ↑ {{ a.enviosSalen }} salen
                 </button>
                 <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeAlmacen(a, 'destino')"
-                        title="Ver envíos que llegan">
+                  title="Ver envíos que llegan">
                   ↓ {{ a.enviosEntran }} entran
                 </button>
               </div>
@@ -380,34 +352,31 @@
           <!-- Filtro por estado de vuelo -->
           <div class="panel-ev-filter">
             <button class="ev-chip" [class.active]="filtroEstadoVuelo === ''"
-                    (click)="setFiltroEstadoVuelo('')">Todos</button>
+              (click)="setFiltroEstadoVuelo('')">Todos</button>
             <button class="ev-chip ev-chip-vuelo" [class.active]="filtroEstadoVuelo === 'EN_VUELO'"
-                    (click)="setFiltroEstadoVuelo('EN_VUELO')">✈ En vuelo</button>
+              (click)="setFiltroEstadoVuelo('EN_VUELO')">✈ En vuelo</button>
             <button class="ev-chip ev-chip-salir" [class.active]="filtroEstadoVuelo === 'POR_SALIR'"
-                    (click)="setFiltroEstadoVuelo('POR_SALIR')">⏱ Por salir</button>
+              (click)="setFiltroEstadoVuelo('POR_SALIR')">⏱ Por salir</button>
             <button class="ev-chip ev-chip-llego" [class.active]="filtroEstadoVuelo === 'LLEGÓ'"
-                    (click)="setFiltroEstadoVuelo('LLEGÓ')">✓ Llegó</button>
+              (click)="setFiltroEstadoVuelo('LLEGÓ')">✓ Llegó</button>
           </div>
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="filtroVueloCodigo"
-                   (ngModelChange)="aplicarFiltrosVuelos()"
-                   placeholder="Buscar vuelo, aeropuerto, ciudad..." class="pf-input" />
+            <input type="text" [(ngModel)]="filtroVueloCodigo" (ngModelChange)="aplicarFiltrosVuelos()"
+              placeholder="Buscar vuelo, aeropuerto, ciudad..." class="pf-input" />
           </div>
           <div class="panel-sort">
             <span class="ps-label">Ordenar:</span>
             <button class="sort-btn" [class.sort-active]="sortVuelo === 'ocupacion'"
-                    (click)="setSortVuelo('ocupacion')">Ocupación</button>
+              (click)="setSortVuelo('ocupacion')">Ocupación</button>
             <button class="sort-btn" [class.sort-active]="sortVuelo === 'salida'"
-                    (click)="setSortVuelo('salida')">Salida</button>
+              (click)="setSortVuelo('salida')">Salida</button>
             <button class="sort-btn" [class.sort-active]="sortVuelo === 'origen'"
-                    (click)="setSortVuelo('origen')">Origen</button>
+              (click)="setSortVuelo('origen')">Origen</button>
           </div>
           <div class="panel-list">
-            <div *ngFor="let v of panelVuelos; trackBy: trackVueloP"
-                 class="pitem"
-                 [class.pitem-selected]="selectedVueloCod === v.codigoVuelo"
-                 [attr.data-codigo]="'vuelo-' + v.codigoVuelo"
-                 (click)="seleccionarVuelo(v.codigoVuelo, 'panel')">
+            <div *ngFor="let v of panelVuelos; trackBy: trackVueloP" class="pitem"
+              [class.pitem-selected]="selectedVueloCod === v.codigoVuelo" [attr.data-codigo]="'vuelo-' + v.codigoVuelo"
+              (click)="seleccionarVuelo(v.codigoVuelo, 'panel')">
               <div class="pitem-top">
                 <span class="sem-dot" [class]="getSemaforoClass(v.semaforo)"></span>
                 <span class="pitem-code">{{ v.codigoVuelo }}</span>
@@ -417,8 +386,8 @@
                 </span>
               </div>
               <div class="pitem-bar">
-                <div class="pitem-bar-fill" [class]="getSemaforoClass(v.semaforo)"
-                     [style.width.%]="v.ocupacionPct"></div>
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(v.semaforo)" [style.width.%]="v.ocupacionPct">
+                </div>
               </div>
               <div class="pitem-meta">
                 <span *ngIf="v.ciudadOrigen">{{ v.ciudadOrigen }} → {{ v.ciudadDestino }}</span>
@@ -427,7 +396,7 @@
               </div>
               <div class="pitem-actions">
                 <button class="pact-btn" (click)="$event.stopPropagation(); verEnviosDeVuelo(v)"
-                        title="Ver envíos de este vuelo">
+                  title="Ver envíos de este vuelo">
                   Ver envíos ({{ v.totalMaletas }})
                 </button>
               </div>
@@ -439,21 +408,17 @@
         <!-- ══════ TAB: ENVÍOS ══════ -->
         <ng-container *ngIf="activeTab === 'envios'">
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="filtroEnvioOrigen"
-                   (ngModelChange)="aplicarFiltrosEnvios()"
-                   placeholder="Origen..." class="pf-input pf-input-sm" />
-            <input type="text" [(ngModel)]="filtroEnvioDestino"
-                   (ngModelChange)="aplicarFiltrosEnvios()"
-                   placeholder="Destino..." class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioOrigen" (ngModelChange)="aplicarFiltrosEnvios()"
+              placeholder="Origen..." class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioDestino" (ngModelChange)="aplicarFiltrosEnvios()"
+              placeholder="Destino..." class="pf-input pf-input-sm" />
             <button class="pf-clear" (click)="limpiarFiltrosEnvios()" title="Limpiar filtros">
               <i class="pi pi-times"></i>
             </button>
           </div>
           <div class="panel-list">
-            <div *ngFor="let e of panelEnvios; trackBy: trackEnvioP"
-                 class="pitem pitem-envio"
-                 [class.pitem-selected]="selectedEnvioId === e.id"
-                 (click)="seleccionarEnvio(e)">
+            <div *ngFor="let e of panelEnvios; trackBy: trackEnvioP" class="pitem pitem-envio"
+              [class.pitem-selected]="selectedEnvioId === e.id" (click)="seleccionarEnvio(e)">
               <div class="pitem-top">
                 <span class="pitem-code">{{ e.id }}</span>
                 <span class="pitem-route">{{ e.origen }} → {{ e.destino }}</span>
@@ -467,9 +432,8 @@
                 <span class="evuelo-tag" *ngFor="let cod of e.vuelos">{{ cod }}</span>
               </div>
               <div class="pitem-actions" *ngIf="selectedEnvioId === e.id">
-                <button class="pact-btn pact-ruta"
-                        (click)="$event.stopPropagation(); seleccionarEnvio(e)"
-                        title="Mostrar / quitar ruta en mapa">
+                <button class="pact-btn pact-ruta" (click)="$event.stopPropagation(); seleccionarEnvio(e)"
+                  title="Mostrar / quitar ruta en mapa">
                   <i class="pi pi-map-marker"></i>
                   {{ rutaArcos.length > 0 ? 'Ocultar ruta' : 'Mostrar ruta' }}
                 </button>

@@ -64,7 +64,13 @@ const routes: Routes = [
     loadChildren: () =>
       import('./pages/modules/gestion-aeropuertos/gestion-aeropuertos.module').then(m => m.GestionAeropuertosModule)
   },
-
+  {
+    path: 'GestionVuelos',
+    component: LayoutComponent,
+    canActivate: [AuthGuard],
+    loadChildren: () =>
+      import('./pages/modules/gestion-vuelos/gestion-vuelos.module').then(m => m.GestionVuelosModule)
+  },
   // ========== RUTAS PÚBLICAS ==========
   {
     path: 'auth',
@@ -88,4 +94,4 @@ const routes: Routes = [
   imports: [RouterModule.forRoot(routes, { useHash: true })],
   exports: [RouterModule]
 })
-export class AppRoutingModule {}
+export class AppRoutingModule { }

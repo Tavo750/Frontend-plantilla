@@ -1,0 +1,538 @@
+<div class="mal-wrap">
+  <p-toast></p-toast>
+
+  <div class="mal-header">
+    <div>
+      <h1 class="mal-title">Gestión de Vuelos</h1>
+      <p class="mal-sub">
+        Administre solo los vuelos que salen desde el aeropuerto asignado al usuario logueado
+      </p>
+    </div>
+
+    <div class="header-btns">
+      <button class="btn-secondary" (click)="descargarPlantillaCSV()">
+        <i class="pi pi-download"></i>
+        Plantilla CSV
+      </button>
+
+      <label class="btn-upload" [class.loading]="cargandoCSV">
+        <i [class]="cargandoCSV ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"></i>
+        {{ cargandoCSV ? 'Cargando ' + csvProgreso + '%...' : 'Carga Masiva' }}
+
+        <input
+          type="file"
+          accept=".csv,.txt"
+          (change)="onArchivoCSV($event)"
+          style="display: none"
+          [disabled]="cargandoCSV"
+        />
+      </label>
+
+      <button
+        *ngIf="!mostrarFormulario"
+        class="btn-primary"
+        (click)="limpiarFormulario(); mostrarFormulario = true"
+      >
+        <i class="pi pi-plus"></i>
+        Nuevo Vuelo
+      </button>
+
+      <button
+        *ngIf="mostrarFormulario"
+        class="btn-primary"
+        (click)="cancelarFormulario()"
+      >
+        <i class="pi pi-times"></i>
+        Cerrar
+      </button>
+    </div>
+  </div>
+
+  <div class="csv-result-panel" *ngIf="getAeropuertoUsuario() as ap">
+    <div class="csv-summary csv-ok">
+      <i class="pi pi-map-marker"></i>
+      <span>
+        Aeropuerto asignado:
+        <strong>{{ ap.codigoOaci }}</strong> · {{ ap.ciudad }} · {{ ap.pais }}
+      </span>
+    </div>
+  </div>
+
+  <div class="csv-result-panel" *ngIf="!getAeropuertoUsuario()">
+    <div class="csv-summary csv-warn">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>
+        El usuario logueado no tiene aeropuerto asignado. No se podrán listar ni crear vuelos.
+      </span>
+    </div>
+  </div>
+
+  <div class="csv-result-panel" *ngIf="csvResultado">
+    <div
+      class="csv-summary"
+      [class.csv-ok]="csvResultado.fallidos === 0"
+      [class.csv-warn]="csvResultado.fallidos > 0"
+    >
+      <i [class]="csvResultado.fallidos === 0 ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
+
+      <span>
+        <strong>{{ csvResultado.exitosos }}</strong> vuelo(s) registrado(s)
+        <ng-container *ngIf="csvResultado.fallidos > 0">
+          · <strong>{{ csvResultado.fallidos }}</strong> con error
+        </ng-container>
+      </span>
+
+      <button class="csv-close" (click)="csvResultado = null">✕</button>
+    </div>
+
+    <div class="csv-errors" *ngIf="csvResultado.errores.length > 0">
+      <div class="csv-error-item" *ngFor="let err of csvResultado.errores | slice:0:10">
+        <i class="pi pi-info-circle"></i>
+        {{ err }}
+      </div>
+    </div>
+
+    <div class="csv-format-hint">
+      <strong>Formato CSV:</strong>
+      codigoVuelo, destino, horaSalida, horaLlegada, duracionHoras, capacidadMaxima, esIntercontinental
+    </div>
+  </div>
+
+  <div class="main-grid" *ngIf="mostrarFormulario">
+    <div class="card">
+      <div class="card-title">
+        <i class="pi pi-send"></i>
+        {{ editando ? 'Editar Vuelo' : 'Nuevo Vuelo' }}
+      </div>
+
+      <div class="card-desc">
+        El aeropuerto de origen se toma automáticamente del usuario logueado.
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Código de vuelo *</label>
+
+          <div class="code-input-wrap" [class.locked]="editando">
+            <input
+              pInputText
+              [(ngModel)]="codigoVuelo"
+              placeholder="Ej. VL001"
+              [readonly]="editando"
+              [class.input-readonly]="editando"
+            />
+
+            <i
+              *ngIf="editando"
+              class="pi pi-lock code-lock-icon"
+              title="El código no se puede editar"
+            ></i>
+          </div>
+
+          <small *ngIf="editando" class="field-hint">
+            El código de vuelo no se puede modificar al editar.
+          </small>
+        </div>
+
+        <div class="form-field">
+          <label>Aeropuerto de Origen</label>
+
+          <div class="origin-readonly" *ngIf="getAeropuertoUsuario() as ap; else sinOrigenUsuario">
+            <div>
+              <span class="oaci">{{ ap.codigoOaci }}</span>
+              <span class="city">{{ ap.ciudad }}</span>
+            </div>
+
+            <span style="font-size: 0.75rem; color: #9ca3af;">
+              {{ ap.pais }} · Continente: {{ ap.continente }}
+            </span>
+          </div>
+
+          <ng-template #sinOrigenUsuario>
+            <div class="origin-warning">
+              No se encontró aeropuerto asignado para este usuario.
+            </div>
+          </ng-template>
+        </div>
+
+        <div class="form-field">
+          <label>Aeropuerto de Destino *</label>
+
+          <p-select
+            [(ngModel)]="idAeropuertoDestino"
+            [options]="aeropuertos"
+            optionLabel="ciudad"
+            optionValue="idAeropuerto"
+            placeholder="Buscar destino..."
+            [filter]="true"
+            filterBy="ciudad,codigoOaci,pais,continente,codigo"
+            [showClear]="true"
+            styleClass="w-full"
+          >
+            <ng-template pTemplate="item" let-a>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-weight: 700; color: #60a5fa; font-size: 0.78rem; min-width: 3.2rem;">
+                  {{ a.codigoOaci }}
+                </span>
+                <span style="font-size: 0.85rem;">{{ a.ciudad }}</span>
+                <span style="font-size: 0.72rem; color: #94a3b8; margin-left: auto;">
+                  {{ a.pais }}
+                </span>
+              </div>
+            </ng-template>
+
+            <ng-template pTemplate="selectedItem" let-a>
+              <span style="font-weight: 700; color: #60a5fa; font-size: 0.8rem;">
+                {{ a.codigoOaci }}
+              </span>
+              <span style="font-size: 0.85rem; margin-left: 0.4rem;">
+                {{ a.ciudad }}
+              </span>
+            </ng-template>
+          </p-select>
+        </div>
+
+        <div class="form-field">
+          <label>Hora de salida *</label>
+          <input pInputText type="datetime-local" [(ngModel)]="horaSalida" />
+        </div>
+
+        <div class="form-field">
+          <label>Hora de llegada *</label>
+          <input pInputText type="datetime-local" [(ngModel)]="horaLlegada" />
+        </div>
+
+        <div class="form-field">
+          <label>Duración en horas *</label>
+          <p-inputnumber
+            [(ngModel)]="duracionHoras"
+            [min]="0.1"
+            [maxFractionDigits]="2"
+            [showButtons]="true"
+            styleClass="w-full"
+          ></p-inputnumber>
+        </div>
+
+        <div class="form-field">
+          <label>Capacidad máxima *</label>
+          <p-inputnumber
+            [(ngModel)]="capacidadMaxima"
+            [min]="1"
+            [max]="400"
+            [showButtons]="true"
+            styleClass="w-full"
+          ></p-inputnumber>
+        </div>
+
+        <div class="form-field">
+          <label>Estado</label>
+          <p-select
+            [(ngModel)]="estado"
+            [options]="ESTADOS.slice(1)"
+            optionLabel="label"
+            optionValue="value"
+            styleClass="w-full"
+          ></p-select>
+        </div>
+
+        <div class="form-field">
+          <label>Tipo de vuelo</label>
+
+          <div class="check-row">
+            <p-checkbox [(ngModel)]="esIntercontinental" [binary]="true"></p-checkbox>
+            <span>Es intercontinental</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-secondary" (click)="cancelarFormulario()">
+          <i class="pi pi-times"></i>
+          Cancelar
+        </button>
+
+        <p-button
+          [label]="editando ? 'Actualizar Vuelo' : 'Registrar Vuelo'"
+          icon="pi pi-check"
+          (onClick)="guardarVuelo()"
+          [loading]="enviando"
+        ></p-button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="card">
+        <div class="card-title-sm">Resumen de Ruta</div>
+
+        <div class="info-row">
+          <div class="info-icon blue">
+            <i class="pi pi-map-marker"></i>
+          </div>
+
+          <div>
+            <div class="info-label">Ruta</div>
+            <div class="info-route">{{ getRutaPreview() }}</div>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-icon green">
+            <i class="pi pi-send"></i>
+          </div>
+
+          <div>
+            <div class="info-label">Tipo</div>
+            <div class="info-sub">{{ getTipoVueloPreview() }}</div>
+          </div>
+        </div>
+
+        <div class="info-alert blue">
+          <i class="pi pi-info-circle"></i>
+          <span>
+            Solo se crean y muestran vuelos cuyo origen es el aeropuerto del usuario logueado.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-chips" *ngIf="!cargandoLista">
+    <button
+      *ngFor="let op of ESTADOS"
+      class="chip"
+      [class.active]="estadoFiltro === op.value"
+      (click)="filtrarPorEstado(op.value)"
+    >
+      {{ op.label }}
+    </button>
+  </div>
+
+  <div class="loading-state" *ngIf="cargandoLista">
+    <p-progressspinner strokeWidth="3" animationDuration=".7s"></p-progressspinner>
+    <span>Cargando vuelos...</span>
+  </div>
+
+  <div class="table-card" *ngIf="!cargandoLista">
+    <div class="table-toolbar">
+      <p-iconfield>
+        <p-inputicon styleClass="pi pi-search" />
+        <input
+          pInputText
+          type="text"
+          (input)="onBuscar($event)"
+          placeholder="Buscar por código, aeropuerto o ciudad..."
+          style="width: 24rem"
+        />
+      </p-iconfield>
+
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="mostrarFiltrosAvanzados = !mostrarFiltrosAvanzados"
+      >
+        <i class="pi pi-filter"></i>
+        Filtros Avanzados
+      </button>
+
+      <span class="toolbar-info">
+        {{ vuelosFiltrados.length }} vuelos ·
+        {{ getProgramados() }} programados ·
+        {{ getCancelados() }} cancelados ·
+        {{ getTotalCapacidad() | number }} capacidad total
+      </span>
+    </div>
+
+    <div class="advanced-filters" *ngIf="mostrarFiltrosAvanzados">
+      <div class="form-field">
+        <label>Código de destino</label>
+
+        <p-select
+          [(ngModel)]="codigoDestinoFiltro"
+          [options]="aeropuertos"
+          optionLabel="codigoOaci"
+          optionValue="codigoOaci"
+          placeholder="Todos los códigos"
+          [filter]="true"
+          filterBy="codigoOaci,ciudad,pais"
+          [showClear]="true"
+        ></p-select>
+      </div>
+
+      <div class="form-field">
+        <label>Continente destino</label>
+
+        <p-select
+          [(ngModel)]="continenteDestinoFiltro"
+          [options]="continentes"
+          placeholder="Todos"
+          [showClear]="true"
+        ></p-select>
+      </div>
+
+      <div class="form-field">
+        <label>Tipo</label>
+
+        <p-select
+          [(ngModel)]="intercontinentalFiltro"
+          [options]="[
+            { label: 'Todos', value: null },
+            { label: 'Intercontinental', value: true },
+            { label: 'No intercontinental', value: false }
+          ]"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todos"
+          [showClear]="true"
+        ></p-select>
+      </div>
+
+      <div class="form-field">
+        <label>Salida desde</label>
+
+        <p-datepicker
+          [(ngModel)]="fechaSalidaDesde"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showClear]="true"
+          placeholder="Desde"
+        ></p-datepicker>
+      </div>
+
+      <div class="form-field">
+        <label>Salida hasta</label>
+
+        <p-datepicker
+          [(ngModel)]="fechaSalidaHasta"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showClear]="true"
+          placeholder="Hasta"
+        ></p-datepicker>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn-primary" (click)="aplicarFiltrosAvanzados()">
+          <i class="pi pi-filter"></i>
+          Aplicar
+        </button>
+
+        <button type="button" class="btn-secondary" (click)="limpiarFiltrosAvanzados()">
+          <i class="pi pi-times"></i>
+          Limpiar
+        </button>
+      </div>
+    </div>
+
+    <p-table
+      [value]="vuelosFiltrados"
+      [paginator]="true"
+      [rows]="15"
+      [rowsPerPageOptions]="[10, 15, 25, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first}–{last} de {totalRecords}"
+      styleClass="p-datatable-sm p-datatable-gridlines"
+    >
+      <ng-template #header>
+        <tr>
+          <th pSortableColumn="codigoVuelo">
+            Código <p-sortIcon field="codigoVuelo"></p-sortIcon>
+          </th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th pSortableColumn="horaSalida">
+            Salida <p-sortIcon field="horaSalida"></p-sortIcon>
+          </th>
+          <th>Llegada</th>
+          <th style="text-align: center;">Duración</th>
+          <th style="text-align: center;">Capacidad</th>
+          <th>Estado</th>
+          <th>Tipo</th>
+          <th style="text-align: center;">Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template #body let-v>
+        <tr>
+          <td>
+            <span class="id-cell">{{ v.codigoVuelo }}</span>
+          </td>
+
+          <td>
+            <span class="oaci">{{ v.aeropuertoOrigen?.codigoOaci }}</span>
+            <span class="city">{{ v.aeropuertoOrigen?.ciudad }}</span>
+          </td>
+
+          <td>
+            <span class="oaci">{{ v.aeropuertoDestino?.codigoOaci }}</span>
+            <span class="city">{{ v.aeropuertoDestino?.ciudad }}</span>
+          </td>
+
+          <td>{{ formatearHora(v.horaSalida) }}</td>
+          <td>{{ formatearHora(v.horaLlegada) }}</td>
+
+          <td style="text-align: center;">
+            {{ v.duracionHoras }}
+          </td>
+
+          <td style="text-align: center; font-weight: 700;">
+            {{ v.capacidadMaxima }}
+          </td>
+
+          <td>
+            <span
+              class="estado-chip"
+              [style.color]="getEstadoColor(v.estado)"
+              [style.border-color]="getEstadoColor(v.estado)"
+            >
+              {{ v.estado }}
+            </span>
+          </td>
+
+          <td>
+            <span class="type-chip" [class.inter]="v.esIntercontinental">
+              {{ v.esIntercontinental ? 'Intercontinental' : 'Regular' }}
+            </span>
+          </td>
+
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn edit" (click)="editarVuelo(v)" title="Editar">
+                <i class="pi pi-pencil"></i>
+              </button>
+
+              <button class="icon-btn delete" (click)="eliminarVuelo(v)" title="Eliminar">
+                <i class="pi pi-trash"></i>
+              </button>
+
+              <button
+                class="icon-btn cancel"
+                *ngIf="v.estado !== 'CANCELADO'"
+                (click)="cancelarVuelo(v)"
+                title="Cancelar vuelo"
+              >
+                <i class="pi pi-ban"></i>
+              </button>
+
+              <button
+                class="icon-btn ok"
+                *ngIf="v.estado === 'CANCELADO'"
+                (click)="reactivarVuelo(v)"
+                title="Reactivar vuelo"
+              >
+                <i class="pi pi-refresh"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="10" class="empty-row">
+            No hay vuelos para el aeropuerto del usuario logueado.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
