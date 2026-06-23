@@ -118,7 +118,33 @@ export class SimulacionService {
   }
 
   /** URL del endpoint SSE para usar con EventSource */
-  getStreamUrl(fechaInicio: string, dias: number): string {
-    return `${this.apiUrl}/periodo/stream?fechaInicio=${fechaInicio}&dias=${dias}`;
+  getStreamUrl(fechaInicio: string, horaInicio: string, dias: number): string {
+    return `${this.apiUrl}/periodo/stream?fechaInicio=${fechaInicio}&horaInicio=${horaInicio}&dias=${dias}`;
+  }
+
+  /** Obtiene la fecha mínima de datos disponibles desde monitoreo */
+  obtenerFechaMinima(): Observable<Date> {
+    return new Observable(observer => {
+      this.http.get<ApiResponse<any>>(`${this.apiUrl}/monitoreo/estado`).subscribe({
+        next: (resp) => {
+          if (resp.data?.relojSim) {
+            const relojSim = resp.data.relojSim;
+            const partes = relojSim.split('T');
+            if (partes.length === 2) {
+              const fecha = new Date(partes[0]);
+              observer.next(fecha);
+              observer.complete();
+              return;
+            }
+          }
+          observer.next(new Date('2026-01-02'));
+          observer.complete();
+        },
+        error: () => {
+          observer.next(new Date('2026-01-02'));
+          observer.complete();
+        }
+      });
+    });
   }
 }

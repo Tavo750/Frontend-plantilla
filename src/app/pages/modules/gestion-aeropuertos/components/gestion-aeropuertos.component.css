@@ -1,0 +1,211 @@
+.aero-container {
+  padding: 1.5rem;
+  background: #0f172a;
+  color: #f1f5f9;
+  min-height: 100vh;
+}
+
+.aero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.aero-header h1 {
+  font-size: 1.75rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #f1f5f9;
+}
+
+.aero-header p {
+  margin: 0.25rem 0 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.btn-nuevo {
+  background: #22c55e;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s;
+}
+
+.btn-nuevo:hover {
+  background: #16a34a;
+}
+
+.aero-content {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(.p-datatable) {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+:deep(.p-datatable .p-datatable-thead > tr > th) {
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr > td) {
+  border-color: #334155 !important;
+  padding: 1rem 0.75rem !important;
+  color: #cbd5e1 !important;
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr:hover) {
+  background: #334155 !important;
+}
+
+:deep(.p-paginator) {
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+:deep(.p-paginator .p-paginator-element) {
+  color: #cbd5e1 !important;
+}
+
+.empty-msg {
+  text-align: center;
+  color: #94a3b8 !important;
+  padding: 2rem !important;
+}
+
+.badge-activo {
+  background: #22c55e;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-inactivo {
+  background: #ef4444;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.btn-editar, .btn-eliminar {
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0 0.25rem;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.btn-editar {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-editar:hover {
+  background: #1d4ed8;
+}
+
+.btn-eliminar {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-eliminar:hover {
+  background: #b91c1c;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group label {
+  color: #cbd5e1;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.form-input {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+  padding: 0.6rem;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-input[readonly] {
+  background: #1e293b;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+select.form-input {
+  cursor: pointer;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #cbd5e1;
+}
+
+.checkbox input {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+}
+
+:deep(.p-dialog) {
+  background: #1e293b !important;
+}
+
+:deep(.p-dialog .p-dialog-header) {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:deep(.p-dialog .p-dialog-content) {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+:deep(.p-button) {
+  font-family: inherit !important;
+}

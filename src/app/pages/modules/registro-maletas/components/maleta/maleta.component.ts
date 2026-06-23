@@ -1,8 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { EnvioService, EnvioMaletas } from '../../../../../core/services/envio.service';
+import { EnvioDiarioService } from '../../../../../core/services/envio-diario.service';
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
-
+import { AuthService } from '../../../../../core/services/auth.service';
+import { PlanVueloService, PlanVueloDiario } from '../../../../../core/services/plan-vuelo.service';
 @Component({
   selector: 'app-maleta',
   standalone: false,
@@ -31,6 +34,21 @@ export class MaletaComponent implements OnInit {
   estadoFiltro: string | null = null;
   textoBusqueda = '';
 
+
+  
+
+  //para filtros avanzados
+  mostrarFiltrosAvanzados = false;
+  continenteOrigenFiltro: string | null = null;
+  continenteDestinoFiltro: string | null = null;
+  codigoOrigenFiltro: string | null = null;
+  codigoDestinoFiltro: string | null = null;
+  fechaRegistroDesde: Date | null = null;
+  fechaRegistroHasta: Date | null = null;
+  continentes: string[] = [];
+
+  
+
   readonly ESTADOS = [
     { label: 'Todos', value: null },
     { label: 'Registrada', value: 'REGISTRADA' },
@@ -47,11 +65,21 @@ export class MaletaComponent implements OnInit {
     EN_ESPERA: '#a78bfa'
   };
 
+  //para mostrar datos de fila de envios ver en que vuelo está yendo
+  readonly ESTADOS_CON_VUELO = new Set(['EN_TRANSITO', 'ENTREGADA', 'RETRASADA']);
+  envioSeleccionado: EnvioMaletas | null = null;
+  vueloSeleccionado: PlanVueloDiario | null = null;
+  mostrarDetalleVuelo = false;
+  cargandoDetalleVuelo = false;
+
   constructor(
     private readonly envioService: EnvioService,
+    private readonly envioDiarioService: EnvioDiarioService,
     private readonly aeropuertoService: AeropuertoService,
+    private readonly authService: AuthService,
     private readonly messageService: MessageService,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    private readonly planVueloService: PlanVueloService //agrego para mostrar datos de vuelo en detalle de envío
   ) { }
 
   ngOnInit(): void {
@@ -63,14 +91,29 @@ export class MaletaComponent implements OnInit {
     this.aeropuertoService.listarAeropuertos().subscribe({
       next: resp => {
         this.aeropuertos = resp.data ?? [];
+        this.continentes = [
+          ...new Set(
+            this.aeropuertos
+              .map(a => a.continente)
+              .filter(continente => continente)
+          )
+        ].sort();
+        this.configurarOrigenDesdeUsuario();
         this.cdr.detectChanges();
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los aeropuertos.'
+        });
       }
     });
   }
 
   cargarEnvios(): void {
     this.cargandoLista = true;
-    this.envioService.listarEnvios().subscribe({
+    this.envioDiarioService.listarEnvios().subscribe({
       next: resp => {
         this.envios = resp.data ?? [];
         this.aplicarFiltros();
@@ -86,8 +129,21 @@ export class MaletaComponent implements OnInit {
   }
 
   registrarEnvio(): void {
-    if (!this.idOrigen || !this.idDestino || this.cantidad < 1) {
-      this.messageService.add({ severity: 'warn', summary: 'Campos requeridos', detail: 'Completa todos los campos del formulario.' });
+    if (!this.idOrigen) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen no asignado',
+        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
+      });
+      return;
+    }
+
+    if (!this.idDestino || this.cantidad < 1) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Campos requeridos',
+        detail: 'Selecciona aeropuerto de destino e ingresa la cantidad de maletas.'
+      });
       return;
     }
     if (this.idOrigen === this.idDestino) {
@@ -95,7 +151,7 @@ export class MaletaComponent implements OnInit {
       return;
     }
     this.enviando = true;
-    this.envioService.crearEnvio({
+    this.envioDiarioService.crearEnvio({
       idAeropuertoOrigen: this.idOrigen,
       idAeropuertoDestino: this.idDestino,
       cantidad: this.cantidad
@@ -117,7 +173,6 @@ export class MaletaComponent implements OnInit {
   }
 
   limpiarFormulario(): void {
-    this.idOrigen = null;
     this.idDestino = null;
     this.cantidad = 1;
   }
@@ -145,8 +200,74 @@ export class MaletaComponent implements OnInit {
         (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda)
       );
     }
+    if (this.continenteOrigenFiltro) {
+      base = base.filter(envio => {
+        const aeropuertoOrigen = this.buscarAeropuertoCompleto(
+          envio.aeropuertoOrigen?.idAeropuerto
+        );
+
+        return aeropuertoOrigen?.continente === this.continenteOrigenFiltro;
+      });
+    }
+    if (this.continenteDestinoFiltro) {
+      base = base.filter(envio => {
+        const aeropuertoDestino = this.buscarAeropuertoCompleto(
+          envio.aeropuertoDestino?.idAeropuerto
+        );
+
+        return aeropuertoDestino?.continente === this.continenteDestinoFiltro;
+      });
+    }
+    if (this.codigoOrigenFiltro) {
+      base = base.filter(envio =>
+        envio.aeropuertoOrigen?.codigoOaci === this.codigoOrigenFiltro
+      );
+    }
+
+    if (this.codigoDestinoFiltro) {
+      base = base.filter(envio =>
+        envio.aeropuertoDestino?.codigoOaci === this.codigoDestinoFiltro
+      );
+    }
+
+
+    if (this.fechaRegistroDesde) {
+      const desde = new Date(this.fechaRegistroDesde);
+      desde.setHours(0, 0, 0, 0);
+
+      base = base.filter(envio => {
+        const fechaEnvio = new Date(envio.fechaRegistro);
+        return fechaEnvio >= desde;
+      });
+    }
+
+    if (this.fechaRegistroHasta) {
+      const hasta = new Date(this.fechaRegistroHasta);
+      hasta.setHours(23, 59, 59, 999);
+
+      base = base.filter(envio => {
+        const fechaEnvio = new Date(envio.fechaRegistro);
+        return fechaEnvio <= hasta;
+      });
+    }
     this.enviosFiltrados = base;
   }
+
+  //filtrado avanzado
+  aplicarFiltrosAvanzados(): void {
+    this.aplicarFiltros();
+  }
+
+  private buscarAeropuertoCompleto(idAeropuerto?: number): Aeropuerto | null {
+    if (!idAeropuerto) {
+      return null;
+    }
+
+    return this.aeropuertos.find(
+      aeropuerto => aeropuerto.idAeropuerto === idAeropuerto
+    ) ?? null;
+  }
+
 
   getEstadoColor(estado: string): string {
     return this.ESTADO_COLORS[estado] ?? '#94a3b8';
@@ -228,30 +349,50 @@ export class MaletaComponent implements OnInit {
     this.csvResultado = null;
     this.cdr.detectChanges();
 
+
     // ── 1. Validación local de todas las filas ──
     const errores: string[] = [];
     const validos: { idAeropuertoOrigen: number; idAeropuertoDestino: number; cantidad: number }[] = [];
 
+    if (!this.idOrigen) {
+      this.cargandoCSV = false;
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen no asignado',
+        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const origen = this.getAeropuertoById(this.idOrigen);
+
+    if (!origen) {
+      this.cargandoCSV = false;
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Origen inválido',
+        detail: 'No se encontró el aeropuerto de origen del usuario.'
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
     for (let idx = 0; idx < filas.length; idx++) {
       const numFila = idx + 2; // +1 por encabezado, +1 por índice 0-based
       const cols = filas[idx].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
-      if (cols.length < 3) {
-        errores.push(`Fila ${numFila}: formato inválido (3 columnas requeridas: origen, destino, cantidad)`);
+
+      if (cols.length < 2) {
+        errores.push(`Fila ${numFila}: formato inválido (2 columnas requeridas: destino, cantidad)`);
         continue;
       }
 
-      const [codigoOrigen, codigoDestino, cantidadStr] = cols;
+      const [codigoDestino, cantidadStr] = cols;
       const cantidad = parseInt(cantidadStr, 10);
-
-      const origen = this.aeropuertos.find(a =>
-        a.codigoOaci.toLowerCase() === codigoOrigen.toLowerCase());
-      if (!origen) {
-        errores.push(`Fila ${numFila}: aeropuerto origen "${codigoOrigen}" no encontrado`);
-        continue;
-      }
 
       const destino = this.aeropuertos.find(a =>
         a.codigoOaci.toLowerCase() === codigoDestino.toLowerCase());
+
       if (!destino) {
         errores.push(`Fila ${numFila}: aeropuerto destino "${codigoDestino}" no encontrado`);
         continue;
@@ -263,7 +404,7 @@ export class MaletaComponent implements OnInit {
       }
 
       if (origen.idAeropuerto === destino.idAeropuerto) {
-        errores.push(`Fila ${numFila}: origen y destino son el mismo aeropuerto`);
+        errores.push(`Fila ${numFila}: el destino no puede ser igual al aeropuerto de origen del usuario`);
         continue;
       }
 
@@ -289,13 +430,17 @@ export class MaletaComponent implements OnInit {
     this.csvProgreso = 60;
     this.cdr.detectChanges();
 
-    this.envioService.crearEnviosBatch(validos).subscribe({
-      next: (resp) => {
-        const creados = resp.data?.length ?? validos.length;
+    forkJoin(
+      validos.map(envio => this.envioDiarioService.crearEnvio(envio))
+    ).subscribe({
+      next: (respuestas) => {
+        const creados = respuestas.length;
+
         this.cargandoCSV = false;
         this.csvProgreso = 100;
         this.csvResultado = { exitosos: creados, fallidos: errores.length, errores };
         this.cdr.detectChanges();
+
         this.messageService.add({
           severity: errores.length === 0 ? 'success' : 'warn',
           summary: `${creados} envío(s) registrado(s)`,
@@ -303,6 +448,7 @@ export class MaletaComponent implements OnInit {
             ? `${errores.length} fila(s) con error de validación`
             : 'Todos los envíos fueron creados correctamente'
         });
+
         this.cargarEnvios();
       },
       error: (err) => {
@@ -310,12 +456,14 @@ export class MaletaComponent implements OnInit {
         this.csvResultado = {
           exitosos: 0,
           fallidos: errores.length + validos.length,
-          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear los envíos en lote'}`]
+          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear los envíos'}`]
         };
         this.cdr.detectChanges();
+
         this.messageService.add({
-          severity: 'error', summary: 'Error del servidor',
-          detail: err?.error?.message ?? 'No se pudo registrar el lote de envíos.'
+          severity: 'error',
+          summary: 'Error del servidor',
+          detail: err?.error?.message ?? 'No se pudo registrar la carga masiva.'
         });
       }
     });
@@ -323,19 +471,193 @@ export class MaletaComponent implements OnInit {
 
   /** Descarga una plantilla CSV con datos de ejemplo del sistema */
   descargarPlantillaCSV(): void {
-    const origenEj  = this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
-    const destinoEj = this.aeropuertos[1]?.codigoOaci ?? 'DEST';
+    const origenUsuario = this.getAeropuertoById(this.idOrigen);
+    const destinos = this.aeropuertos.filter(a => a.idAeropuerto !== this.idOrigen);
+
+    const destinoEj1 = destinos[0]?.codigoOaci ?? 'DEST';
+    const destinoEj2 = destinos[1]?.codigoOaci ?? 'DEST2';
+
     const csv = [
-      'origen,destino,cantidad',
-      `${origenEj},${destinoEj},10`,
-      `${destinoEj},${origenEj},15`
+      'destino,cantidad',
+      `${destinoEj1},10`,
+      `${destinoEj2},15`
     ].join('\n');
+
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'plantilla-carga-masiva.csv';
+    a.download = `plantilla-carga-masiva-${origenUsuario?.codigoOaci ?? 'origen'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  //limpiar filtros
+  limpiarFiltrosAvanzados(): void {
+    this.continenteOrigenFiltro = null;
+    this.continenteDestinoFiltro = null;
+    this.codigoOrigenFiltro = null;
+    this.codigoDestinoFiltro = null;
+    this.fechaRegistroDesde = null;
+    this.fechaRegistroHasta = null;
+    this.aplicarFiltros();
+  }
+  private configurarOrigenDesdeUsuario(): void {
+    const usuario = this.authService.getCurrentUser();
+
+    if (!usuario) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Usuario sin datos',
+        detail: 'No se encontró información del usuario logueado.'
+      });
+      return;
+    }
+
+    if (!usuario.idAeropuerto) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Aeropuerto no asignado',
+        detail: 'El usuario no tiene aeropuerto de origen asignado.'
+      });
+      return;
+    }
+
+    this.idOrigen = Number(usuario.idAeropuerto);
+  }
+
+  //metodos para detalle de vuelo en fila de envíos
+  puedeVerVuelo(envio: EnvioMaletas): boolean {
+    return this.ESTADOS_CON_VUELO.has(envio.estado);
+  }
+
+  abrirDetalleVuelo(envio: EnvioMaletas): void {
+    
+    
+    if (!this.puedeVerVuelo(envio)) return;
+
+    if (!envio.idPlanVueloAsignado) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sin vuelo asignado',
+        detail: 'Este pedido todavía no tiene un vuelo asociado.'
+      });
+      return;
+    }
+
+    this.envioSeleccionado = envio;
+    this.vueloSeleccionado = null;
+    this.cargandoDetalleVuelo = true;
+    this.mostrarDetalleVuelo = true;
+    this.cdr.detectChanges();
+    
+    this.planVueloService.listar().subscribe({
+      next: resp => {
+        this.vueloSeleccionado =
+          (resp.data ?? []).find(v => v.id === envio.idPlanVueloAsignado) ?? null;
+        this.cargandoDetalleVuelo = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cargandoDetalleVuelo = false;
+        this.cdr.detectChanges();
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo cargar el detalle del vuelo.'
+        });
+      }
+    });
+  }
+
+  cerrarDetalleVuelo(): void {
+    this.mostrarDetalleVuelo = false;
+    this.envioSeleccionado = null;
+    this.vueloSeleccionado = null;
+  }
+
+  getRutaVuelo(vuelo: PlanVueloDiario | null): string {
+    if (!vuelo) return '-';
+    const origen = vuelo.origen ?? vuelo.codigoOrigen;
+    const destino = vuelo.destino ?? vuelo.codigoDestino;
+    return `${origen} → ${destino}`;
+  }
+
+  formatearHora(valor?: string): string {
+    if (!valor) return '-';
+
+    const fecha = new Date(valor);
+    if (!Number.isNaN(fecha.getTime())) {
+      return fecha.toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    return valor.slice(0, 5);
+  }
+
+  getMensajeVuelo(): string {
+    switch (this.envioSeleccionado?.estado) {
+      case 'EN_TRANSITO':
+        return 'Este pedido está viajando en este vuelo.';
+      case 'ENTREGADA':
+        return 'Este pedido fue transportado en este vuelo.';
+      case 'RETRASADA':
+        return 'Este pedido está retrasado y asociado a este vuelo.';
+      default:
+        return '';
+    }
+  }
+
+  getFechaVuelo(envio: EnvioMaletas | null): string {
+    if (!envio?.fechaRegistro) return '-';
+
+    return new Date(envio.fechaRegistro).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  getRutaVueloDetallada(): string {
+  const origen = this.envioSeleccionado?.aeropuertoOrigen;
+  const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+  if (!origen || !destino) return this.getRutaVuelo(this.vueloSeleccionado);
+
+  return `${origen.ciudad} (${origen.pais}) → ${destino.ciudad} (${destino.pais})`;
+}
+
+  getTipoVueloCorto(): string {
+    const origen = this.envioSeleccionado?.aeropuertoOrigen;
+    const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+    if (!origen || !destino) return 'Vuelo';
+
+    const origenCompleto = this.buscarAeropuertoCompleto(origen.idAeropuerto);
+    const destinoCompleto = this.buscarAeropuertoCompleto(destino.idAeropuerto);
+
+    if (origen.pais === destino.pais) return 'Vuelo nacional';
+
+    if (origenCompleto?.continente === destinoCompleto?.continente) {
+      return 'Vuelo internacional';
+    }
+
+    return 'Vuelo intercontinental';
+  }
+
+  getRutaContinentes(): string {
+    const origen = this.envioSeleccionado?.aeropuertoOrigen;
+    const destino = this.envioSeleccionado?.aeropuertoDestino;
+
+    if (!origen || !destino) return '';
+
+    const origenCompleto = this.buscarAeropuertoCompleto(origen.idAeropuerto);
+    const destinoCompleto = this.buscarAeropuertoCompleto(destino.idAeropuerto);
+
+    return `${origenCompleto?.continente ?? '-'} → ${destinoCompleto?.continente ?? '-'}`;
+  }
+
+
 }

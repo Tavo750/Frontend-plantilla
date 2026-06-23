@@ -126,6 +126,18 @@ export class MenuService {
         label: 'Simulación',
         icon: 'pi pi-play-circle',
         routerLink: ['Simulacion']
+      },
+      {
+        id: 'GestionAeropuertos',
+        label: 'Gestión de Aeropuertos',
+        icon: 'pi pi-building',
+        routerLink: ['GestionAeropuertos']
+      },
+      {
+        id: 'GestionVuelos',
+        label: 'Gestión de Vuelos',
+        icon: 'pi pi-send',
+        routerLink: ['GestionVuelos']
       }
     ];
 
