@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { RegisterBody } from '../../interfaces/registerBody';
 import { AerolineaService, Aerolinea } from '../../../../../core/services/aerolinea.service';
+import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
 
 @Component({
   selector: 'app-crear-usuario',
@@ -19,12 +20,15 @@ export class CrearUsuario implements OnInit {
   showPassword = false;
   aerolineas: Aerolinea[] = [];
   loadingAerolineas = false;
+  aeropuertos: Aeropuerto[] = [];
+  loadingAeropuertos = false;
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly authService: AuthService,
     private readonly router: Router,
-    private readonly aerolineaService: AerolineaService
+    private readonly aerolineaService: AerolineaService,
+    private readonly aeropuertoService: AeropuertoService
   ) {}
 
   ngOnInit(): void {
@@ -36,10 +40,12 @@ export class CrearUsuario implements OnInit {
       contrasena:      ['', [Validators.required, Validators.minLength(6)]],
       puesto:          ['', [Validators.required]],
       fotoUrl:         [''],
-      idAerolinea:     [null, [Validators.required]]
+      idAerolinea:     [null, [Validators.required]],
+      idAeropuerto:    [null, [Validators.required]]
     });
 
     this.cargarAerolineas();
+    this.cargarAeropuertos();
   }
 
   cargarAerolineas(): void {
@@ -55,6 +61,19 @@ export class CrearUsuario implements OnInit {
     });
   }
 
+  cargarAeropuertos(): void {
+    this.loadingAeropuertos = true;
+    this.aeropuertoService.listarAeropuertos().subscribe({
+      next: (res) => {
+        this.aeropuertos = res.data ?? [];
+        this.loadingAeropuertos = false;
+      },
+      error: () => {
+        this.loadingAeropuertos = false;
+      }
+    });
+  }
+
   get nombre()          { return this.registerForm.get('nombre')!; }
   get apellidoPaterno() { return this.registerForm.get('apellidoPaterno')!; }
   get apellidoMaterno() { return this.registerForm.get('apellidoMaterno')!; }
@@ -62,6 +81,7 @@ export class CrearUsuario implements OnInit {
   get contrasena()      { return this.registerForm.get('contrasena')!; }
   get puesto()          { return this.registerForm.get('puesto')!; }
   get idAerolinea()     { return this.registerForm.get('idAerolinea')!; }
+  get idAeropuerto()    { return this.registerForm.get('idAeropuerto')!; }
 
   togglePassword(): void {
     this.showPassword = !this.showPassword;
