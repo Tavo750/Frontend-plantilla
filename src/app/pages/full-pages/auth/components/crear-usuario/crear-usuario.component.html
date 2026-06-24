@@ -194,6 +194,30 @@
           </div>
         </div>
 
+        <!-- Aeropuerto -->
+        <div class="form-group">
+          <label class="form-label" for="reg-id-aeropuerto">Aeropuerto</label>
+          <div class="input-wrapper" [class.input-error]="idAeropuerto.invalid && idAeropuerto.touched">
+            <i class="pi pi-map-marker input-icon"></i>
+            <select
+              id="reg-id-aeropuerto"
+              class="form-input form-select"
+              formControlName="idAeropuerto"
+              [disabled]="loadingAeropuertos"
+            >
+              <option [ngValue]="null" disabled selected>
+                {{ loadingAeropuertos ? 'Cargando...' : 'Selecciona un aeropuerto' }}
+              </option>
+              <option *ngFor="let ap of aeropuertos" [ngValue]="ap.idAeropuerto">
+                {{ ap.ciudad }} – {{ ap.codigo }} ({{ ap.codigoOaci }})
+              </option>
+            </select>
+          </div>
+          <span class="field-error" *ngIf="idAeropuerto.invalid && idAeropuerto.touched">
+            <ng-container *ngIf="idAeropuerto.errors?.['required']">Requerido.</ng-container>
+          </span>
+        </div>
+
         <!-- Foto URL (opcional) -->
         <div class="form-group">
           <label class="form-label" for="reg-foto-url">

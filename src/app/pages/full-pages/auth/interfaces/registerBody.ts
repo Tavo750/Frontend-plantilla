@@ -7,4 +7,5 @@ export interface RegisterBody {
     puesto:          string;
     fotoUrl:         string;
     idAerolinea:     number;
+    idAeropuerto:    number;
 }
