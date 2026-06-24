@@ -29,6 +29,8 @@ export interface EnvioMaletas {
   aeropuertoDestino: AeropuertoRef;
   aerolinea: AerolineaRef;
   idPlanVueloAsignado?: number; // el signo es para que sea opcional
+  fechaHoraSalidaAsignada?: string;
+  fechaHoraLlegadaAsignada?: string;
 }
 
 @Injectable({
