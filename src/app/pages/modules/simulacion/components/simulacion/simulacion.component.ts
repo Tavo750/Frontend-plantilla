@@ -260,10 +260,13 @@ export class SimulacionComponent implements OnInit, OnDestroy {
           this.mensajeProgreso = '';
           this.detener(); // Detener reproducción de streaming
           if (this.vuelos.length > 0) {
-            // Recalcular tiempos con todos los vuelos recibidos
-            this.tiempoInicioMs = Math.min(...this.vuelos.map(v => v.horaSalida.getTime()));
+            // Mantener fechaInicio como origen (aeropuertos vacíos al inicio); solo actualizar fin
+            const fechaStr = this.fechaInicio instanceof Date
+              ? this.fechaInicio.toISOString().substring(0, 10)
+              : String(this.fechaInicio).substring(0, 10);
+            this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00`).getTime();
             this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
-            this.tiempoActualMs = this.tiempoInicioMs; // Rebobinar al inicio para ver todo el recorrido
+            this.tiempoActualMs = this.tiempoInicioMs;
           }
           this.computarArcos();
           this.actualizarEstado();
@@ -353,10 +356,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
       });
     });
 
-    // ── Auto-play: arrancar en el primer día con vuelos; extender fin en días sucesivos ──
+    // ── Auto-play: arrancar desde fechaInicio (aeropuertos vacíos al inicio) ──
     if (!this.primerosVuelosRecibidos && this.vuelos.length > 0) {
       this.primerosVuelosRecibidos = true;
-      this.tiempoInicioMs = Math.min(...this.vuelos.map(v => v.horaSalida.getTime()));
+      // Inicio = fecha elegida por el usuario (sin importar a qué hora sale el primer vuelo)
+      const fechaStr = this.fechaInicio instanceof Date
+        ? this.fechaInicio.toISOString().substring(0, 10)
+        : String(this.fechaInicio).substring(0, 10);
+      this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00`).getTime();
       this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
       this.tiempoActualMs = this.tiempoInicioMs;
       this.computarArcos();

@@ -58,15 +58,16 @@ interface VueloPanel {
 }
 
 interface AlmacenPanel {
-  codigo:       string;
-  ciudad:       string;
-  continente:   string;
-  capacidad:    number;
-  ocupacion:    number;
-  pct:          number;
-  semaforo:     SemaforoNivel;
-  enviosSalen:  number;
-  enviosEntran: number;
+  codigo:          string;
+  ciudad:          string;
+  continente:      string;
+  capacidad:       number;
+  ocupacion:       number;
+  pct:             number;
+  semaforo:        SemaforoNivel;
+  enviosSalen:     number;
+  enviosEntran:    number;
+  maletasLlegadas: number;
 }
 
 interface EnvioPanel {
@@ -83,6 +84,10 @@ interface IndicadoresGlobales {
   semaforoFlota:     SemaforoNivel;
   pctAlmacenes:      number;
   semaforoAlmacenes: SemaforoNivel;
+  totalVuelos:       number;
+  enVuelo:           number;
+  porSalir:          number;
+  llego:             number;
 }
 
 type EstadoMonitoreo = 'cargando' | 'procesando' | 'animando' | 'agotado';
@@ -198,12 +203,12 @@ export class MapaComponent implements OnInit, OnDestroy {
   filtroVueloOrigen = '';
   filtroVueloDestino = '';
   filtroEstadoVuelo: 'EN_VUELO' | 'POR_SALIR' | 'LLEGÓ' | '' = '';
-  sortVuelo: 'ocupacion' | 'salida' | 'llegada' | 'origen' | 'destino' | '' = '';
+  sortVuelo: 'ocupacion' | 'salida' | 'llegada' | 'origen' | 'destino' | '' = 'ocupacion';
 
   // Filtros almacenes
   filtroAlmacenCodigo = '';
   filtroAlmacenContinente = '';
-  sortAlmacen: 'ocupacion' | 'salen' | 'entran' | '' = '';
+  sortAlmacen: 'ocupacion' | 'salen' | 'entran' | '' = 'ocupacion';
 
   // Filtros envíos
   filtroEnvioOrigen  = '';
@@ -214,8 +219,21 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   // Selección y vinculación
   selectedAeropuertoCod: string | null = null;
-  selectedVueloCod:      string | null = null;
+  selectedVuelosCods     = new Set<string>();
   selectedEnvioId:       string | null = null;
+
+  // Continente → set de OACI visibles para filtrar vuelos/arcos
+  private aeropuertosVisiblesSet = new Set<string>();
+
+  // Búsqueda de texto → OACI coincidentes (para filtrar aviones con OR)
+  private aeropuertosTextoBusquedaSet = new Set<string>();
+  private textoBusquedaMapa = '';
+  // Aeropuertos conectados a la búsqueda (origen+destino de aviones visibles)
+  private aeropuertosConectadosTextoSet = new Set<string>();
+
+  // Umbrales del semáforo (se cargan desde el backend al iniciar)
+  umbralAmbar = 50;
+  umbralRojo  = 80;
 
   // Lista de continentes únicos del panel
   continentesPanel: string[] = [];
@@ -236,6 +254,10 @@ export class MapaComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Restaurar filtros de la visita anterior (si los hay)
+    const fs = this.simulacionPeriodoService.filtrosState;
+    if (fs) { this.restaurarFiltros(fs); }
+
     this.simulacionPeriodoService.getConfigMonitoreo().subscribe({
       next: (resp: any) => {
         const d = resp.data ?? {};
@@ -247,6 +269,56 @@ export class MapaComponent implements OnInit, OnDestroy {
       error: () => { this.onCargaCompleta(); }
     });
     this.cargarAeropuertos();
+    this.cargarUmbralesSemaforo();
+  }
+
+  private restaurarFiltros(fs: any): void {
+    this.activeTab              = fs.activeTab              ?? 'almacenes';
+    this.filtroVueloCodigo      = fs.filtroVueloCodigo      ?? '';
+    this.filtroVueloOrigen      = fs.filtroVueloOrigen      ?? '';
+    this.filtroVueloDestino     = fs.filtroVueloDestino     ?? '';
+    this.filtroEstadoVuelo      = fs.filtroEstadoVuelo      ?? '';
+    this.sortVuelo              = fs.sortVuelo              ?? 'ocupacion';
+    this.filtroAlmacenCodigo    = fs.filtroAlmacenCodigo    ?? '';
+    this.filtroAlmacenContinente= fs.filtroAlmacenContinente?? '';
+    this.sortAlmacen            = fs.sortAlmacen            ?? 'ocupacion';
+    this.filtroEnvioOrigen      = fs.filtroEnvioOrigen      ?? '';
+    this.filtroEnvioDestino     = fs.filtroEnvioDestino     ?? '';
+    this.semaforoMapFiltro      = fs.semaforoMapFiltro      ?? null;
+    this.continenteSeleccionado = fs.continenteSeleccionado ?? null;
+    this.zoomLevel              = fs.zoomLevel              ?? 1;
+    this.panX                   = fs.panX                   ?? 0;
+    this.panY                   = fs.panY                   ?? 0;
+    if (Array.isArray(fs.selectedVuelosCods)) {
+      this.selectedVuelosCods = new Set(fs.selectedVuelosCods);
+    }
+    if (fs.textoBusquedaMapa) {
+      this.textoBusquedaMapa = fs.textoBusquedaMapa;
+      // Reconstruir el set de coincidentes para que aeropuertosParaMapa funcione de inmediato
+      const base = this.aeropuertosMapa;
+      const t = fs.textoBusquedaMapa.toLowerCase();
+      const coinciden = base.filter(a =>
+        a.codigoOaci.toLowerCase().includes(t) ||
+        a.ciudad.toLowerCase().includes(t)     ||
+        a.pais.toLowerCase().includes(t)       ||
+        a.codigo.toLowerCase().includes(t)
+      );
+      this.aeropuertosTextoBusquedaSet = new Set(coinciden.map(a => a.codigoOaci));
+    }
+  }
+
+  private cargarUmbralesSemaforo(): void {
+    this.parametroSemaforoService.listar().subscribe({
+      next: resp => {
+        const params: ParametroSemaforo[] = resp.data ?? [];
+        if (params.length > 0) {
+          this.umbralAmbar = params[0].umbralAmbar;
+          this.umbralRojo  = params[0].umbralRojo;
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
   }
 
   // ── Configuración de semáforo ────────────────────────────────
@@ -292,6 +364,27 @@ export class MapaComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Guardar estado de filtros para restaurarlos al volver al módulo
+    this.simulacionPeriodoService.filtrosState = {
+      activeTab:              this.activeTab,
+      filtroVueloCodigo:      this.filtroVueloCodigo,
+      filtroVueloOrigen:      this.filtroVueloOrigen,
+      filtroVueloDestino:     this.filtroVueloDestino,
+      filtroEstadoVuelo:      this.filtroEstadoVuelo,
+      sortVuelo:              this.sortVuelo,
+      filtroAlmacenCodigo:    this.filtroAlmacenCodigo,
+      filtroAlmacenContinente:this.filtroAlmacenContinente,
+      sortAlmacen:            this.sortAlmacen,
+      filtroEnvioOrigen:      this.filtroEnvioOrigen,
+      filtroEnvioDestino:     this.filtroEnvioDestino,
+      semaforoMapFiltro:      this.semaforoMapFiltro,
+      continenteSeleccionado: this.continenteSeleccionado,
+      zoomLevel:              this.zoomLevel,
+      panX:                   this.panX,
+      panY:                   this.panY,
+      selectedVuelosCods:     Array.from(this.selectedVuelosCods),
+      textoBusquedaMapa:      this.textoBusquedaMapa
+    };
     this.wsSub?.unsubscribe();
     this.limpiarAnimacion();
     // No desconectamos el WS ni detenemos el reloj: el servicio es singleton y la
@@ -463,34 +556,41 @@ export class MapaComponent implements OnInit, OnDestroy {
   private actualizarPanelDesdeResultado(data: any): void {
     // Vuelos (UT)
     const vuelosRaw: any[] = data['vuelos'] ?? [];
-    this.panelVuelosRaw = vuelosRaw.map((v: any) => ({
-      codigoVuelo:     v['codigoVuelo'],
-      origen:          v['origen'],
-      destino:         v['destino'],
-      ciudadOrigen:    v['ciudadOrigen']    ?? '',
-      ciudadDestino:   v['ciudadDestino']   ?? '',
-      horaSalida:      v['horaSalida']      ?? '',
-      horaLlegada:     v['horaLlegada']     ?? '',
-      totalMaletas:    v['totalMaletas']    ?? 0,
-      capacidadMaxima: v['capacidadMaxima'] ?? 300,
-      ocupacionPct:    v['ocupacionPct']    ?? 0,
-      semaforo:        (v['semaforo'] as SemaforoNivel) ?? 'VACIO',
-      estadoVuelo:     v['estadoVuelo']     ?? ''
-    }));
+    this.panelVuelosRaw = vuelosRaw.map((v: any) => {
+      const pct = v['ocupacionPct'] ?? 0;
+      return {
+        codigoVuelo:     v['codigoVuelo'],
+        origen:          v['origen'],
+        destino:         v['destino'],
+        ciudadOrigen:    v['ciudadOrigen']    ?? '',
+        ciudadDestino:   v['ciudadDestino']   ?? '',
+        horaSalida:      v['horaSalida']      ?? '',
+        horaLlegada:     v['horaLlegada']     ?? '',
+        totalMaletas:    v['totalMaletas']    ?? 0,
+        capacidadMaxima: v['capacidadMaxima'] ?? 300,
+        ocupacionPct:    pct,
+        semaforo:        this.calcSemaforo(pct),
+        estadoVuelo:     v['estadoVuelo']     ?? ''
+      };
+    });
 
     // Almacenes
     const almRaw: any[] = data['almacenesDetalle'] ?? [];
-    this.panelAlmacenesRaw = almRaw.map((a: any) => ({
-      codigo:       a['codigo'],
-      ciudad:       a['ciudad']      ?? '',
-      continente:   a['continente']  ?? '',
-      capacidad:    a['capacidad']   ?? 0,
-      ocupacion:    a['ocupacion']   ?? 0,
-      pct:          a['pct']         ?? 0,
-      semaforo:     (a['semaforo'] as SemaforoNivel) ?? 'VACIO',
-      enviosSalen:  a['enviosSalen'] ?? 0,
-      enviosEntran: a['enviosEntran'] ?? 0
-    }));
+    this.panelAlmacenesRaw = almRaw.map((a: any) => {
+      const pct = a['pct'] ?? 0;
+      return {
+        codigo:          a['codigo'],
+        ciudad:          a['ciudad']          ?? '',
+        continente:      a['continente']      ?? '',
+        capacidad:       a['capacidad']       ?? 0,
+        ocupacion:       a['ocupacion']       ?? 0,
+        pct,
+        semaforo:        this.calcSemaforo(pct),
+        enviosSalen:     a['enviosSalen']     ?? 0,
+        enviosEntran:    a['enviosEntran']    ?? 0,
+        maletasLlegadas: a['maletasLlegadas'] ?? 0
+      };
+    });
 
     // Continentes únicos para el selector
     this.continentesPanel = [...new Set(this.panelAlmacenesRaw.map(a => a.continente))].sort();
@@ -512,8 +612,12 @@ export class MapaComponent implements OnInit, OnDestroy {
       this.indicadoresGlobales = {
         pctFlota:          indRaw['pctFlota']          ?? 0,
         semaforoFlota:     (indRaw['semaforoFlota']     as SemaforoNivel) ?? 'VACIO',
-        pctAlmacenes:      indRaw['pctAlmacenes']      ?? 0,
-        semaforoAlmacenes: (indRaw['semaforoAlmacenes'] as SemaforoNivel) ?? 'VACIO'
+        pctAlmacenes:      indRaw['pctAlmacenes']       ?? 0,
+        semaforoAlmacenes: (indRaw['semaforoAlmacenes'] as SemaforoNivel) ?? 'VACIO',
+        totalVuelos:       indRaw['totalVuelos']        ?? 0,
+        enVuelo:           indRaw['enVuelo']            ?? 0,
+        porSalir:          indRaw['porSalir']           ?? 0,
+        llego:             indRaw['llego']              ?? 0
       };
     }
 
@@ -554,9 +658,6 @@ export class MapaComponent implements OnInit, OnDestroy {
     }
     if (this.filtroEstadoVuelo) {
       lista = lista.filter(v => v.estadoVuelo === this.filtroEstadoVuelo);
-    }
-    if (this.semaforoMapFiltro) {
-      lista = lista.filter(v => v.semaforo === this.semaforoMapFiltro);
     }
 
     switch (this.sortVuelo) {
@@ -607,7 +708,7 @@ export class MapaComponent implements OnInit, OnDestroy {
       lista = lista.filter(a => a.continente === this.filtroAlmacenContinente);
     }
     if (this.semaforoMapFiltro) {
-      lista = lista.filter(a => a.semaforo === this.semaforoMapFiltro);
+      lista = lista.filter(a => this.calcSemaforo(a.pct) === this.semaforoMapFiltro);
     }
 
     switch (this.sortAlmacen) {
@@ -698,21 +799,47 @@ export class MapaComponent implements OnInit, OnDestroy {
   }
 
   seleccionarVuelo(codigoVuelo: string, fuente: 'mapa' | 'panel' = 'panel'): void {
-    if (fuente === 'mapa') {
-      // Click en avión → ir a su detalle en "Vuelos / UT": seleccionar (no alternar),
-      // abrir el tab, limpiar filtros para garantizar que el vuelo sea visible y hacer scroll.
-      this.selectedVueloCod   = codigoVuelo;
-      this.activeTab          = 'vuelos';
-      this.filtroVueloCodigo  = '';
-      this.filtroVueloOrigen  = '';
-      this.filtroVueloDestino = '';
-      this.filtroEstadoVuelo  = '';
-      this.aplicarFiltrosVuelos();
-      this.scrollPanelACodigo('vuelo-' + codigoVuelo);
+    if (this.selectedVuelosCods.has(codigoVuelo)) {
+      this.selectedVuelosCods.delete(codigoVuelo);
     } else {
-      this.selectedVueloCod = this.selectedVueloCod === codigoVuelo ? null : codigoVuelo;
+      this.selectedVuelosCods.add(codigoVuelo);
+    }
+    if (fuente === 'mapa') {
+      this.activeTab = 'vuelos';
+      this.scrollPanelACodigo('vuelo-' + codigoVuelo);
     }
     this.cdr.detectChanges();
+  }
+
+  limpiarSeleccionVuelos(): void {
+    this.selectedVuelosCods.clear();
+    this.cdr.detectChanges();
+  }
+
+  get haySeleccionVuelos(): boolean { return this.selectedVuelosCods.size > 0; }
+
+  get aeropuertosParaMapa(): AeropuertoMapa[] {
+    // Prioridad 1: selección múltiple de vuelos del panel
+    if (this.selectedVuelosCods.size > 0) {
+      const relevantCodes = new Set<string>();
+      this.selectedVuelosCods.forEach(code => {
+        const v = this.panelVuelosRaw.find(pv => pv.codigoVuelo === code);
+        if (v) { relevantCodes.add(v.origen); relevantCodes.add(v.destino); }
+      });
+      return this.aeropuertosFiltrados.filter(a => relevantCodes.has(a.codigoOaci));
+    }
+    // Prioridad 2: búsqueda de texto — busca en la lista base completa (con filtro de continente si aplica)
+    if (this.textoBusquedaMapa && this.aeropuertosTextoBusquedaSet.size > 0) {
+      const allCodes = new Set([
+        ...this.aeropuertosTextoBusquedaSet,
+        ...this.aeropuertosConectadosTextoSet
+      ]);
+      const base = this.continenteSeleccionado
+        ? this.aeropuertosMapa.filter(a => a.continente === this.continenteSeleccionado)
+        : this.aeropuertosMapa;
+      return base.filter(a => allCodes.has(a.codigoOaci));
+    }
+    return this.aeropuertosFiltrados;
   }
 
   seleccionarEnvio(envio: EnvioPanel): void {
@@ -780,6 +907,14 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   // ── PANEL: helpers de semáforo ────────────────────────────────
 
+  /** Calcula semáforo usando los umbrales configurados por el usuario. */
+  calcSemaforo(pct: number): SemaforoNivel {
+    if (pct <= 0)                return 'VACIO';
+    if (pct >= this.umbralRojo)  return 'ROJO';
+    if (pct >= this.umbralAmbar) return 'AMARILLO';
+    return 'VERDE';
+  }
+
   getSemaforoClass(semaforo: string): string {
     switch (semaforo) {
       case 'VERDE':    return 'sem-verde';
@@ -821,9 +956,36 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   private actualizarPosicionAviones(): void {
     const now = this.simTimeMs;
-    const enVuelo = this.vuelosAnimacion.filter(
+    let enVuelo = this.vuelosAnimacion.filter(
       v => now >= v.horaSalidaMs && now < v.horaLlegadaMs
     );
+
+    // Filtrar por continente: solo vuelos cuyo origen Y destino son visibles
+    if (this.continenteSeleccionado && this.aeropuertosVisiblesSet.size > 0) {
+      enVuelo = enVuelo.filter(v =>
+        this.aeropuertosVisiblesSet.has(v.origen) &&
+        this.aeropuertosVisiblesSet.has(v.destino)
+      );
+    }
+
+    // Filtrar por texto de búsqueda: OR logic — muestra vuelos cuyo origen O destino coincide
+    if (this.textoBusquedaMapa) {
+      enVuelo = enVuelo.filter(v =>
+        this.aeropuertosTextoBusquedaSet.has(v.origen) ||
+        this.aeropuertosTextoBusquedaSet.has(v.destino)
+      );
+      // Actualizar el set de aeropuertos conectados para ampliar visibilidad en el mapa
+      const conectados = new Set<string>();
+      enVuelo.forEach(v => { conectados.add(v.origen); conectados.add(v.destino); });
+      this.aeropuertosConectadosTextoSet = conectados;
+    } else {
+      this.aeropuertosConectadosTextoSet = new Set();
+    }
+
+    // Filtrar por vuelos seleccionados en el panel
+    if (this.selectedVuelosCods.size > 0) {
+      enVuelo = enVuelo.filter(v => this.selectedVuelosCods.has(v.codigoVuelo));
+    }
 
     this.arcosVuelo = enVuelo
       .map(v => {
@@ -958,7 +1120,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     const relY = rect ? event.clientY - rect.top  : event.offsetY;
     const flip = rect ? relX > rect.width - 220 : false;
     const vPanel = this.panelVuelosRaw.find(v => v.codigoVuelo === p.vuelo.codigoVuelo);
-    const pct = vPanel ? `${vPanel.ocupacionPct}%` : '';
+    const pct = vPanel ? `${parseFloat(vPanel.ocupacionPct.toFixed(2))}%` : '';
     this.tooltip = {
       visible: true,
       x: flip ? relX - 220 : relX + 14,
@@ -1070,7 +1232,8 @@ export class MapaComponent implements OnInit, OnDestroy {
     const base = this.continenteSeleccionado
       ? this.aeropuertosMapa.filter(a => a.continente === this.continenteSeleccionado)
       : this.aeropuertosMapa;
-    this.aeropuertosFiltrados = [...base];
+    this.aeropuertosFiltrados   = [...base];
+    this.aeropuertosVisiblesSet = new Set(base.map(a => a.codigoOaci));
   }
 
   private enriquecerAeropuerto(a: Aeropuerto): AeropuertoMapa {
@@ -1096,22 +1259,38 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   filtrarPorContinente(continente: string | null): void {
     this.continenteSeleccionado = continente;
-    this.aeropuertosFiltrados = continente
+    const base = continente
       ? this.aeropuertosMapa.filter(a => a.continente === continente)
       : [...this.aeropuertosMapa];
+    this.aeropuertosFiltrados   = base;
+    this.aeropuertosVisiblesSet = new Set(base.map(a => a.codigoOaci));
   }
 
   filtrarTabla(event: Event): void {
-    const texto = (event.target as HTMLInputElement).value.toLowerCase();
+    const texto = (event.target as HTMLInputElement).value.toLowerCase().trim();
+    this.textoBusquedaMapa = texto;
+
     const base = this.continenteSeleccionado
       ? this.aeropuertosMapa.filter(a => a.continente === this.continenteSeleccionado)
       : this.aeropuertosMapa;
-    this.aeropuertosFiltrados = base.filter(a =>
+
+    if (!texto) {
+      this.aeropuertosFiltrados        = [...base];
+      this.aeropuertosTextoBusquedaSet = new Set();
+      this.aeropuertosConectadosTextoSet = new Set();
+      return;
+    }
+
+    const coinciden = base.filter(a =>
       a.codigoOaci.toLowerCase().includes(texto) ||
       a.ciudad.toLowerCase().includes(texto)     ||
       a.pais.toLowerCase().includes(texto)       ||
       a.codigo.toLowerCase().includes(texto)
     );
+    this.aeropuertosTextoBusquedaSet = new Set(coinciden.map(a => a.codigoOaci));
+    // aeropuertosFiltrados inicialmente solo coincidentes;
+    // aeropuertosParaMapa lo ampliará con los conectados (se actualiza en el tick de animación)
+    this.aeropuertosFiltrados = coinciden;
   }
 
   // ── UTILIDADES ───────────────────────────────────────────────

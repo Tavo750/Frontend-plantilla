@@ -358,9 +358,15 @@
 }
 
 .arco-EN_VUELO {
-  stroke: #22c55e;
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 4px #22c55e99);
+  stroke: #38bdf8;
+  stroke-width: 1.6;
+  opacity: 0.8;
+  stroke-dasharray: 6 4;
+  animation: dash-move-sim 1.2s linear infinite;
+}
+
+@keyframes dash-move-sim {
+  to { stroke-dashoffset: -20; }
 }
 
 .arco-ATERRIZADO {
@@ -414,16 +420,10 @@
 }
 
 .aero-label {
-  fill: #e2e8f0;
-  /* Blanco suave */
-  font-size: 13px;
+  fill: #cbd5e1;
+  font-size: 11px;
   font-family: 'Courier New', monospace;
   pointer-events: none;
-  /* Contorno oscuro para legibilidad sobre el mapa */
-  paint-order: stroke fill;
-  stroke: rgba(15, 23, 42, 0.9);
-  stroke-width: 3;
-  stroke-linejoin: round;
 }
 
 .badge-bg {
@@ -443,28 +443,29 @@
 }
 
 .avion-body {
-  fill: #22c55e;
+  fill: #facc15;
 }
 
 .avion-wings {
-  fill: #16a34a;
+  fill: #fbbf24;
+  opacity: 0.85;
 }
 
 .avion:hover .avion-body {
-  fill: #4ade80;
+  fill: #fde047;
 }
 
 .avion:hover .avion-wings {
-  fill: #22c55e;
+  fill: #facc15;
 }
 
 .avion-sel .avion-body {
-  fill: #fbbf24;
-  filter: drop-shadow(0 0 5px #fbbf24);
+  fill: #f97316;
+  filter: drop-shadow(0 0 5px #f97316);
 }
 
 .avion-sel .avion-wings {
-  fill: #f59e0b;
+  fill: #fb923c;
 }
 
 /* ── LEYENDA ─────────────────────────────────────────────────── */

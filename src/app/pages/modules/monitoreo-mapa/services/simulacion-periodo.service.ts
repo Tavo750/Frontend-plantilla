@@ -27,6 +27,8 @@ export class SimulacionPeriodoService implements OnDestroy {
   private _arrancado = false;
   /** Último snapshot conocido (vuelos + paneles + contadores + reloj). */
   private _estado: any = null;
+  /** Filtros y selecciones guardados al abandonar el módulo. */
+  filtrosState: any = null;
 
   get arrancado(): boolean { return this._arrancado; }
   get estadoCacheado(): any { return this._estado; }
