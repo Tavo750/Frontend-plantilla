@@ -1,8 +1,21 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from '../interfaces/api-response.interface';
+
+/** Estructura de paginación que devuelve Spring Boot Page<T> */
+export interface SpringPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;      // página actual (0-based)
+  size: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
 
 export interface AeropuertoRef {
   idAeropuerto: number;
@@ -41,8 +54,24 @@ export class EnvioService {
 
   constructor(private readonly http: HttpClient) {}
 
+  /** Lista paginada de envios (recomendado). Por defecto: página 0, 50 registros, más recientes primero. */
+  listarEnviosPaginado(
+    page = 0,
+    size = 50,
+    sort = 'fechaRegistro,desc'
+  ): Observable<ApiResponse<SpringPage<EnvioMaletas>>> {
+    const params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('sort', sort);
+    return this.http.get<ApiResponse<SpringPage<EnvioMaletas>>>(this.apiUrl, { params });
+  }
+
+  /** @deprecated Usar listarEnviosPaginado(). Solo carga la primera página (50 registros). */
   listarEnvios(): Observable<ApiResponse<EnvioMaletas[]>> {
-    return this.http.get<ApiResponse<EnvioMaletas[]>>(this.apiUrl);
+    return this.listarEnviosPaginado(0, 50).pipe(
+      map(resp => ({ ...resp, data: resp.data?.content ?? [] }))
+    );
   }
 
   crearEnvio(body: {

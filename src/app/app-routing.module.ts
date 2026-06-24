@@ -73,6 +73,11 @@ const routes: Routes = [
   },
   // ========== RUTAS PÚBLICAS ==========
   {
+    path: 'auth',
+    loadChildren: () =>
+      import('./pages/full-pages/auth/auth.module').then(m => m.AuthModule)
+  },
+  {
     path: 'error',
     loadChildren: () =>
       import('./pages/full-pages/error/error.routes').then(m => m.ERROR_ROUTES)

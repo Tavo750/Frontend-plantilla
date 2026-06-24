@@ -1,0 +1,240 @@
+<div class="auth-page">
+
+  <!-- Panel izquierdo decorativo -->
+  <div class="auth-panel">
+    <div class="panel-content">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="pi pi-send"></i>
+        </div>
+        <span class="brand-name">AeroManager</span>
+      </div>
+      <h1 class="panel-title">Únete a la plataforma</h1>
+      <p class="panel-subtitle">Crea tu cuenta y empieza a gestionar operaciones aeroportuarias de forma eficiente.</p>
+      <div class="panel-steps">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <span>Completa tus datos personales</span>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <span>Asocia tu aerolínea</span>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <span>Accede al sistema</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel-bg-circles">
+      <div class="circle circle-1"></div>
+      <div class="circle circle-2"></div>
+      <div class="circle circle-3"></div>
+    </div>
+  </div>
+
+  <!-- Panel derecho con formulario -->
+  <div class="auth-form-section">
+    <div class="form-card">
+
+      <div class="form-header">
+        <h2 class="form-title">Crear cuenta</h2>
+        <p class="form-subtitle">Completa los campos para registrarte</p>
+      </div>
+
+      <!-- Alert de error -->
+      <div class="alert-error" *ngIf="errorMessage">
+        <i class="pi pi-exclamation-circle"></i>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" novalidate>
+
+        <!-- Nombre + Apellido Paterno -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-nombre">Nombre</label>
+            <div class="input-wrapper" [class.input-error]="nombre.invalid && nombre.touched">
+              <i class="pi pi-user input-icon"></i>
+              <input
+                id="reg-nombre"
+                type="text"
+                class="form-input"
+                formControlName="nombre"
+                placeholder="Juan"
+              />
+            </div>
+            <span class="field-error" *ngIf="nombre.invalid && nombre.touched">
+              <ng-container *ngIf="nombre.errors?.['required']">Requerido.</ng-container>
+              <ng-container *ngIf="nombre.errors?.['minlength']">Mín. 2 caracteres.</ng-container>
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-apellido-paterno">Apellido paterno</label>
+            <div class="input-wrapper" [class.input-error]="apellidoPaterno.invalid && apellidoPaterno.touched">
+              <i class="pi pi-user input-icon"></i>
+              <input
+                id="reg-apellido-paterno"
+                type="text"
+                class="form-input"
+                formControlName="apellidoPaterno"
+                placeholder="Pérez"
+              />
+            </div>
+            <span class="field-error" *ngIf="apellidoPaterno.invalid && apellidoPaterno.touched">
+              <ng-container *ngIf="apellidoPaterno.errors?.['required']">Requerido.</ng-container>
+              <ng-container *ngIf="apellidoPaterno.errors?.['minlength']">Mín. 2 caracteres.</ng-container>
+            </span>
+          </div>
+        </div>
+
+        <!-- Apellido Materno -->
+        <div class="form-group">
+          <label class="form-label" for="reg-apellido-materno">Apellido materno</label>
+          <div class="input-wrapper" [class.input-error]="apellidoMaterno.invalid && apellidoMaterno.touched">
+            <i class="pi pi-user input-icon"></i>
+            <input
+              id="reg-apellido-materno"
+              type="text"
+              class="form-input"
+              formControlName="apellidoMaterno"
+              placeholder="García"
+            />
+          </div>
+          <span class="field-error" *ngIf="apellidoMaterno.invalid && apellidoMaterno.touched">
+            <ng-container *ngIf="apellidoMaterno.errors?.['required']">Requerido.</ng-container>
+            <ng-container *ngIf="apellidoMaterno.errors?.['minlength']">Mín. 2 caracteres.</ng-container>
+          </span>
+        </div>
+
+        <!-- Correo -->
+        <div class="form-group">
+          <label class="form-label" for="reg-correo">Correo electrónico</label>
+          <div class="input-wrapper" [class.input-error]="correo.invalid && correo.touched">
+            <i class="pi pi-envelope input-icon"></i>
+            <input
+              id="reg-correo"
+              type="email"
+              class="form-input"
+              formControlName="correo"
+              placeholder="usuario@empresa.com"
+              autocomplete="email"
+            />
+          </div>
+          <span class="field-error" *ngIf="correo.invalid && correo.touched">
+            <ng-container *ngIf="correo.errors?.['required']">El correo es requerido.</ng-container>
+            <ng-container *ngIf="correo.errors?.['email']">Ingresa un correo válido.</ng-container>
+          </span>
+        </div>
+
+        <!-- Contraseña -->
+        <div class="form-group">
+          <label class="form-label" for="reg-contrasena">Contraseña</label>
+          <div class="input-wrapper" [class.input-error]="contrasena.invalid && contrasena.touched">
+            <i class="pi pi-lock input-icon"></i>
+            <input
+              id="reg-contrasena"
+              [type]="showPassword ? 'text' : 'password'"
+              class="form-input"
+              formControlName="contrasena"
+              placeholder="Mínimo 6 caracteres"
+              autocomplete="new-password"
+            />
+            <button type="button" class="toggle-password" (click)="togglePassword()" tabindex="-1">
+              <i [class]="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+            </button>
+          </div>
+          <span class="field-error" *ngIf="contrasena.invalid && contrasena.touched">
+            <ng-container *ngIf="contrasena.errors?.['required']">La contraseña es requerida.</ng-container>
+            <ng-container *ngIf="contrasena.errors?.['minlength']">Mínimo 6 caracteres.</ng-container>
+          </span>
+        </div>
+
+        <!-- Puesto + ID Aerolínea -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-puesto">Puesto</label>
+            <div class="input-wrapper" [class.input-error]="puesto.invalid && puesto.touched">
+              <i class="pi pi-briefcase input-icon"></i>
+              <input
+                id="reg-puesto"
+                type="text"
+                class="form-input"
+                formControlName="puesto"
+                placeholder="Ej: Operador"
+              />
+            </div>
+            <span class="field-error" *ngIf="puesto.invalid && puesto.touched">
+              El puesto es requerido.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-id-aerolinea">Aerolínea</label>
+            <div class="input-wrapper" [class.input-error]="idAerolinea.invalid && idAerolinea.touched">
+              <i class="pi pi-send input-icon"></i>
+              <select
+                id="reg-id-aerolinea"
+                class="form-input form-select"
+                formControlName="idAerolinea"
+                [disabled]="loadingAerolineas"
+              >
+                <option [ngValue]="null" disabled selected>
+                  {{ loadingAerolineas ? 'Cargando...' : 'Selecciona una aerolínea' }}
+                </option>
+                <option *ngFor="let a of aerolineas" [ngValue]="a.idAerolinea">
+                  {{ a.nombre }} ({{ a.codigo }})
+                </option>
+              </select>
+            </div>
+            <span class="field-error" *ngIf="idAerolinea.invalid && idAerolinea.touched">
+              <ng-container *ngIf="idAerolinea.errors?.['required']">Requerido.</ng-container>
+            </span>
+          </div>
+        </div>
+
+        <!-- Foto URL (opcional) -->
+        <div class="form-group">
+          <label class="form-label" for="reg-foto-url">
+            URL de foto <span class="optional-tag">opcional</span>
+          </label>
+          <div class="input-wrapper">
+            <i class="pi pi-image input-icon"></i>
+            <input
+              id="reg-foto-url"
+              type="url"
+              class="form-input"
+              formControlName="fotoUrl"
+              placeholder="https://ejemplo.com/foto.jpg"
+            />
+          </div>
+        </div>
+
+        <!-- Botón submit -->
+        <button
+          id="register-submit-btn"
+          type="submit"
+          class="btn-primary"
+          [disabled]="isLoading"
+        >
+          <span *ngIf="!isLoading">Crear cuenta</span>
+          <span *ngIf="isLoading" class="loading-content">
+            <i class="pi pi-spin pi-spinner"></i>
+            Registrando...
+          </span>
+        </button>
+
+      </form>
+
+      <div class="form-footer">
+        <span>¿Ya tienes una cuenta?</span>
+        <button type="button" class="link-btn" id="go-to-login-btn" (click)="goToLogin()">
+          Iniciar sesión
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>

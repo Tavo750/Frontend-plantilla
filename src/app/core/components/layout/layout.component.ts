@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { FooterComponent } from '../footer/footer.component';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../../../pages/full-pages/auth/services/auth.service';
 import { Usuario } from '../../interfaces/usuario.interface';
 
 /**

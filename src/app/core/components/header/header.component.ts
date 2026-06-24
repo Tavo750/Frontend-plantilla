@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 import { MenuService, MenuItem } from '../../services/menu.service';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../../../pages/full-pages/auth/services/auth.service';
 import { Usuario } from '../../interfaces/usuario.interface';
 import { getInitials } from '../../helpers/utils.helper';
 import * as global from '../../../global';
@@ -71,10 +71,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   onLogout(): void {
-    this.authService.logout().subscribe(() => {
-      window.location.href = global.urlAuth;
-    });
     this.closeProfileMenu();
+    this.authService.logout().subscribe(() => {
+      this.router.navigate(['/auth']);
+    });
   }
 
   // ========== BREADCRUMB ==========
