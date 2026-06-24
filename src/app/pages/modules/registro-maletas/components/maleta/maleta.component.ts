@@ -35,7 +35,7 @@ export class MaletaComponent implements OnInit {
   textoBusqueda = '';
 
 
-  
+
 
   //para filtros avanzados
   mostrarFiltrosAvanzados = false;
@@ -47,7 +47,7 @@ export class MaletaComponent implements OnInit {
   fechaRegistroHasta: Date | null = null;
   continentes: string[] = [];
 
-  
+
 
   readonly ESTADOS = [
     { label: 'Todos', value: null },
@@ -113,9 +113,10 @@ export class MaletaComponent implements OnInit {
 
   cargarEnvios(): void {
     this.cargandoLista = true;
+
     this.envioDiarioService.listarEnvios().subscribe({
       next: resp => {
-        this.envios = resp.data ?? [];
+        this.envios = this.ordenarEnvios(resp.data ?? []);
         this.aplicarFiltros();
         this.cargandoLista = false;
         this.cdr.detectChanges();
@@ -123,7 +124,12 @@ export class MaletaComponent implements OnInit {
       error: () => {
         this.cargandoLista = false;
         this.cdr.detectChanges();
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la lista de envíos.' });
+
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo cargar la lista de envíos.'
+        });
       }
     });
   }
@@ -154,8 +160,9 @@ export class MaletaComponent implements OnInit {
     this.envioDiarioService.crearEnvio({
       idAeropuertoOrigen: this.idOrigen,
       idAeropuertoDestino: this.idDestino,
-      cantidad: this.cantidad
-    }).subscribe({
+      cantidad: this.cantidad,
+      estado: 'REGISTRADA'
+    } as any).subscribe({
       next: () => {
         this.enviando = false;
         this.mostrarFormulario = false;
@@ -250,7 +257,7 @@ export class MaletaComponent implements OnInit {
         return fechaEnvio <= hasta;
       });
     }
-    this.enviosFiltrados = base;
+    this.enviosFiltrados = this.ordenarEnvios(base);
   }
 
   //filtrado avanzado
@@ -411,8 +418,9 @@ export class MaletaComponent implements OnInit {
       validos.push({
         idAeropuertoOrigen: origen.idAeropuerto,
         idAeropuertoDestino: destino.idAeropuerto,
-        cantidad
-      });
+        cantidad,
+        estado: 'REGISTRADA'
+      } as any);
     }
 
     if (validos.length === 0) {
@@ -532,8 +540,8 @@ export class MaletaComponent implements OnInit {
   }
 
   abrirDetalleVuelo(envio: EnvioMaletas): void {
-    
-    
+
+
     if (!this.puedeVerVuelo(envio)) return;
 
     if (!envio.idPlanVueloAsignado) {
@@ -550,7 +558,7 @@ export class MaletaComponent implements OnInit {
     this.cargandoDetalleVuelo = true;
     this.mostrarDetalleVuelo = true;
     this.cdr.detectChanges();
-    
+
     this.planVueloService.listar().subscribe({
       next: resp => {
         this.vueloSeleccionado =
@@ -621,13 +629,13 @@ export class MaletaComponent implements OnInit {
   }
 
   getRutaVueloDetallada(): string {
-  const origen = this.envioSeleccionado?.aeropuertoOrigen;
-  const destino = this.envioSeleccionado?.aeropuertoDestino;
+    const origen = this.envioSeleccionado?.aeropuertoOrigen;
+    const destino = this.envioSeleccionado?.aeropuertoDestino;
 
-  if (!origen || !destino) return this.getRutaVuelo(this.vueloSeleccionado);
+    if (!origen || !destino) return this.getRutaVuelo(this.vueloSeleccionado);
 
-  return `${origen.ciudad} (${origen.pais}) → ${destino.ciudad} (${destino.pais})`;
-}
+    return `${origen.ciudad} (${origen.pais}) → ${destino.ciudad} (${destino.pais})`;
+  }
 
   getTipoVueloCorto(): string {
     const origen = this.envioSeleccionado?.aeropuertoOrigen;
@@ -659,5 +667,70 @@ export class MaletaComponent implements OnInit {
     return `${origenCompleto?.continente ?? '-'} → ${destinoCompleto?.continente ?? '-'}`;
   }
 
+  private ordenarEnvios(envios: EnvioMaletas[]): EnvioMaletas[] {
+    return [...envios].sort((a, b) => {
+      const idA = this.obtenerIdEnvio(a);
+      const idB = this.obtenerIdEnvio(b);
+
+      if (idA !== idB) {
+        return idB - idA;
+      }
+
+      const fechaA = this.obtenerTiempoFecha(a.fechaRegistro);
+      const fechaB = this.obtenerTiempoFecha(b.fechaRegistro);
+
+      return fechaB - fechaA;
+    });
+  }
+
+  private obtenerIdEnvio(envio: any): number {
+    return Number(
+      envio.idEnvioDiario ??
+      envio.idEnvioMaletas ??
+      envio.idEnvio ??
+      envio.idUbicacionEnvio ??
+      envio.id ??
+      0
+    );
+  }
+
+  private obtenerTiempoFecha(valor: any): number {
+    if (!valor) return 0;
+
+    if (valor instanceof Date) {
+      return valor.getTime();
+    }
+
+    if (Array.isArray(valor)) {
+      const [year, month, day, hour = 0, minute = 0, second = 0] = valor;
+      return new Date(year, month - 1, day, hour, minute, second).getTime();
+    }
+
+    if (typeof valor === 'string') {
+      const fechaDirecta = new Date(valor);
+
+      if (!Number.isNaN(fechaDirecta.getTime())) {
+        return fechaDirecta.getTime();
+      }
+
+      const match = valor.match(/^(\d{2})\/(\d{2})\/(\d{2,4})\s+(\d{2}):(\d{2})$/);
+
+      if (match) {
+        const [, dd, mm, yy, hh, min] = match;
+        const year = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+
+        return new Date(
+          year,
+          Number(mm) - 1,
+          Number(dd),
+          Number(hh),
+          Number(min),
+          0
+        ).getTime();
+      }
+    }
+
+    return 0;
+  }
 
 }
