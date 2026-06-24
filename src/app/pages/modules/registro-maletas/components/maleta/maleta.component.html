@@ -350,7 +350,14 @@
           </th>
           <th>Estado</th>
           <th>
-            Fecha Registro
+            <div class="fecha-header-sort">
+              <span>Fecha Registro</span>
+          
+              <button type="button" class="btn-sort-fecha" (click)="alternarOrdenFecha(); $event.stopPropagation()"
+                [title]="ordenFechaDesc ? 'Ver antiguos primero' : 'Ver recientes primero'">
+                <i [class]="ordenFechaDesc ? 'pi pi-sort-amount-down' : 'pi pi-sort-amount-up'"></i>
+              </button>
+            </div>
           </th>
           <th>
             Fecha Límite
@@ -373,7 +380,7 @@
           <td>
             <span class="estado-chip" [style.color]="getEstadoColor(e.estado)"
               [style.border-color]="getEstadoColor(e.estado)">
-              {{ e.estado }}
+              {{ getEstadoLabel(e.estado) }}
             </span>
           </td>
           <td>{{ e.fechaRegistro | date:'dd/MM/yy HH:mm' }}</td>
@@ -389,8 +396,8 @@
     </p-table>
 
     <!-- Card para ver cuando se hace click en un pedido, ver que vuelo tiene asignado-->
-    <p-dialog [(visible)]="mostrarDetalleVuelo" [modal]="true" [style]="{ width: '420px' }"
-      (onHide)="cerrarDetalleVuelo()">
+    <p-dialog [(visible)]="mostrarDetalleVuelo" [modal]="true" [draggable]="false" [resizable]="false"
+      [style]="{ width: '420px' }" (onHide)="cerrarDetalleVuelo()">
       <ng-template pTemplate="header">
         <div class="flight-kind">
           {{ getTipoVueloCorto() }}
@@ -425,8 +432,8 @@
           </div>
         </div>
 
-        <div class="flight-status" *ngIf="vueloSeleccionado.estadoVuelo">
-          Estado del vuelo: {{ vueloSeleccionado.estadoVuelo }}
+        <div class="flight-status">
+          Estado del vuelo: {{ getEstadoVueloAsignado() }}
         </div>
       </div>
 

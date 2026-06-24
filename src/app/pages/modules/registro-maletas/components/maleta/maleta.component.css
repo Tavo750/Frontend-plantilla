@@ -655,4 +655,33 @@
   font-weight: 800;
   font-size: 1rem;
   white-space: nowrap;
+  user-select: text;
+  cursor: text;
+}
+
+.fecha-header-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-sort-fecha {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: #93c5fd;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-sort-fecha:hover {
+  background: var(--color-surface-hover);
+}
+
+:host ::ng-deep .p-dialog .p-dialog-header {
+  user-select: text;
 }

@@ -33,7 +33,7 @@ export class MaletaComponent implements OnInit {
   enviosFiltrados: EnvioMaletas[] = [];
   estadoFiltro: string | null = null;
   textoBusqueda = '';
-
+  ordenFechaDesc = true;
 
 
 
@@ -52,6 +52,7 @@ export class MaletaComponent implements OnInit {
   readonly ESTADOS = [
     { label: 'Todos', value: null },
     { label: 'Registrada', value: 'REGISTRADA' },
+    { label: 'Por salir', value: 'EN_ESPERA' },
     { label: 'En Tránsito', value: 'EN_TRANSITO' },
     { label: 'Entregada', value: 'ENTREGADA' },
     { label: 'Retrasada', value: 'RETRASADA' }
@@ -66,7 +67,12 @@ export class MaletaComponent implements OnInit {
   };
 
   //para mostrar datos de fila de envios ver en que vuelo está yendo
-  readonly ESTADOS_CON_VUELO = new Set(['EN_TRANSITO', 'ENTREGADA', 'RETRASADA']);
+  readonly ESTADOS_CON_VUELO = new Set([
+  'EN_ESPERA',
+  'EN_TRANSITO',
+  'ENTREGADA',
+  'RETRASADA'
+  ]);
   envioSeleccionado: EnvioMaletas | null = null;
   vueloSeleccionado: PlanVueloDiario | null = null;
   mostrarDetalleVuelo = false;
@@ -189,6 +195,10 @@ export class MaletaComponent implements OnInit {
     this.aplicarFiltros();
   }
 
+  alternarOrdenFecha(): void {
+    this.ordenFechaDesc = !this.ordenFechaDesc;
+    this.aplicarFiltros();
+  }
   onBuscar(event: Event): void {
     this.textoBusqueda = (event.target as HTMLInputElement).value.toLowerCase();
     this.aplicarFiltros();
@@ -279,6 +289,18 @@ export class MaletaComponent implements OnInit {
   getEstadoColor(estado: string): string {
     return this.ESTADO_COLORS[estado] ?? '#94a3b8';
   }
+
+  getEstadoLabel(estado: string): string {
+  const labels: Record<string, string> = {
+    REGISTRADA: 'Registrada',
+    EN_ESPERA: 'Por salir',
+    EN_TRANSITO: 'En vuelo',
+    ENTREGADA: 'Entregada',
+    RETRASADA: 'Retrasada'
+  };
+
+  return labels[estado] ?? estado;
+}
 
   getOrigenNombre(origen: Aeropuerto): string {
     return `${origen.codigoOaci} – ${origen.ciudad}`;
@@ -540,8 +562,6 @@ export class MaletaComponent implements OnInit {
   }
 
   abrirDetalleVuelo(envio: EnvioMaletas): void {
-
-
     if (!this.puedeVerVuelo(envio)) return;
 
     if (!envio.idPlanVueloAsignado) {
@@ -556,19 +576,27 @@ export class MaletaComponent implements OnInit {
     this.envioSeleccionado = envio;
     this.vueloSeleccionado = null;
     this.cargandoDetalleVuelo = true;
-    this.mostrarDetalleVuelo = true;
-    this.cdr.detectChanges();
+    this.mostrarDetalleVuelo = false;
+
+    const idVueloAsignado = envio.idPlanVueloAsignado;
 
     this.planVueloService.listar().subscribe({
       next: resp => {
         this.vueloSeleccionado =
-          (resp.data ?? []).find(v => v.id === envio.idPlanVueloAsignado) ?? null;
+          (resp.data ?? []).find(v => v.id === idVueloAsignado) ?? null;
+
         this.cargandoDetalleVuelo = false;
-        this.cdr.detectChanges();
+
+        setTimeout(() => {
+          this.mostrarDetalleVuelo = true;
+          this.cdr.detectChanges();
+        }, 0);
       },
       error: () => {
         this.cargandoDetalleVuelo = false;
+        this.mostrarDetalleVuelo = false;
         this.cdr.detectChanges();
+
         this.messageService.add({
           severity: 'error',
           summary: 'Error',
@@ -619,13 +647,30 @@ export class MaletaComponent implements OnInit {
   }
 
   getFechaVuelo(envio: EnvioMaletas | null): string {
-    if (!envio?.fechaRegistro) return '-';
+    const fechaVuelo = envio?.fechaHoraSalidaAsignada ?? envio?.fechaRegistro;
 
-    return new Date(envio.fechaRegistro).toLocaleDateString('es-PE', {
+    if (!fechaVuelo) return '-';
+
+    return new Date(fechaVuelo).toLocaleDateString('es-PE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
+  }
+
+  getEstadoVueloAsignado(): string {
+    switch (this.envioSeleccionado?.estado) {
+      case 'EN_ESPERA':
+        return 'POR SALIR';
+      case 'EN_TRANSITO':
+        return 'EN VUELO';
+      case 'ENTREGADA':
+        return 'LLEGÓ';
+      case 'RETRASADA':
+        return 'LLEGÓ CON RETRASO';
+      default:
+        return this.vueloSeleccionado?.estadoVuelo ?? '-';
+    }
   }
 
   getRutaVueloDetallada(): string {
@@ -669,17 +714,21 @@ export class MaletaComponent implements OnInit {
 
   private ordenarEnvios(envios: EnvioMaletas[]): EnvioMaletas[] {
     return [...envios].sort((a, b) => {
-      const idA = this.obtenerIdEnvio(a);
-      const idB = this.obtenerIdEnvio(b);
-
-      if (idA !== idB) {
-        return idB - idA;
-      }
-
       const fechaA = this.obtenerTiempoFecha(a.fechaRegistro);
       const fechaB = this.obtenerTiempoFecha(b.fechaRegistro);
 
-      return fechaB - fechaA;
+      if (fechaA !== fechaB) {
+        return this.ordenFechaDesc
+          ? fechaB - fechaA
+          : fechaA - fechaB;
+      }
+
+      const idA = this.obtenerIdEnvio(a);
+      const idB = this.obtenerIdEnvio(b);
+
+      return this.ordenFechaDesc
+        ? idB - idA
+        : idA - idB;
     });
   }
 
