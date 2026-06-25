@@ -476,6 +476,10 @@
   filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
 }
 
+.aero-nodo.sem-verde    { fill: #22c55e; stroke: #bbf7d0; filter: drop-shadow(0 0 4px rgba(34,197,94,0.5)); }
+.aero-nodo.sem-amarillo { fill: #eab308; stroke: #fef08a; filter: drop-shadow(0 0 4px rgba(234,179,8,0.5)); }
+.aero-nodo.sem-rojo     { fill: #ef4444; stroke: #fecaca; filter: drop-shadow(0 0 4px rgba(239,68,68,0.5)); }
+
 .aero-selected {
   fill: #f59e0b !important;
   stroke: #fef3c7 !important;

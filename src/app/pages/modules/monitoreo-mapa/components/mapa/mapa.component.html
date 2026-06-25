@@ -160,7 +160,7 @@
               (click)="seleccionarAeropuerto(a.codigoOaci, 'mapa')" style="cursor:pointer">
               <circle [attr.cx]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
                 [attr.cy]="aeropuertoSvgMap.get(a.codigoOaci)?.y" r="7"
-                [class]="'aero-nodo' + (a.activo ? ' aero-activo' : '') + (selectedAeropuertoCod === a.codigoOaci ? ' aero-selected' : '')" />
+                [class]="'aero-nodo ' + getSemaforoMapClass(a.codigoOaci) + (selectedAeropuertoCod === a.codigoOaci ? ' aero-selected' : '')" />
               <text [attr.x]="aeropuertoSvgMap.get(a.codigoOaci)?.x"
                 [attr.y]="(aeropuertoSvgMap.get(a.codigoOaci)?.y ?? 0) - 12" class="aero-label" text-anchor="middle">
                 {{ a.codigoOaci }}
@@ -380,6 +380,8 @@
               (click)="setSortVuelo('salida')">Salida</button>
             <button class="sort-btn" [class.sort-active]="sortVuelo === 'origen'"
               (click)="setSortVuelo('origen')">Origen</button>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'llegada'"
+              (click)="setSortVuelo('llegada')">Llegada</button>
           </div>
           <div class="panel-list">
             <div *ngFor="let v of panelVuelos; trackBy: trackVueloP" class="pitem"
