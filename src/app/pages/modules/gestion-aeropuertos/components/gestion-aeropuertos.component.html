@@ -72,8 +72,8 @@
         readonly placeholder="Ej: Perú, España, Estados Unidos" />
 
       <label>Capacidad Máxima de Almacén (maletas)*</label>
-      <input type="number" [(ngModel)]="aeropuertoSeleccionado.capacidadMaxima" class="form-input" min="1"
-        placeholder="Ej: 500" />
+      <input type="number" [(ngModel)]="aeropuertoSeleccionado.capacidadMaxima" class="form-input" min="400" max="800"
+        placeholder="400 - 800" />
 
       <label>Zona Horaria*</label>
       <select [(ngModel)]="aeropuertoSeleccionado.zonaHoraria" class="form-input" disabled>
