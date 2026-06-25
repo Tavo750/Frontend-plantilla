@@ -46,7 +46,7 @@ export class MaletaComponent implements OnInit {
   fechaRegistroDesde: Date | null = null;
   fechaRegistroHasta: Date | null = null;
   continentes: string[] = [];
-
+  idEnvioFiltro: string = '';
 
 
   readonly ESTADOS = [
@@ -217,6 +217,16 @@ export class MaletaComponent implements OnInit {
         (e.aeropuertoDestino?.ciudad ?? '').toLowerCase().includes(this.textoBusqueda)
       );
     }
+
+    if (this.idEnvioFiltro.trim()) {
+      const idBuscado = this.idEnvioFiltro.trim().replace('#', '').toLowerCase();
+
+      base = base.filter(envio => {
+        const idEnvio = String(this.obtenerIdEnvio(envio));
+        return idEnvio.includes(idBuscado);
+      });
+    }
+
     if (this.continenteOrigenFiltro) {
       base = base.filter(envio => {
         const aeropuertoOrigen = this.buscarAeropuertoCompleto(
@@ -530,6 +540,7 @@ export class MaletaComponent implements OnInit {
     this.codigoDestinoFiltro = null;
     this.fechaRegistroDesde = null;
     this.fechaRegistroHasta = null;
+    this.idEnvioFiltro = '';
     this.aplicarFiltros();
   }
   private configurarOrigenDesdeUsuario(): void {

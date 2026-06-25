@@ -211,14 +211,16 @@
 
   <!-- ── TABLA ─────────────────────────────────────────────── -->
   <div class="table-card" *ngIf="!cargandoLista">
+    
+    
     <div class="table-toolbar">
       <p-iconfield>
         <p-inputicon styleClass="pi pi-search" />
         <input pInputText type="text" (input)="onBuscar($event)" placeholder="Buscar por aeropuerto o ciudad..."
           style="width: 22rem" />
       </p-iconfield>
-      <button type="button" class="btn-secondary" (click)="mostrarFiltrosAvanzados = !mostrarFiltrosAvanzados">
 
+      <button type="button" class="btn-secondary" (click)="mostrarFiltrosAvanzados = !mostrarFiltrosAvanzados">
         <i class="pi pi-filter"></i>
         Filtros Avanzados
       </button>
@@ -229,25 +231,21 @@
     </div>
 
     <div class="advanced-filters" *ngIf="mostrarFiltrosAvanzados">
-
+      
       <!-- Código de origen -->
       <div class="form-field">
         <label>Código de origen</label>
-
         <p-select [(ngModel)]="codigoOrigenFiltro" [options]="aeropuertos" optionLabel="codigoOaci"
           optionValue="codigoOaci" placeholder="Todos los códigos" [filter]="true" filterBy="codigoOaci,ciudad,pais"
           [showClear]="true">
-
           <ng-template pTemplate="item" let-a>
             <div style="display:flex; align-items:center; gap:0.6rem; width:100%;">
               <span style="font-weight:700; color:#60a5fa; min-width:3.5rem;">
                 {{ a.codigoOaci }}
               </span>
-
               <span style="font-size:0.82rem;">
                 {{ a.ciudad }}
               </span>
-
               <span style="font-size:0.72rem; color:#94a3b8; margin-left:auto;">
                 {{ a.pais }}
               </span>
@@ -323,17 +321,26 @@
         </p-datepicker>
       </div>
 
-      <!-- Botón Aplicar -->
+      <!-- Para buscar por codigo de envio -->
+      <div class="form-field">
+        <label>N° de envío</label>
+        <input pInputText type="text" [(ngModel)]="idEnvioFiltro" placeholder="Ej: 123 o #123" style="width: 12rem" />
+      </div>
       <div class="filter-actions">
+        <!-- Botón Aplicar -->
         <button type="button" class="btn-primary" (click)="aplicarFiltrosAvanzados()">
-
           <i class="pi pi-filter"></i>
           Aplicar
         </button>
+        <!-- Botón Limpiar -->
         <button type="button" class="btn-secondary" (click)="limpiarFiltrosAvanzados()">
-
-          <i class="pi pi-times"></i>
+          <i class="pi pi-eraser"></i>
           Limpiar
+        </button>
+        <!-- Botón Cerrar -->
+        <button type="button" class="btn-secondary" (click)="mostrarFiltrosAvanzados = false">
+          <i class="pi pi-times"></i>
+          Cerrar
         </button>
       </div>
 
@@ -399,9 +406,18 @@
     <p-dialog [(visible)]="mostrarDetalleVuelo" [modal]="true" [draggable]="false" [resizable]="false"
       [style]="{ width: '420px' }" (onHide)="cerrarDetalleVuelo()">
       <ng-template pTemplate="header">
-        <div class="flight-kind">
-          {{ getTipoVueloCorto() }}
+        <div class="flight-topline">
+          
+          <div class="flight-kind">
+            {{ getTipoVueloCorto() }}
+            <div class="shipment-id">
+              #{{ envioSeleccionado?.idEnvio }}
+            </div>
+          </div>
+        
+          
         </div>
+
         <div class="flight-code-inline">
           {{ vueloSeleccionado?.codigoVuelo || getRutaVuelo(vueloSeleccionado) }}
         </div>

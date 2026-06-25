@@ -117,7 +117,7 @@ export class MenuService {
       // },
       {
         id: 'MonitoreoMapa',
-        label: 'Monitoreo Mapa',
+        label: 'Operación Diaria',
         icon: 'pi pi-map',
         routerLink: ['MonitoreoMapa']
       },

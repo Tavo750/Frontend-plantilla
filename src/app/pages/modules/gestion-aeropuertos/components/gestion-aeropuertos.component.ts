@@ -70,7 +70,7 @@ export class GestionAeropuertosComponent implements OnInit {
       pais: '',
       latitud: 0,
       longitud: 0,
-      capacidadMaxima: 100,
+      capacidadMaxima: 400,
       zonaHoraria: 'UTC',
       activo: true
     };
@@ -121,6 +121,18 @@ export class GestionAeropuertosComponent implements OnInit {
         });
       }
     });
+
+    // Validación de capacidad máxima
+    const capacidad = Number(aero.capacidadMaxima);
+    
+    if (Number.isNaN(capacidad) || capacidad < 400 || capacidad > 800) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Capacidad invalida',
+        detail: 'La capacidad maxima de almacen debe estar entre 400 y 800 maletas.'
+      });
+      return;
+    }
   }
 
   eliminarAeropuerto(aero: Aeropuerto): void {

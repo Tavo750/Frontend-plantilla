@@ -685,3 +685,11 @@
 :host ::ng-deep .p-dialog .p-dialog-header {
   user-select: text;
 }
+
+.shipment-id {
+  color: #93c5fd;
+  font-weight: 800;
+  font-size: 0.95rem;
+  user-select: text;
+  cursor: text;
+}
