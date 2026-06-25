@@ -117,9 +117,16 @@ export class SimulacionService {
       `${environment.apiUrl}maestro/vuelos/${encodeURIComponent(codigoVuelo)}/reactivar`, null);
   }
 
-  /** URL del endpoint SSE para usar con EventSource */
+  /** URL del endpoint SSE para usar con EventSource (modo legacy) */
   getStreamUrl(fechaInicio: string, horaInicio: string, dias: number): string {
     return `${this.apiUrl}/periodo/stream?fechaInicio=${fechaInicio}&horaInicio=${horaInicio}&dias=${dias}`;
+  }
+
+  /** URL del WebSocket para la simulación en tiempo real */
+  getWsUrl(): string {
+    return environment.apiUrl
+      .replace(/^http/, 'ws')
+      .replace(/\/+$/, '') + '/ws/simulacion';
   }
 
   /** Obtiene la fecha mínima de datos disponibles desde monitoreo */

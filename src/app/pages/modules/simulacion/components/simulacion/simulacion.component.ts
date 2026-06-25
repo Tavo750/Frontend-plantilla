@@ -127,17 +127,50 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   tiempoFinMs    = 0;
   tiempoActualMs = 0;
   reproduciendo  = false;
-  mostrarSidebar = true;
+  mostrarSidebar = false;
   startTimeReal  = 0;
 
-  /** Milisegundos entre ticks de animación (reduce para mejor performance) */
-  private readonly TICK_MS  = 200;
+  /** Milisegundos entre ticks de animación (1 s real = fluido y ligero) */
+  private readonly TICK_MS  = 1000;
   private readonly HORA_MS  = 3_600_000;
-  /** Horas de simulación que avanzan por tick para K=120 (1 seg real = 120 seg sim) */
-  private readonly AVANCE_H = 0.00667;
+  /** Horas de simulación por tick — K=120 a 1fps: 120×1s/3600 */
+  private readonly AVANCE_H = 0.03333;
 
   private intervalId: any = null;
-  private eventSource: EventSource | null = null;
+  private ws: WebSocket | null = null;
+  private ciclosCompletados = 0;
+
+  // ── Panel ──────────────────────────────────────────────────
+  activeTab: 'vuelos' | 'almacenes' | 'envios' = 'vuelos';
+  filtroVueloCodigo = '';
+  filtroEstadoVuelo = '';
+  sortVuelo = 'salida';
+  filtroAlmacenCodigo = '';
+  sortAlmacen = 'ocupacion';
+  semaforoAlmacenFiltro: string | null = null;
+  filtroEnvioOrigen = '';
+  filtroEnvioDestino = '';
+  readonly UMBRAL_AMBAR = 60;
+  readonly UMBRAL_ROJO  = 85;
+  cancelacionesEnMapa = new Map<string, { d: string; ox: number; oy: number; horaLlegadaMs: number }>();
+
+  // ── Filtro de aeropuerto en mapa ───────────────────────────
+  aeropuertoFiltroMapa: string | null = null;
+
+  // ── Panel eventos colapsable ───────────────────────────────
+  eventosExpanded = false;
+
+  // ── Cancelación: contexto de vuelo ya en tránsito ──────────
+  vueloYaEnVuelo = false;
+
+  // ── Zoom / Pan ─────────────────────────────────────────────
+  isFullscreen = false;
+  zoomLevel = 1;
+  panX = 0;
+  panY = 0;
+  private isDragging = false;
+  private dragStartX = 0;
+  private dragStartY = 0;
 
   @ViewChild('mapContainerEl') mapContainerEl!: ElementRef<HTMLDivElement>;
 
@@ -154,7 +187,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.cargarAeropuertos();
     this.cargarFechaMinima();
   }
-  ngOnDestroy(): void { this.detener(); this.cerrarSSE(); }
+  ngOnDestroy(): void { this.detener(); this.cerrarWs(); }
 
   private cargarFechaMinima(): void {
     this.simulacionService.obtenerFechaMinima().subscribe({
@@ -167,6 +200,13 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:resize') onResize(): void {}
+
+  @HostListener('document:fullscreenchange')
+  onFullscreenChange(): void {
+    this.isFullscreen = !!document.fullscreenElement;
+    if (!this.isFullscreen) { this.zoomLevel = 1; this.panX = 0; this.panY = 0; }
+    this.cdr.detectChanges();
+  }
 
   // ── CARGA DE AEROPUERTOS ────────────────────────────────────
 
@@ -197,12 +237,13 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   ejecutarSimulacion(): void {
     this.detener();
-    this.cerrarSSE();
+    this.cerrarWs();
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = this.dias;
+    this.ciclosCompletados = 0;
     this.tiempoInicioMs = 0; this.tiempoFinMs = 0; this.tiempoActualMs = 0;
     this.eventosRecientes = []; this.estadosAnteriores.clear();
     this.vuelosBuscados = []; this.busqueda = '';
@@ -217,98 +258,203 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
-    // Mostrar mapa inmediatamente con aeropuertos y luego iniciar SSE
     this.estado = 'cargando';
     this.mostrarConfig = false;
-    this.mensajeProgreso = 'Conectando con el algoritmo de simulación...';
+    this.mensajeProgreso = 'Conectando con el servidor de simulación...';
     this.cdr.detectChanges();
 
-    this.iniciarStreaming();
+    this.conectarWebSocket();
   }
 
-  private iniciarStreaming(): void {
-    this.estado = 'cargando';
-    const url = this.simulacionService.getStreamUrl(this.formatFecha(this.fechaInicio), this.horaInicio, this.dias);
+  private conectarWebSocket(): void {
+    this.cerrarWs();
+    const wsUrl = this.simulacionService.getWsUrl();
 
     this.ngZone.runOutsideAngular(() => {
-      this.eventSource = new EventSource(url);
+      this.ws = new WebSocket(wsUrl);
 
-      this.eventSource.addEventListener('inicio', () => {
+      this.ws.onopen = () => {
+        const startMsg = {
+          type: 'START',
+          fechaInicio: this.formatFecha(this.fechaInicio),
+          horaInicio: this.horaInicio || '00:00',
+          K: 120,
+          maxMaletasSC: 1500
+        };
+        this.ws!.send(JSON.stringify(startMsg));
         this.ngZone.run(() => {
           this.estado = 'streaming';
-          this.mostrarConfig = false;
-          this.mensajeProgreso = 'Iniciando simulación...';
+          this.mensajeProgreso = 'Conectado · calculando estado inicial...';
           this.cdr.detectChanges();
         });
-      });
+      };
 
-      this.eventSource.addEventListener('dia', (e: MessageEvent) => {
+      this.ws.onmessage = (event: MessageEvent) => {
         this.ngZone.run(() => {
-          const data = JSON.parse(e.data);
-          this.diasRecibidos++;
-          this.mensajeProgreso = `Procesando día ${this.diasRecibidos} de ${this.diasEsperados}...`;
-          this.procesarEventosDia(data);
-          this.cdr.detectChanges();
-        });
-      });
-
-      this.eventSource.addEventListener('fin', (e: MessageEvent) => {
-        this.ngZone.run(() => {
-          const data = JSON.parse(e.data);
-          this.resumen = data.resumen as ResumenSimulacion;
-          this.estado = 'listo';
-          this.mensajeProgreso = '';
-          this.detener(); // Detener reproducción de streaming
-          if (this.vuelos.length > 0) {
-            // Mantener fechaInicio como origen (aeropuertos vacíos al inicio); solo actualizar fin
-            const fechaStr = this.fechaInicio instanceof Date
-              ? this.fechaInicio.toISOString().substring(0, 10)
-              : String(this.fechaInicio).substring(0, 10);
-            this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00`).getTime();
-            this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
-            this.tiempoActualMs = this.tiempoInicioMs;
+          try {
+            const msg = JSON.parse(event.data);
+            this.manejarMensajeWs(msg);
+          } catch (e) {
+            console.error('Error parsing WS simulacion', e);
           }
-          this.computarArcos();
-          this.actualizarEstado();
-          this.cdr.detectChanges();
-          this.messageService.add({
-            severity: 'success', summary: 'Simulación completa',
-            detail: `${this.vuelos.length} vuelos · ${this.resumen?.enviosAsignados ?? 0} envíos asignados`
-          });
-          // Reproducir automáticamente desde el día 1
-          this.iniciar();
         });
-        this.cerrarSSE();
-      });
+      };
 
-      this.eventSource.addEventListener('error', (e: MessageEvent) => {
-        this.ngZone.run(() => {
-          let detalle = 'Verifica que el backend esté activo.';
-          try { const d = JSON.parse(e.data); if (d.mensaje) detalle = d.mensaje; } catch {}
-          this.estado = 'idle'; this.mensajeProgreso = '';
-          this.cdr.detectChanges();
-          this.messageService.add({ severity: 'error', summary: 'Error en simulación', detail: detalle });
-        });
-        this.cerrarSSE();
-      });
-
-      this.eventSource.onerror = () => {
+      this.ws.onerror = () => {
         this.ngZone.run(() => {
           if (this.estado !== 'listo' && this.estado !== 'idle') {
             this.estado = 'idle'; this.mensajeProgreso = '';
+            this.messageService.add({
+              severity: 'error', summary: 'Error WebSocket',
+              detail: 'La conexión con el servidor de simulación se interrumpió.'
+            });
             this.cdr.detectChanges();
-            this.messageService.add({ severity: 'error', summary: 'Conexión interrumpida',
-              detail: 'La conexión SSE se cerró inesperadamente.' });
           }
         });
-        this.cerrarSSE();
+      };
+
+      this.ws.onclose = () => {
+        this.ngZone.run(() => {
+          if (this.estado === 'streaming' || this.estado === 'cargando') {
+            this.estado = 'idle'; this.mensajeProgreso = '';
+            this.cdr.detectChanges();
+          }
+        });
       };
     });
   }
 
+  private manejarMensajeWs(msg: any): void {
+    switch (msg.type) {
+      case 'INIT':    this.onWsInit(msg);   break;
+      case 'UPDATE':  this.onWsUpdate(msg); break;
+      case 'FIN':     this.onWsFin(msg);    break;
+      case 'STOPPED': break;
+      case 'ERROR':
+        this.estado = 'idle'; this.mensajeProgreso = '';
+        this.messageService.add({ severity: 'error', summary: 'Error en simulación', detail: msg.mensaje });
+        this.cdr.detectChanges();
+        break;
+    }
+  }
+
+  private onWsInit(msg: any): void {
+    const tiempoInicioMs = msg.tiempoSimulacionMs as number;
+    this.tiempoInicioMs = tiempoInicioMs;
+    this.tiempoActualMs = tiempoInicioMs;
+    this.tiempoFinMs    = tiempoInicioMs;
+
+    // Aviones ya en vuelo al inicio (maletas = 0, se verán vacíos)
+    (msg.vuelosEnAire ?? []).forEach((v: any) => {
+      const key = v.codigoVuelo;
+      if (!this.vueloMap.has(key)) {
+        const vuelo: VueloSimulacion = {
+          codigoVuelo: key,
+          origen: v.origen, destino: v.destino,
+          horaSalida:  new Date(v.horaSalidaMs),
+          horaLlegada: new Date(v.horaLlegadaMs),
+          totalMaletas: 0, envios: []
+        };
+        this.vueloMap.set(key, vuelo);
+        this.vuelos.push(vuelo);
+      }
+    });
+
+    if (this.vuelos.length > 0) {
+      this.tiempoFinMs = this.vuelos.reduce(
+        (max, v) => Math.max(max, v.horaLlegada.getTime()), tiempoInicioMs);
+      this.primerosVuelosRecibidos = true;
+    }
+
+    this.computarArcos();
+    this.actualizarEstado();
+
+    // Iniciar animación a velocidad K (AVANCE_H = K=120 ya incorporado)
+    if (!this.intervalId) { this.iniciarAutoPlayStreaming(); }
+
+    this.mensajeProgreso = 'Simulación iniciada · primer ciclo ALNS en 10 seg...';
+    this.cdr.detectChanges();
+  }
+
+  private onWsUpdate(msg: any): void {
+    this.ciclosCompletados = msg.ciclo ?? this.ciclosCompletados + 1;
+    this.diasRecibidos = this.ciclosCompletados;
+    const stats = msg.estadisticas ?? {};
+    this.mensajeProgreso =
+      `Ciclo ${this.ciclosCompletados}/12 · ${stats.asignados ?? 0} pedidos asignados`;
+
+    (msg.nuevosVuelos ?? []).forEach((v: any) => {
+      const key = v.codigoVuelo;
+      if (this.vueloMap.has(key)) {
+        // Vuelo ya conocido (ej. en vuelo al inicio): acumular maletas
+        const existing = this.vueloMap.get(key)!;
+        existing.totalMaletas += (v.totalMaletas ?? 0);
+        existing.envios = [...existing.envios, ...(v.envios ?? [])];
+      } else {
+        const vuelo: VueloSimulacion = {
+          codigoVuelo: key,
+          origen: v.origen, destino: v.destino,
+          horaSalida:  new Date(v.horaSalidaMs),
+          horaLlegada: new Date(v.horaLlegadaMs),
+          totalMaletas: v.totalMaletas ?? 0,
+          envios: v.envios ?? []
+        };
+        this.vueloMap.set(key, vuelo);
+        this.vuelos.push(vuelo);
+      }
+      // Resumen por aeropuerto
+      if ((v.totalMaletas ?? 0) > 0) {
+        if (!this.resumenesAeropuerto.has(v.origen)) {
+          this.resumenesAeropuerto.set(v.origen, { codigoOaci: v.origen, asignados: 0, noAsignados: 0 });
+        }
+        this.resumenesAeropuerto.get(v.origen)!.asignados += v.totalMaletas ?? 0;
+      }
+    });
+
+    if (this.vuelos.length > 0) {
+      const newFin = this.vuelos.reduce(
+        (max, v) => Math.max(max, v.horaLlegada.getTime()), this.tiempoInicioMs);
+      if (newFin > this.tiempoFinMs) this.tiempoFinMs = newFin;
+      if (!this.primerosVuelosRecibidos) this.primerosVuelosRecibidos = true;
+    }
+
+    this.computarArcos();
+    this.actualizarEstado();
+    this.cdr.detectChanges();
+  }
+
+  private onWsFin(msg: any): void {
+    this.estado = 'listo';
+    this.mensajeProgreso = '';
+    this.cerrarWs();
+
+    // Si INIT no fijó tiempoInicioMs (caso borde: sin vuelosEnAire), calcular desde UI
+    if (!this.tiempoInicioMs) {
+      const fechaStr = this.fechaInicio instanceof Date
+        ? this.fechaInicio.toISOString().substring(0, 10)
+        : String(this.fechaInicio).substring(0, 10);
+      this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00Z`).getTime();
+    }
+    if (this.tiempoFinMs < this.tiempoInicioMs) this.tiempoFinMs = this.tiempoInicioMs;
+
+    this.computarArcos();
+    this.actualizarEstado();
+    this.cdr.detectChanges();
+
+    this.messageService.add({
+      severity: 'success', summary: 'Simulación completa',
+      detail: `${this.vuelos.length} vuelos · ${this.ciclosCompletados} ciclos ALNS completados`
+    });
+
+    // Reiniciar reproducción desde el inicio
+    this.detener();
+    this.tiempoActualMs = this.tiempoInicioMs;
+    this.iniciar();
+  }
+
   detenerTodo(): void {
     this.sesion.limpiar(); // el usuario detuvo: no conservar sesión
-    this.detener(); this.cerrarSSE();
+    this.detener(); this.cerrarWs();
     this.estado = 'idle'; this.mostrarConfig = true;
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
@@ -364,13 +510,13 @@ export class SimulacionComponent implements OnInit, OnDestroy {
         ? this.fechaInicio.toISOString().substring(0, 10)
         : String(this.fechaInicio).substring(0, 10);
       this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00`).getTime();
-      this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
+      this.tiempoFinMs    = this.vuelos.reduce((max, v) => Math.max(max, v.horaLlegada.getTime()), this.tiempoInicioMs);
       this.tiempoActualMs = this.tiempoInicioMs;
       this.computarArcos();
       this.actualizarEstado();
       this.iniciarAutoPlayStreaming();
     } else if (this.primerosVuelosRecibidos && this.vuelos.length > 0) {
-      const newFin = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
+      const newFin = this.vuelos.reduce((max, v) => Math.max(max, v.horaLlegada.getTime()), this.tiempoInicioMs);
       if (newFin > this.tiempoFinMs) { this.tiempoFinMs = newFin; }
       this.computarArcos();
       this.actualizarEstado();
@@ -393,8 +539,12 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     });
   }
 
-  private cerrarSSE(): void {
-    if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+  private cerrarWs(): void {
+    if (this.ws) {
+      this.ws.onopen = null; this.ws.onmessage = null;
+      this.ws.onerror = null; this.ws.onclose = null;
+      this.ws.close(); this.ws = null;
+    }
   }
 
   // ── CONTROL DE TIEMPO ──────────────────────────────────────
@@ -437,18 +587,27 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   get diaActualLabel(): string {
     if (!this.tiempoInicioMs || !this.tiempoActualMs) return '';
-    const diffMs      = this.tiempoActualMs - this.tiempoInicioMs;
-    const diaCalc     = Math.floor(diffMs / (24 * this.HORA_MS)) + 1;
-    // Durante streaming no adelantar el contador más allá de los días ya recibidos
-    const diaMax      = this.estado === 'streaming' ? this.diasRecibidos : this.dias;
-    const dia         = Math.min(diaCalc, diaMax);
-    const hora        = new Date(this.tiempoActualMs).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    const diffMs  = this.tiempoActualMs - this.tiempoInicioMs;
+    const dia     = Math.max(1, Math.floor(diffMs / (24 * this.HORA_MS)) + 1);
+    const hora    = new Date(this.tiempoActualMs).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
     return `Día ${dia} · ${hora}`;
   }
 
-  /** Arcos que se deben renderizar: solo vuelos actualmente en tránsito */
+  /** Arcos en tránsito; si hay filtro de aeropuerto, solo los de ese aeropuerto */
   get arcosVisibles(): ArcoVuelo[] {
-    return this.arcosVuelo.filter(a => a.estado === 'EN_VUELO');
+    let arcos = this.arcosVuelo.filter(a => a.estado === 'EN_VUELO');
+    if (this.aeropuertoFiltroMapa) {
+      const c = this.aeropuertoFiltroMapa;
+      arcos = arcos.filter(a => a.vuelo.origen === c || a.vuelo.destino === c);
+    }
+    return arcos;
+  }
+
+  /** Aviones visibles en el mapa (respeta filtro de aeropuerto) */
+  get planosVisibles(): PlanoEnMapa[] {
+    if (!this.aeropuertoFiltroMapa) return this.planosEnMapa;
+    const c = this.aeropuertoFiltroMapa;
+    return this.planosEnMapa.filter(p => p.vuelo.origen === c || p.vuelo.destino === c);
   }
 
   get progresoSlider(): number {
@@ -461,8 +620,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   private computarTiempos(): void {
     if (!this.vuelos.length) return;
-    this.tiempoInicioMs = Math.min(...this.vuelos.map(v => v.horaSalida.getTime()));
-    this.tiempoFinMs    = Math.max(...this.vuelos.map(v => v.horaLlegada.getTime()));
+    this.tiempoInicioMs = this.vuelos.reduce((min, v) => Math.min(min, v.horaSalida.getTime()), Infinity);
+    this.tiempoFinMs    = this.vuelos.reduce((max, v) => Math.max(max, v.horaLlegada.getTime()), 0);
     this.tiempoActualMs = this.tiempoInicioMs;
   }
 
@@ -522,6 +681,13 @@ export class SimulacionComponent implements OnInit, OnDestroy {
       if (now < v.horaSalida.getTime()) {
         const cur = this.maletasEnAeropuerto.get(v.origen) ?? 0;
         this.maletasEnAeropuerto.set(v.origen, cur + v.totalMaletas);
+      }
+    });
+
+    // Limpiar marcadores de cancelación expirados (vuelo ya habría aterrizado)
+    this.cancelacionesEnMapa.forEach((data, key) => {
+      if (this.tiempoActualMs >= data.horaLlegadaMs) {
+        this.cancelacionesEnMapa.delete(key);
       }
     });
   }
@@ -696,7 +862,20 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   pedirCancelarVuelo(v: VueloSimulacion): void {
     this.vueloParaCancelar = v;
+    this.vueloYaEnVuelo = this.getEstadoVuelo(v) === 'EN_VUELO';
     this.mostrarConfirmCancelar = true;
+  }
+
+  seleccionarAeropuerto(codigo: string): void {
+    this.aeropuertoFiltroMapa = this.aeropuertoFiltroMapa === codigo ? null : codigo;
+  }
+
+  limpiarFiltroMapa(): void {
+    this.aeropuertoFiltroMapa = null;
+  }
+
+  toggleEventos(): void {
+    this.eventosExpanded = !this.eventosExpanded;
   }
 
   confirmarCancelar(): void {
@@ -706,6 +885,16 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.simulacionService.cancelarVuelo(codigo).subscribe({
       next: () => {
         this.vuelosCancelados.add(codigo);
+        const vuelo = this.vueloParaCancelar!;
+        const o = this.aeropuertoMap.get(vuelo.origen);
+        const d = this.aeropuertoMap.get(vuelo.destino);
+        if (o && d) {
+          this.cancelacionesEnMapa.set(codigo, {
+            d: this.calcArco(o.x, o.y, d.x, d.y),
+            ox: o.x, oy: o.y,
+            horaLlegadaMs: vuelo.horaLlegada.getTime()
+          });
+        }
         this.messageService.add({
           severity: 'success',
           summary: 'Vuelo cancelado',
@@ -733,15 +922,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     const codigo = this.codigoVueloCancelado;
     this.cerrarDialogoCancelacion();
 
-    // Resetear estado de animación sin re-importar datos de BD.
-    // El ALNS usará los vuelos ya guardados, con el cancelado marcado como CANCELADO.
     this.detener();
-    this.cerrarSSE();
+    this.cerrarWs();
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = this.dias;
+    this.ciclosCompletados = 0;
     this.tiempoInicioMs = 0; this.tiempoFinMs = 0; this.tiempoActualMs = 0;
     this.eventosRecientes = []; this.estadosAnteriores.clear();
     this.vuelosBuscados = []; this.busqueda = '';
@@ -752,11 +940,10 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
-    // Saltar importación y ejecutar directamente el streaming SSE
     this.mostrarConfig = false;
     this.mensajeProgreso = `Re-enrutando envíos (vuelo ${codigo} excluido)...`;
     this.cdr.detectChanges();
-    this.iniciarStreaming();
+    this.conectarWebSocket();
   }
 
   reactivarVuelo(v: VueloSimulacion): void {
@@ -841,9 +1028,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   trackArco (_: number, a: ArcoVuelo): string     { return a.vuelo.codigoVuelo; }
 
   get progresoStreaming(): number {
-    return this.diasEsperados > 0
-      ? Math.round((this.diasRecibidos / this.diasEsperados) * 100)
-      : 0;
+    return Math.round((this.ciclosCompletados / 12) * 100);
   }
 
   // ── PARSERS ────────────────────────────────────────────────
@@ -863,6 +1048,117 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
+  // ── PANEL DATOS ────────────────────────────────────────────
+
+  get panelVuelosFiltrados(): any[] {
+    let lista = this.vuelos.map(v => {
+      const cancelado = this.vuelosCancelados.has(v.codigoVuelo);
+      const estado = cancelado ? 'CANCELADO' : this.getEstadoVuelo(v);
+      return { vuelo: v, estadoVuelo: estado, cancelado, semaforo: 'VERDE' as string };
+    });
+    if (this.filtroEstadoVuelo) lista = lista.filter(item => item.estadoVuelo === this.filtroEstadoVuelo);
+    if (this.filtroVueloCodigo) {
+      const q = this.filtroVueloCodigo.toLowerCase();
+      lista = lista.filter(item =>
+        item.vuelo.codigoVuelo.toLowerCase().includes(q) ||
+        item.vuelo.origen.toLowerCase().includes(q) ||
+        item.vuelo.destino.toLowerCase().includes(q)
+      );
+    }
+    if (this.aeropuertoFiltroMapa) {
+      const c = this.aeropuertoFiltroMapa;
+      lista = lista.filter(item => item.vuelo.origen === c || item.vuelo.destino === c);
+    }
+    if (this.sortVuelo === 'salida') lista.sort((a, b) => a.vuelo.horaSalida.getTime() - b.vuelo.horaSalida.getTime());
+    else if (this.sortVuelo === 'llegada') lista.sort((a, b) => a.vuelo.horaLlegada.getTime() - b.vuelo.horaLlegada.getTime());
+    else if (this.sortVuelo === 'origen') lista.sort((a, b) => a.vuelo.origen.localeCompare(b.vuelo.origen));
+    else if (this.sortVuelo === 'maletas') lista.sort((a, b) => b.vuelo.totalMaletas - a.vuelo.totalMaletas);
+    return lista.slice(0, 60).map(item => {
+      const fails = item.vuelo.envios.filter((e: any) => e.cumpleSla === false).length;
+      const total = item.vuelo.envios.length;
+      const failRatio = total > 0 ? fails / total : 0;
+      return { ...item, semaforo: failRatio >= 0.5 ? 'ROJO' : failRatio > 0 ? 'AMARILLO' : 'VERDE', slaFailPct: Math.round(failRatio * 100) };
+    });
+  }
+
+  get panelAlmacenesFiltrados(): any[] {
+    const now = this.tiempoActualMs;
+    const salen  = new Map<string, number>();
+    const entran = new Map<string, number>();
+    this.vuelos.forEach(v => {
+      if (now < v.horaSalida.getTime())  salen.set(v.origen,  (salen.get(v.origen)   ?? 0) + 1);
+      if (now < v.horaLlegada.getTime()) entran.set(v.destino, (entran.get(v.destino) ?? 0) + 1);
+    });
+    let lista = this.aeropuertos.map(a => {
+      const ocupacion = this.maletasEnAeropuerto.get(a.codigoOaci) ?? 0;
+      const pct = a.capacidad > 0 ? (ocupacion / a.capacidad) * 100 : 0;
+      const sem = pct >= this.UMBRAL_ROJO ? 'ROJO' : pct >= this.UMBRAL_AMBAR ? 'AMARILLO' : ocupacion > 0 ? 'VERDE' : 'VACIO';
+      return {
+        codigo: a.codigoOaci, ciudad: a.ciudad, capacidad: a.capacidad,
+        ocupacion, pct, semaforo: sem,
+        salen: salen.get(a.codigoOaci) ?? 0, entran: entran.get(a.codigoOaci) ?? 0
+      };
+    });
+    if (this.semaforoAlmacenFiltro) lista = lista.filter(a => a.semaforo === this.semaforoAlmacenFiltro);
+    if (this.filtroAlmacenCodigo) {
+      const q = this.filtroAlmacenCodigo.toLowerCase();
+      lista = lista.filter(a => a.codigo.toLowerCase().includes(q) || a.ciudad.toLowerCase().includes(q));
+    }
+    if (this.sortAlmacen === 'ocupacion') lista.sort((a, b) => b.pct - a.pct);
+    else lista.sort((a, b) => a.codigo.localeCompare(b.codigo));
+    return lista;
+  }
+
+  get panelEnviosFiltrados(): any[] {
+    // Si hay vuelo seleccionado, mostrar solo sus envíos
+    if (this.vueloSeleccionado) {
+      return this.vueloSeleccionado.envios.map(e => ({
+        id: e.idEnvio, cantidad: e.cantidad,
+        origen: this.vueloSeleccionado!.origen,
+        destino: this.vueloSeleccionado!.destino,
+        vuelo: this.vueloSeleccionado!.codigoVuelo,
+        cumpleSla: e.cumpleSla
+      }));
+    }
+    const todos: any[] = [];
+    this.vuelos.slice(0, 200).forEach(v => {
+      v.envios.forEach(e => {
+        todos.push({ id: e.idEnvio, cantidad: e.cantidad, origen: v.origen, destino: v.destino, vuelo: v.codigoVuelo, cumpleSla: e.cumpleSla });
+      });
+    });
+    let lista = todos;
+    if (this.filtroEnvioOrigen)  { const q = this.filtroEnvioOrigen.toLowerCase();  lista = lista.filter(e => e.origen.toLowerCase().includes(q));  }
+    if (this.filtroEnvioDestino) { const q = this.filtroEnvioDestino.toLowerCase(); lista = lista.filter(e => e.destino.toLowerCase().includes(q)); }
+    return lista.slice(0, 80);
+  }
+
+  get cancelacionesArray(): { key: string; d: string; ox: number; oy: number }[] {
+    return Array.from(this.cancelacionesEnMapa.entries()).map(([key, val]) => ({ key, d: val.d, ox: val.ox, oy: val.oy }));
+  }
+
+  getSemaforoClass(sem: string): string {
+    return sem === 'VERDE' ? 'sem-verde' : sem === 'AMARILLO' ? 'sem-amarillo' : sem === 'ROJO' ? 'sem-rojo' : 'sem-vacio';
+  }
+
+  getEstadoVueloLabel(estado: string): string {
+    return estado === 'EN_VUELO' ? '✈' : estado === 'ATERRIZADO' ? '✓' : estado === 'CANCELADO' ? '✕' : '⏱';
+  }
+
+  getEstadoVueloClass(estado: string): string {
+    return estado === 'EN_VUELO' ? 'ev-badge-vuelo' : estado === 'ATERRIZADO' ? 'ev-badge-aterrizado' : estado === 'CANCELADO' ? 'ev-badge-cancelado' : 'ev-badge-pendiente';
+  }
+
+  setSortVuelo(sort: string): void    { this.sortVuelo = sort; }
+  setSortAlmacen(sort: string): void  { this.sortAlmacen = sort; }
+  setFiltroEstadoVuelo(e: string): void         { this.filtroEstadoVuelo = e; }
+  filtrarPorSemaforoAlmacen(s: string | null): void { this.semaforoAlmacenFiltro = s; }
+  limpiarFiltrosEnvios(): void { this.filtroEnvioOrigen = ''; this.filtroEnvioDestino = ''; }
+
+  trackPanelVuelo(_: number, item: any): string  { return item.vuelo.codigoVuelo; }
+  trackPanelAlmacen(_: number, item: any): string { return item.codigo; }
+  trackPanelEnvio(_: number, item: any): any     { return item.id; }
+  trackCancelacion(_: number, item: any): string  { return item.key; }
+
   toggleFullscreen(): void {
     const el = this.mapContainerEl?.nativeElement;
     if (!el) return;
@@ -873,14 +1169,102 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ── ZOOM / PAN ─────────────────────────────────────────────
+
+  get transformStyle(): string {
+    if (this.zoomLevel === 1 && this.panX === 0 && this.panY === 0) return 'none';
+    return `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
+  }
+
+  get cursorStyle(): string {
+    if (this.zoomLevel <= 1) return 'default';
+    return this.isDragging ? 'grabbing' : 'grab';
+  }
+
+  zoomIn():    void { this.zoomLevel = Math.min(6, this.zoomLevel + 0.5); this.clampPan(); this.cdr.detectChanges(); }
+  zoomOut():   void { this.zoomLevel = Math.max(1, this.zoomLevel - 0.5); if (this.zoomLevel <= 1) { this.panX = 0; this.panY = 0; } else this.clampPan(); this.cdr.detectChanges(); }
+  resetZoom(): void { this.zoomLevel = 1; this.panX = 0; this.panY = 0; this.cdr.detectChanges(); }
+
+  onMapWheel(event: WheelEvent): void {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -0.2 : 0.2;
+    this.zoomLevel = Math.max(1, Math.min(6, this.zoomLevel + delta));
+    if (this.zoomLevel <= 1) { this.zoomLevel = 1; this.panX = 0; this.panY = 0; }
+    else this.clampPan();
+    this.cdr.detectChanges();
+  }
+
+  onMapMouseDown(event: MouseEvent): void {
+    if (this.zoomLevel <= 1) return;
+    this.isDragging = true;
+    this.dragStartX = event.clientX - this.panX;
+    this.dragStartY = event.clientY - this.panY;
+    event.preventDefault();
+  }
+
+  onMapMouseMove(event: MouseEvent): void {
+    if (!this.isDragging) return;
+    this.panX = event.clientX - this.dragStartX;
+    this.panY = event.clientY - this.dragStartY;
+    this.clampPan();
+    this.cdr.detectChanges();
+  }
+
+  onMapMouseUp(): void { this.isDragging = false; }
+
+  private clampPan(): void {
+    const el = this.mapContainerEl?.nativeElement;
+    if (!el) return;
+    const w = el.clientWidth, h = el.clientHeight;
+    const maxX = (w / 2) * (this.zoomLevel - 1);
+    const maxY = (h / 2) * (this.zoomLevel - 1);
+    this.panX = Math.max(-maxX, Math.min(maxX, this.panX));
+    this.panY = Math.max(-maxY, Math.min(maxY, this.panY));
+  }
+
+  // ── INDICADORES GLOBALES ────────────────────────────────────
+
+  get simIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
+    const enVuelo = this.planosEnMapa.length;
+    const total = this.vuelos.length;
+    const pctFlota = total > 0 ? (enVuelo / total) * 100 : 0;
+    const semFlota = pctFlota >= 20 ? 'VERDE' : pctFlota > 0 ? 'AMARILLO' : 'VACIO';
+    const almList = this.panelAlmacenesFiltrados;
+    const pctAlmacenes = almList.length > 0
+      ? almList.reduce((s: number, a: any) => s + (a.pct as number), 0) / almList.length
+      : 0;
+    const semAlmacenes = pctAlmacenes >= this.UMBRAL_ROJO ? 'ROJO' : pctAlmacenes >= this.UMBRAL_AMBAR ? 'AMARILLO' : pctAlmacenes > 0 ? 'VERDE' : 'VACIO';
+    return { enVuelo, total, semFlota, pctAlmacenes, semAlmacenes };
+  }
+
+  // ── DIMMING DE AEROPUERTOS EN MAPA (filtro por semáforo) ────
+
+  getSemaforoAeropuerto(codigo: string): string {
+    const aero = this.aeropuertoMap.get(codigo);
+    if (!aero) return 'VACIO';
+    const bags = this.maletasEnAeropuerto.get(codigo) ?? 0;
+    const pct = aero.capacidad > 0 ? (bags / aero.capacidad) * 100 : 0;
+    if (pct >= this.UMBRAL_ROJO)  return 'ROJO';
+    if (pct >= this.UMBRAL_AMBAR) return 'AMARILLO';
+    if (bags > 0) return 'VERDE';
+    return 'VACIO';
+  }
+
+  esAeropuertoDimmed(codigo: string): boolean {
+    if (this.aeropuertoFiltroMapa !== null) return this.aeropuertoFiltroMapa !== codigo;
+    if (this.semaforoAlmacenFiltro !== null) return this.getSemaforoAeropuerto(codigo) !== this.semaforoAlmacenFiltro;
+    return false;
+  }
+
   simularColapso(): void {
     this.detener();
-    this.cerrarSSE();
+    this.cerrarWs();
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = 5;
+    this.ciclosCompletados = 0;
     this.tiempoInicioMs = 0; this.tiempoFinMs = 0; this.tiempoActualMs = 0;
     this.eventosRecientes = []; this.estadosAnteriores.clear();
     this.vuelosBuscados = []; this.busqueda = '';
@@ -895,61 +1279,12 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
-    // Mostrar mapa inmediatamente e iniciar streaming de colapso
     this.estado = 'cargando';
     this.mostrarConfig = false;
-    this.mensajeProgreso = '🔴 Preparando simulación de colapso...';
+    this.mensajeProgreso = 'Preparando simulación de colapso...';
     this.cdr.detectChanges();
 
-    const fechaColapso = this.formatFecha(this.fechaInicio);
-    this.iniciarStreamingColapso(fechaColapso, 5);
-  }
-
-  private iniciarStreamingColapso(fecha: string, dias: number): void {
-    this.estado = 'cargando';
-    const url = this.simulacionService.getStreamUrl(fecha, '00:00', dias);
-
-    this.ngZone.runOutsideAngular(() => {
-      this.eventSource = new EventSource(url);
-
-      this.eventSource.addEventListener('inicio', () => {
-        this.ngZone.run(() => {
-          this.estado = 'streaming';
-          this.mostrarConfig = false;
-          this.mensajeProgreso = '🔴 Simulando colapso del sistema...';
-          this.cdr.detectChanges();
-        });
-      });
-
-      this.eventSource.addEventListener('dia', (e: MessageEvent) => {
-        this.ngZone.run(() => {
-          const data = JSON.parse(e.data);
-          this.diasRecibidos++;
-          this.mensajeProgreso = `🔴 Colapso: Día ${this.diasRecibidos} de ${this.diasEsperados}`;
-          this.procesarEventosDia(data);
-          this.cdr.detectChanges();
-        });
-      });
-
-      this.eventSource.addEventListener('fin', (e: MessageEvent) => {
-        this.ngZone.run(() => {
-          const data = JSON.parse(e.data);
-          this.estado = 'listo';
-          this.resumen = data;
-          this.mensajeProgreso = '🔴 COLAPSO SIMULADO - Sistema al 100% de capacidad';
-          this.cdr.detectChanges();
-          this.cerrarSSE();
-        });
-      });
-
-      this.eventSource.addEventListener('error', () => {
-        this.ngZone.run(() => {
-          this.estado = 'idle';
-          this.cerrarSSE();
-          this.messageService.add({ severity: 'error', summary: 'Error en la simulación', detail: 'La conexión SSE se cerró.' });
-        });
-      });
-    });
+    this.conectarWebSocket();
   }
 
   get fechaRealDisplay(): string {

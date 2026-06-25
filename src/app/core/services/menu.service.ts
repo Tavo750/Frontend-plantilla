@@ -57,18 +57,8 @@ export class MenuService {
         icon: 'pi pi-home',
         routerLink: ['inicio', 'inicio']
       },
-      {
-        id: 'Dashboard',
-        label: 'Dashboard',
-        icon: 'pi pi-chart-bar',
-        routerLink: ['Dashboard']
-      },
-      {
-        id: 'Reportes',
-        label: 'Reportes',
-        icon: 'pi pi-file-export',
-        routerLink: ['Reportes']
-      },
+      // { id: 'Dashboard', label: 'Dashboard', icon: 'pi pi-chart-bar', routerLink: ['Dashboard'] },
+      // { id: 'Reportes', label: 'Reportes', icon: 'pi pi-file-export', routerLink: ['Reportes'] },
       {
         id: 'RegistroMaletas',
         label: 'Registro de Maletas',
@@ -117,7 +107,7 @@ export class MenuService {
       // },
       {
         id: 'MonitoreoMapa',
-        label: 'Monitoreo Mapa',
+        label: 'Operación diaria',
         icon: 'pi pi-map',
         routerLink: ['MonitoreoMapa']
       },

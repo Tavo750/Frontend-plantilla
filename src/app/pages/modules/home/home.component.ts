@@ -14,27 +14,27 @@ import { CommonModule } from '@angular/common';
 export class HomeComponent {
   cards = [
     {
-      title: 'Dashboard',
-      description: 'Visualiza métricas clave del sistema en tiempo real.',
-      icon: 'pi pi-chart-bar',
+      title: 'Operación diaria',
+      description: 'Monitorea el estado en tiempo real del sistema de transporte.',
+      icon: 'pi pi-map',
       color: '#4a7aff'
     },
     {
-      title: 'Usuarios',
-      description: 'Gestiona los usuarios y sus permisos de acceso.',
-      icon: 'pi pi-users',
+      title: 'Simulación',
+      description: 'Ejecuta simulaciones de escenarios operativos y de colapso.',
+      icon: 'pi pi-play-circle',
       color: '#6dd5a1'
     },
     {
-      title: 'Reportes',
-      description: 'Genera y descarga reportes personalizados.',
-      icon: 'pi pi-file',
+      title: 'Gestión de Vuelos',
+      description: 'Administra el catálogo de vuelos y sus horarios.',
+      icon: 'pi pi-send',
       color: '#f59e0b'
     },
     {
-      title: 'Configuración',
-      description: 'Ajusta los parámetros generales del sistema.',
-      icon: 'pi pi-cog',
+      title: 'Gestión de Aeropuertos',
+      description: 'Configura aeropuertos, capacidades y parámetros.',
+      icon: 'pi pi-building',
       color: '#8b5cf6'
     }
   ];
