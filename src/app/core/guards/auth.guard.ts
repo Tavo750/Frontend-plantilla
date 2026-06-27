@@ -2,11 +2,6 @@ import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../../pages/full-pages/auth/services/auth.service';
 
-/**
- * Guard de autenticación.
- * Principio SOLID (S): Solo verifica si el usuario está autenticado.
- * Principio SOLID (D): Depende de la abstracción AuthService.
- */
 @Injectable({
   providedIn: 'root'
 })
@@ -18,10 +13,26 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   canActivate(): boolean | UrlTree {
-    if (this.authService.isAuthenticated()) {
+    const token = this.authService.getToken();
+
+    if (!token) {
+      return this.router.createUrlTree(['/auth/login']);
+    }
+
+    if (this.isTokenExpired(token)) {
+      this.authService.logout().subscribe();
+      return this.router.createUrlTree(['/auth/login']);
+    }
+
+    return true;
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp * 1000 < Date.now();
+    } catch {
       return true;
     }
-    // Redirigir al login si no está autenticado
-    return this.router.createUrlTree(['/auth/login']);
   }
 }
