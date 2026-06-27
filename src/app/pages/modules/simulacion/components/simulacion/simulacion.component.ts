@@ -163,6 +163,15 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   // ── Cancelación: contexto de vuelo ya en tránsito ──────────
   vueloYaEnVuelo = false;
 
+  // ── Colapso ────────────────────────────────────────────────
+  modoColapso             = false;
+  colapsoDetectado        = false;
+  fechaColapsoMs          = 0;
+  fechaColapsoEstimadaMs  = 0;
+  duracionHastaColapsoMin = 0;
+  pctNoAsignados          = 0;
+  totalCiclos             = 12;
+
   // ── Zoom / Pan ─────────────────────────────────────────────
   isFullscreen = false;
   zoomLevel = 1;
@@ -258,6 +267,15 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
+    // Reset colapso
+    this.modoColapso = false;
+    this.colapsoDetectado = false;
+    this.fechaColapsoMs = 0;
+    this.fechaColapsoEstimadaMs = 0;
+    this.duracionHastaColapsoMin = 0;
+    this.pctNoAsignados = 0;
+    this.totalCiclos = 12;
+
     this.estado = 'cargando';
     this.mostrarConfig = false;
     this.mensajeProgreso = 'Conectando con el servidor de simulación...';
@@ -330,6 +348,36 @@ export class SimulacionComponent implements OnInit, OnDestroy {
       case 'UPDATE':  this.onWsUpdate(msg); break;
       case 'FIN':     this.onWsFin(msg);    break;
       case 'STOPPED': break;
+
+      case 'BUSCANDO_COLAPSO':
+        this.mensajeProgreso = msg.mensaje ?? 'Analizando datos para estimar fecha de colapso...';
+        this.cdr.detectChanges();
+        break;
+
+      case 'INICIO_COLAPSO': {
+        this.fechaColapsoEstimadaMs = msg.fechaColapsoEstimadaMs as number;
+        this.totalCiclos = msg.maxCiclos ?? 12;
+        const fcEst   = new Date(this.fechaColapsoEstimadaMs);
+        const fcIni   = new Date(msg.fechaInicioSimMs as number);
+        this.mensajeProgreso =
+          `Colapso estimado: ${fcEst.toLocaleDateString('es-PE')} · simulando desde ${fcIni.toLocaleDateString('es-PE')}...`;
+        this.cdr.detectChanges();
+        break;
+      }
+
+      case 'COLAPSO_DETECTADO':
+        this.colapsoDetectado        = true;
+        this.fechaColapsoMs          = msg.tiempoColapsoMs as number;
+        this.duracionHastaColapsoMin = msg.duracionSimMinutos as number;
+        this.pctNoAsignados          = msg.pctNoAsignados as number;
+        this.messageService.add({
+          severity: 'error', sticky: true,
+          summary:  '⚠️ Colapso logístico confirmado',
+          detail:   `Sistema colapsó el ${new Date(this.fechaColapsoMs).toLocaleDateString('es-PE')} — ${this.pctNoAsignados}% de maletas sin asignar`
+        });
+        this.cdr.detectChanges();
+        break;
+
       case 'ERROR':
         this.estado = 'idle'; this.mensajeProgreso = '';
         this.messageService.add({ severity: 'error', summary: 'Error en simulación', detail: msg.mensaje });
@@ -381,7 +429,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.diasRecibidos = this.ciclosCompletados;
     const stats = msg.estadisticas ?? {};
     this.mensajeProgreso =
-      `Ciclo ${this.ciclosCompletados}/12 · ${stats.asignados ?? 0} pedidos asignados`;
+      `Ciclo ${this.ciclosCompletados}/${stats.ciclosTotales ?? this.totalCiclos} · ${stats.asignados ?? 0} pedidos asignados`;
 
     (msg.nuevosVuelos ?? []).forEach((v: any) => {
       const key = v.codigoVuelo;
@@ -441,10 +489,17 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.actualizarEstado();
     this.cdr.detectChanges();
 
-    this.messageService.add({
-      severity: 'success', summary: 'Simulación completa',
-      detail: `${this.vuelos.length} vuelos · ${this.ciclosCompletados} ciclos ALNS completados`
-    });
+    if (!this.modoColapso) {
+      this.messageService.add({
+        severity: 'success', summary: 'Simulación completa',
+        detail: `${this.vuelos.length} vuelos · ${this.ciclosCompletados} ciclos ALNS completados`
+      });
+    } else if (!this.colapsoDetectado) {
+      this.messageService.add({
+        severity: 'warn', summary: 'Simulación de colapso finalizada',
+        detail: 'No se detectó colapso en el período simulado'
+      });
+    }
 
     // Reiniciar reproducción desde el inicio
     this.detener();
@@ -1279,12 +1334,72 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.busquedaGestion = '';
     this.cancelando = false;
 
+    // Estado colapso
+    this.modoColapso             = true;
+    this.colapsoDetectado        = false;
+    this.fechaColapsoMs          = 0;
+    this.fechaColapsoEstimadaMs  = 0;
+    this.duracionHastaColapsoMin = 0;
+    this.pctNoAsignados          = 0;
+    this.totalCiclos             = 12;
+
     this.estado = 'cargando';
     this.mostrarConfig = false;
-    this.mensajeProgreso = 'Preparando simulación de colapso...';
+    this.mensajeProgreso = 'Analizando datos 2026-2029 para estimar fecha de colapso...';
     this.cdr.detectChanges();
 
-    this.conectarWebSocket();
+    this.conectarWebSocketColapso();
+  }
+
+  private conectarWebSocketColapso(): void {
+    this.cerrarWs();
+    const wsUrl = this.simulacionService.getWsUrl();
+
+    this.ngZone.runOutsideAngular(() => {
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        this.ws!.send(JSON.stringify({ type: 'START_COLAPSO', K: 120 }));
+        this.ngZone.run(() => {
+          this.estado = 'streaming';
+          this.mensajeProgreso = 'Buscando fecha de colapso en los datos...';
+          this.cdr.detectChanges();
+        });
+      };
+
+      this.ws.onmessage = (event: MessageEvent) => {
+        this.ngZone.run(() => {
+          try {
+            const msg = JSON.parse(event.data);
+            this.manejarMensajeWs(msg);
+          } catch (e) {
+            console.error('Error parsing WS colapso', e);
+          }
+        });
+      };
+
+      this.ws.onerror = () => {
+        this.ngZone.run(() => {
+          if (this.estado !== 'listo' && this.estado !== 'idle') {
+            this.estado = 'idle'; this.mensajeProgreso = '';
+            this.messageService.add({
+              severity: 'error', summary: 'Error WebSocket',
+              detail: 'La conexión con el servidor se interrumpió.'
+            });
+            this.cdr.detectChanges();
+          }
+        });
+      };
+
+      this.ws.onclose = () => {
+        this.ngZone.run(() => {
+          if (this.estado === 'streaming' || this.estado === 'cargando') {
+            this.estado = 'idle'; this.mensajeProgreso = '';
+            this.cdr.detectChanges();
+          }
+        });
+      };
+    });
   }
 
   get fechaRealDisplay(): string {

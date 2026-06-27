@@ -78,6 +78,32 @@
   </div>
 
 
+  <!-- ── VEREDICTO COLAPSO ─────────────────────────────────── -->
+  <div class="colapso-verdict-bar" *ngIf="modoColapso && colapsoDetectado">
+    <div class="cvb-icon">⚠️</div>
+    <div class="cvb-content">
+      <div class="cvb-title">COLAPSO LOGÍSTICO DETECTADO</div>
+      <div class="cvb-detail">
+        El sistema colapsó el
+        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm' }}</strong>
+        · Operó
+        <strong>{{ (duracionHastaColapsoMin / 60 / 24) | number:'1.1-1' }} días simulados</strong>
+        antes del colapso
+        · <strong class="cvb-pct">{{ pctNoAsignados }}%</strong> de maletas sin asignar
+      </div>
+    </div>
+    <div class="cvb-estimada" *ngIf="fechaColapsoEstimadaMs > 0">
+      <span class="cvb-estimada-label">Colapso estimado</span>
+      <span class="cvb-estimada-fecha">{{ fechaColapsoEstimadaMs | date:'dd/MM/yyyy' }}</span>
+    </div>
+  </div>
+
+  <!-- Buscando colapso: indicador mientras el backend escanea los datos -->
+  <div class="colapso-buscando" *ngIf="modoColapso && !colapsoDetectado && (estado === 'cargando' || estado === 'streaming') && fechaColapsoEstimadaMs === 0">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>{{ mensajeProgreso || 'Analizando datos para estimar fecha de colapso...' }}</span>
+  </div>
+
   <!-- ── STATS BAR ─────────────────────────────────────────── -->
   <div class="stats-bar" *ngIf="estado === 'listo' || estado === 'streaming'">
     <div class="stat-chip">

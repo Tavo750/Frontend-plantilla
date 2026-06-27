@@ -1965,3 +1965,81 @@
 .pitem-bar-fill.sem-verde    { background: #22c55e; }
 .pitem-bar-fill.sem-amarillo { background: #eab308; }
 .pitem-bar-fill.sem-rojo     { background: #ef4444; }
+
+/* ── VEREDICTO COLAPSO ───────────────────────────────────────── */
+.colapso-verdict-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 1.2rem;
+  background: linear-gradient(135deg, rgba(127,29,29,0.97), rgba(153,27,27,0.92));
+  border-top: 1px solid #7f1d1d;
+  border-bottom: 2px solid #ef4444;
+  flex-shrink: 0;
+  animation: colapso-in 0.45s ease-out;
+  z-index: 20;
+}
+
+@keyframes colapso-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cvb-icon { font-size: 1.5rem; flex-shrink: 0; }
+
+.cvb-content { flex: 1; min-width: 0; }
+
+.cvb-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fca5a5;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.cvb-detail {
+  font-size: 0.8rem;
+  color: #fecaca;
+  margin-top: 0.12rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cvb-detail strong { color: #fff; }
+.cvb-pct { color: #fca5a5 !important; font-size: 0.88rem; }
+
+.cvb-estimada {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(239,68,68,0.4);
+  padding-left: 1rem;
+}
+.cvb-estimada-label {
+  font-size: 0.58rem;
+  color: #fca5a5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cvb-estimada-fecha {
+  font-size: 0.88rem;
+  color: #fff;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+/* Spinner mientras busca la fecha de colapso */
+.colapso-buscando {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 1.2rem;
+  background: rgba(127,29,29,0.25);
+  border-bottom: 1px solid rgba(239,68,68,0.3);
+  font-size: 0.78rem;
+  color: #fca5a5;
+  flex-shrink: 0;
+}
+.colapso-buscando .pi-spinner { font-size: 0.85rem; }

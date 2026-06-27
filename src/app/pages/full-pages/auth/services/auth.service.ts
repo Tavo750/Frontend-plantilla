@@ -45,15 +45,18 @@ export class AuthService {
         // Guardar solo el token JWT puro (sin prefijo); el interceptor agrega "Bearer "
         localStorage.setItem(this.TOKEN_KEY, token);
 
-        // Mapear datos del usuario
+        // Mapear datos del usuario incluyendo aeropuerto asignado
         const user: Usuario = {
-          id:              userData.id,
-          nombre:          userData.nombre,
-          apellidoPaterno: userData.apellidoPaterno,
-          nombreCompleto:  userData.nombreCompleto,
-          correo:          userData.correo,
-          puesto:          userData.puesto,
-          estado:          userData.estado
+          id:                    userData.id,
+          nombre:                userData.nombre,
+          apellidoPaterno:       userData.apellidoPaterno,
+          nombreCompleto:        userData.nombreCompleto,
+          correo:                userData.correo,
+          puesto:                userData.puesto,
+          estado:                userData.estado,
+          idAeropuerto:          userData.idAeropuerto,
+          codigoOaciAeropuerto:  userData.codigoOaciAeropuerto,
+          ciudadAeropuerto:      userData.ciudadAeropuerto
         };
 
         localStorage.setItem('current_user', JSON.stringify(user));
@@ -75,15 +78,18 @@ export class AuthService {
         // Guardar solo el token JWT puro (sin prefijo); el interceptor agrega "Bearer "
         localStorage.setItem(this.TOKEN_KEY, token);
 
-        // Mapear datos del usuario
+        // Mapear datos del usuario incluyendo aeropuerto asignado (puede ser null en registro)
         const user: Usuario = {
-          id:              userData.id,
-          nombre:          userData.nombre,
-          apellidoPaterno: userData.apellidoPaterno,
-          nombreCompleto:  userData.nombreCompleto,
-          correo:          userData.correo,
-          puesto:          userData.puesto,
-          estado:          userData.estado
+          id:                    userData.id,
+          nombre:                userData.nombre,
+          apellidoPaterno:       userData.apellidoPaterno,
+          nombreCompleto:        userData.nombreCompleto,
+          correo:                userData.correo,
+          puesto:                userData.puesto,
+          estado:                userData.estado,
+          idAeropuerto:          userData.idAeropuerto,
+          codigoOaciAeropuerto:  userData.codigoOaciAeropuerto,
+          ciudadAeropuerto:      userData.ciudadAeropuerto
         };
 
         localStorage.setItem('current_user', JSON.stringify(user));
