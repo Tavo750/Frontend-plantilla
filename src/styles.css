@@ -168,3 +168,12 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── MODO SIMULACIÓN: oculta layout-header para maximizar mapa ── */
+body.sim-fullscreen .layout-header {
+  display: none !important;
+}
+body.sim-fullscreen .layout-content {
+  padding: 0 !important;
+  overflow: hidden;
+}

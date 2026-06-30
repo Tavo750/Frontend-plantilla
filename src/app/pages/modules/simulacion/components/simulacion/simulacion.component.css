@@ -2,7 +2,7 @@
 .sim-wrap {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: 100vh;
   background: #0f172a;
   color: #f8fafc;
   overflow: hidden;
@@ -19,6 +19,18 @@
   border-bottom: 1px solid #334155;
   flex-shrink: 0;
   gap: 1rem;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+  max-height: 80px;
+}
+
+.sim-header.sim-header-oculto {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+  border-bottom-color: transparent;
 }
 
 .header-left {
@@ -359,10 +371,10 @@
 
 .arco-EN_VUELO {
   stroke: #38bdf8;
-  stroke-width: 1.6;
-  opacity: 0.8;
-  stroke-dasharray: 6 4;
-  animation: dash-move-sim 1.2s linear infinite;
+  stroke-width: 0.8;
+  opacity: 0.45;
+  stroke-dasharray: 4 4;
+  animation: dash-move-sim 1.5s linear infinite;
 }
 
 @keyframes dash-move-sim {
@@ -419,6 +431,18 @@
   stroke: #ef4444;
 }
 
+.aero-vacio {
+  fill: #334155;
+  stroke: #475569;
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.aero-vacio:hover {
+  fill: #475569;
+  opacity: 0.9;
+}
+
 .aero-label {
   fill: #cbd5e1;
   font-size: 11px;
@@ -427,11 +451,11 @@
 }
 
 .badge-bg {
-  fill: #f59e0b;
+  fill: #2563eb;
 }
 
 .badge-txt {
-  fill: #0f172a;
+  fill: #ffffff;
   font-size: 10px;
   font-weight: 700;
   pointer-events: none;
@@ -442,31 +466,31 @@
   transition: transform 0.08s linear;
 }
 
-.avion-body {
-  fill: #facc15;
-}
+/* Colores base del avion según semáforo */
+.avion-gris .avion-body  { fill: #64748b; }
+.avion-gris .avion-wings { fill: #475569; }
+.avion-gris .avion-tail  { fill: #334155; }
 
-.avion-wings {
-  fill: #fbbf24;
-  opacity: 0.85;
-}
+.avion-verde .avion-body  { fill: #22c55e; }
+.avion-verde .avion-wings { fill: #16a34a; }
+.avion-verde .avion-tail  { fill: #15803d; }
 
-.avion:hover .avion-body {
-  fill: #fde047;
-}
+.avion-amarillo .avion-body  { fill: #facc15; }
+.avion-amarillo .avion-wings { fill: #eab308; }
+.avion-amarillo .avion-tail  { fill: #ca8a04; }
 
-.avion:hover .avion-wings {
-  fill: #facc15;
-}
+.avion-rojo .avion-body  { fill: #ef4444; }
+.avion-rojo .avion-wings { fill: #dc2626; }
+.avion-rojo .avion-tail  { fill: #b91c1c; }
 
-.avion-sel .avion-body {
-  fill: #f97316;
-  filter: drop-shadow(0 0 5px #f97316);
-}
+/* Hover: aclara ligeramente */
+.avion:hover .avion-body  { opacity: 0.85; }
+.avion:hover .avion-wings { opacity: 0.75; }
 
-.avion-sel .avion-wings {
-  fill: #fb923c;
-}
+/* Seleccionado: naranja con glow */
+.avion-sel .avion-body  { fill: #f97316 !important; filter: drop-shadow(0 0 5px #f97316); }
+.avion-sel .avion-wings { fill: #fb923c !important; }
+.avion-sel .avion-tail  { fill: #ea580c !important; }
 
 /* ── LEYENDA ─────────────────────────────────────────────────── */
 .leyenda {
@@ -2043,3 +2067,124 @@
   flex-shrink: 0;
 }
 .colapso-buscando .pi-spinner { font-size: 0.85rem; }
+
+/* ── BARRA DE FILTROS SUPERIOR ───────────────────────────────── */
+.filtros-bar {
+  background: #0f172a;
+  border-bottom: 1px solid #1e3a5f;
+  padding: 0.4rem 1rem;
+  flex-shrink: 0;
+}
+
+.filtros-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filtros-icon {
+  color: #60a5fa;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.fb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.fb-label {
+  font-size: 0.6rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.fb-input {
+  width: 90px;
+  padding: 0.22rem 0.45rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  color: #f1f5f9;
+  font-size: 0.72rem;
+  outline: none;
+  font-family: inherit;
+}
+.fb-input:focus { border-color: #3b82f6; }
+.fb-input::placeholder { color: #475569; }
+
+.fb-select {
+  width: 100px;
+  padding: 0.22rem 0.35rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  color: #f1f5f9;
+  font-size: 0.72rem;
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.fb-select:focus { border-color: #3b82f6; }
+
+.fb-sep {
+  width: 1px;
+  height: 28px;
+  background: #334155;
+  flex-shrink: 0;
+}
+
+.fb-clear {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #7f1d1d;
+  border: 1px solid #991b1b;
+  color: #fecaca;
+  padding: 0.22rem 0.55rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.fb-clear:hover { background: #991b1b; }
+
+.fb-result {
+  font-size: 0.68rem;
+  color: #60a5fa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Botón Stop/Reanudar simulación */
+.btn-stop-sim {
+  background: #7f1d1d !important;
+  border-color: #ef4444 !important;
+  color: #fecaca !important;
+  font-weight: 600;
+}
+.btn-stop-sim:hover { background: #991b1b !important; }
+
+.btn-stop-pausado {
+  background: #14532d !important;
+  border-color: #22c55e !important;
+  color: #bbf7d0 !important;
+}
+.btn-stop-pausado:hover { background: #166534 !important; }
+
+/* Botón de header activo (cuando hay filtros) */
+.btn-cfg-active {
+  background: #1e3a8a !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+/* Segunda leyenda (semáforo capacidad): por encima de la primera */
+.leyenda-sem {
+  bottom: 52px !important;
+}

@@ -1,7 +1,7 @@
-﻿<div class="sim-wrap">
+﻿<div class="sim-wrap" (mousemove)="onSimWrapMouseMove($event)">
 
   <!-- ── HEADER ────────────────────────────────────────────── -->
-  <div class="sim-header">
+  <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto">
     <div class="header-left">
       <i class="pi pi-globe header-icon"></i>
       <div>
@@ -36,14 +36,76 @@
     </div>
 
     <div class="header-actions">
+      <button class="btn-cfg btn-stop-sim"
+        [class.btn-stop-pausado]="simulacionPausada"
+        *ngIf="estado === 'streaming' || estado === 'listo'"
+        (click)="toggleStop()"
+        [title]="simulacionPausada ? 'Reanudar simulación' : 'Pausar simulación'">
+        <i [class]="simulacionPausada ? 'pi pi-play' : 'pi pi-pause'"></i>
+        <span>{{ simulacionPausada ? 'Reanudar' : 'Stop' }}</span>
+      </button>
+      <button class="btn-cfg" (click)="mostrarBarraFiltros = !mostrarBarraFiltros"
+        [class.btn-cfg-active]="hayFiltrosBarra" title="Filtros de mapa">
+        <i class="pi pi-filter"></i>
+      </button>
+      <button class="btn-cfg" (click)="mostrarBarsSuperiores = !mostrarBarsSuperiores"
+        title="Colapsar/expandir barras superiores">
+        <i [class]="mostrarBarsSuperiores ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+      </button>
       <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
         <i class="pi pi-sliders-h"></i>
       </button>
     </div>
   </div>
 
+  <!-- ── BARRA DE FILTROS ──────────────────────────────────────── -->
+  <div class="filtros-bar" *ngIf="mostrarBarraFiltros && (estado === 'streaming' || estado === 'listo' || estado === 'cargando')">
+    <div class="filtros-inner">
+      <i class="pi pi-filter filtros-icon"></i>
+      <div class="fb-field">
+        <label class="fb-label">Código</label>
+        <input class="fb-input" type="text" [(ngModel)]="filtroBarraCodigo" placeholder="LA2501…" />
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">Origen</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraOrigen">
+          <option value="">Todos</option>
+          <option *ngFor="let o of uniqueOrigenes" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">Destino</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraDestino">
+          <option value="">Todos</option>
+          <option *ngFor="let d of uniqueDestinos" [value]="d">{{ d }}</option>
+        </select>
+      </div>
+      <div class="fb-sep"></div>
+      <div class="fb-field">
+        <label class="fb-label">Continente</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraContinente">
+          <option value="">Todos</option>
+          <option *ngFor="let c of uniqueContinentes" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">País</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraPais">
+          <option value="">Todos</option>
+          <option *ngFor="let p of uniquePaises" [value]="p">{{ p }}</option>
+        </select>
+      </div>
+      <button class="fb-clear" *ngIf="hayFiltrosBarra" (click)="limpiarBarraFiltros()" title="Limpiar filtros">
+        <i class="pi pi-times"></i> Limpiar
+      </button>
+      <span class="fb-result" *ngIf="hayFiltrosBarra">
+        {{ planosVisibles.length }} ✈ · {{ panelVuelosFiltrados.length }} vuelos
+      </span>
+    </div>
+  </div>
+
   <!-- ── CONFIG BAR ────────────────────────────────────────── -->
-  <div class="config-bar" *ngIf="mostrarConfig">
+  <div class="config-bar" *ngIf="mostrarConfig && mostrarBarsSuperiores">
     <div class="config-inner">
       <div class="cfg-field">
         <label>Fecha de inicio</label>
@@ -105,7 +167,7 @@
   </div>
 
   <!-- ── STATS BAR ─────────────────────────────────────────── -->
-  <div class="stats-bar" *ngIf="estado === 'listo' || estado === 'streaming'">
+  <div class="stats-bar" *ngIf="(estado === 'listo' || estado === 'streaming') && mostrarBarsSuperiores">
     <div class="stat-chip">
       <div class="s-lbl">Período</div>
       <div class="s-val">{{ dias }} días</div>
@@ -169,10 +231,10 @@
           [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
           preserveAspectRatio="xMidYMid meet"
         >
-          <!-- Arcos de vuelo (se ocultan al aterrizar) -->
+          <!-- Arcos de vuelo: solo tramo restante (origen → posición actual borrado) -->
           <path
             *ngFor="let arco of arcosVisibles; trackBy: trackArco"
-            [attr.d]="arco.d"
+            [attr.d]="arco.dRemaining"
             [class]="'arco arco-' + arco.estado"
             fill="none"
             (click)="seleccionarVuelo(arco.vuelo)"
@@ -195,33 +257,37 @@
               text-anchor="middle">
               {{ a.codigoOaci }}
             </text>
-            <!-- Badge con cantidad de maletas en almacén -->
-            <g *ngIf="getBagsEnAeropuerto(a.codigoOaci) > 0" style="pointer-events:none">
-              <circle [attr.cx]="a.x + 14" [attr.cy]="a.y - 14" r="10" class="badge-bg"/>
-              <text  [attr.x]="a.x + 14" [attr.y]="a.y - 10" class="badge-txt" text-anchor="middle">
-                {{ getBagsEnAeropuerto(a.codigoOaci) }}
-              </text>
-            </g>
           </g>
 
           <!-- Aviones en vuelo -->
           <g
             *ngFor="let plano of planosVisibles; trackBy: trackPlano"
             [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ')'"
-            [class]="vueloSeleccionado?.codigoVuelo === plano.vuelo.codigoVuelo ? 'avion avion-sel' : 'avion'"
+            [class]="'avion ' + getAvionColorClass(plano) + (vueloSeleccionado?.codigoVuelo === plano.vuelo.codigoVuelo ? ' avion-sel' : '')"
             (click)="seleccionarVuelo(plano.vuelo)"
             (mouseenter)="onPlaneHover($event, plano)"
             (mouseleave)="onHoverEnd()"
             style="cursor:pointer"
           >
-            <polygon points="0,-12 5,3 0,-2 -5,3"    class="avion-body"/>
-            <polygon points="-10,0 10,0 7,5 -7,5"  class="avion-wings"/>
+            <polygon points="0,-4 1,-1 1,2 0,3 -1,2 -1,-1" class="avion-body"/>
+            <polygon points="-5,-1 5,-1 4,1 -4,1" class="avion-wings"/>
+            <polygon points="-2,2 2,2 1,4 -1,4" class="avion-tail"/>
           </g>
 
           <!-- Cancelaciones en mapa (arco punteado rojo + X en origen) -->
           <g *ngFor="let c of cancelacionesArray; trackBy: trackCancelacion">
             <path [attr.d]="c.d" class="arco arco-cancelado" fill="none" />
             <text [attr.x]="c.ox" [attr.y]="c.oy - 4" class="cancelado-marker" text-anchor="middle">✕</text>
+          </g>
+
+          <!-- Badges de maletas (encima de aviones para siempre ser visibles) -->
+          <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+            <g *ngIf="getBagsEnAeropuerto(a.codigoOaci) > 0" style="pointer-events:none">
+              <circle [attr.cx]="a.x + 14" [attr.cy]="a.y - 14" r="10" class="badge-bg"/>
+              <text [attr.x]="a.x + 14" [attr.y]="a.y - 10" class="badge-txt" text-anchor="middle">
+                {{ getBagsEnAeropuerto(a.codigoOaci) }}
+              </text>
+            </g>
           </g>
         </svg>
 
@@ -232,6 +298,15 @@
           <i class="pi pi-filter-fill"></i>
           <span>{{ aeropuertoFiltroMapa }}</span>
           <button class="mfa-clear" (click)="limpiarFiltroMapa()" title="Quitar filtro">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <!-- Filtro activo de vuelo -->
+        <div class="mapa-filtro-activo mapa-filtro-vuelo" *ngIf="filtroVueloMapa" style="top:56px">
+          <i class="pi pi-send"></i>
+          <span>{{ filtroVueloMapa }}</span>
+          <button class="mfa-clear" (click)="filtroVueloMapa = null; vueloSeleccionado = null" title="Quitar filtro vuelo">
             <i class="pi pi-times"></i>
           </button>
         </div>
@@ -260,11 +335,12 @@
         </div>
 
         <!-- Leyenda de Semáforo -->
-        <div class="leyenda">
+        <div class="leyenda leyenda-sem">
           <div class="ley-title">Capacidad:</div>
-          <div class="ley-item"><span class="ley-dot" style="background: #22c55e;"></span>Libre (0%)</div>
-          <div class="ley-item"><span class="ley-dot" style="background: #eab308;"></span>Medio (~50%)</div>
-          <div class="ley-item"><span class="ley-dot" style="background: #ef4444;"></span>Crítico (>80%)</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #475569;"></span>Vacío</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #22c55e;"></span>Libre</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #eab308;"></span>Medio</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #ef4444;"></span>Crítico</div>
         </div>
 
         <!-- Botón para ocultar/mostrar sidebar -->
@@ -294,11 +370,11 @@
             <button class="sem-chip chip-rojo"     [class.active]="semaforoAlmacenFiltro === 'ROJO'"     (click)="filtrarPorSemaforoAlmacen('ROJO')">Crítico</button>
           </ng-container>
           <ng-container *ngIf="activeTab === 'vuelos'">
-            <span class="psf-label">Estado:</span>
-            <button class="ev-chip"               [class.active]="filtroEstadoVuelo === ''"           (click)="setFiltroEstadoVuelo('')">Todos</button>
-            <button class="ev-chip ev-chip-vuelo" [class.active]="filtroEstadoVuelo === 'EN_VUELO'"   (click)="setFiltroEstadoVuelo('EN_VUELO')">✈ Vuelo</button>
-            <button class="ev-chip ev-chip-salir" [class.active]="filtroEstadoVuelo === 'PENDIENTE'"  (click)="setFiltroEstadoVuelo('PENDIENTE')">⏱ Pend.</button>
-            <button class="ev-chip ev-chip-llego" [class.active]="filtroEstadoVuelo === 'ATERRIZADO'" (click)="setFiltroEstadoVuelo('ATERRIZADO')">✓ Aterr.</button>
+            <span class="psf-label">Sem:</span>
+            <button class="sem-chip"              [class.active]="filtroSemVuelo === ''"        (click)="filtroSemVuelo = ''">Todos</button>
+            <button class="sem-chip chip-verde"   [class.active]="filtroSemVuelo === 'LIBRE'"   (click)="filtroSemVuelo = 'LIBRE'">Libre</button>
+            <button class="sem-chip chip-amarillo"[class.active]="filtroSemVuelo === 'MEDIO'"   (click)="filtroSemVuelo = 'MEDIO'">Medio</button>
+            <button class="sem-chip chip-rojo"    [class.active]="filtroSemVuelo === 'CRITICO'" (click)="filtroSemVuelo = 'CRITICO'">Crítico</button>
           </ng-container>
         </div>
 
@@ -325,10 +401,9 @@
 
           <div class="panel-sort">
             <span class="ps-label">Ord:</span>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'salida'"  (click)="setSortVuelo('salida')">Salida</button>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'origen'"  (click)="setSortVuelo('origen')">Origen</button>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'proxSalida'"  (click)="setSortVuelo('proxSalida')" title="Próxima salida">↑ Salida</button>
+            <button class="sort-btn" [class.sort-active]="sortVuelo === 'proxLlegada'" (click)="setSortVuelo('proxLlegada')" title="Próxima llegada">↓ Llegada</button>
             <button class="sort-btn" [class.sort-active]="sortVuelo === 'maletas'" (click)="setSortVuelo('maletas')">Maletas</button>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'llegada'" (click)="setSortVuelo('llegada')">Llegada</button>
           </div>
 
           <div class="sem-summary-row">
@@ -344,7 +419,7 @@
             <div *ngFor="let item of panelVuelosFiltrados; trackBy: trackPanelVuelo"
               class="pitem" [class.pitem-cancelado]="item.cancelado"
               [class.pitem-selected]="vueloSeleccionado?.codigoVuelo === item.vuelo.codigoVuelo"
-              (click)="seleccionarVuelo(item.vuelo)">
+              (click)="seleccionarVueloConFiltro(item.vuelo)">
               <div class="pitem-top">
                 <span class="sem-dot-sm" [class]="getSemaforoClass(item.semaforo)"></span>
                 <span class="pitem-code">{{ item.vuelo.codigoVuelo }}</span>

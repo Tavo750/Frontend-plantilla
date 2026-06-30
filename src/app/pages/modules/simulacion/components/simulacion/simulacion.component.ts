@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone,
-  ViewChild, ElementRef, HostListener
+  ViewChild, ElementRef, HostListener, Renderer2
 } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { SimulacionService, EventoSimulacion, ResumenSimulacion } from '../../../../../core/services/simulacion.service';
@@ -12,6 +12,8 @@ import { SimulacionSesionService } from '../../services/simulacion-sesion.servic
 export interface AeropuertoPosicion {
   codigoOaci: string;
   ciudad: string;
+  pais: string;
+  continente: string;
   lat: number;
   lon: number;
   x: number;
@@ -31,6 +33,7 @@ export interface VueloSimulacion {
 
 export interface ArcoVuelo {
   d: string;
+  dRemaining: string;
   estado: 'PENDIENTE' | 'EN_VUELO' | 'ATERRIZADO';
   vuelo: VueloSimulacion;
 }
@@ -120,7 +123,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   readonly SVG_W   = 2000;
   readonly SVG_H   = 857;
   readonly LAT_MAX = 84;
-  readonly LAT_MIN = -70.3;
+  readonly LAT_MIN = -62.6;
 
   // ── Control de tiempo ──────────────────────────────────────
   tiempoInicioMs = 0;
@@ -157,6 +160,28 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   // ── Filtro de aeropuerto en mapa ───────────────────────────
   aeropuertoFiltroMapa: string | null = null;
 
+  // ── Filtro de vuelo en mapa ────────────────────────────────
+  filtroVueloMapa: string | null = null;
+
+  // ── Filtro semáforo panel vuelos ──────────────────────────
+  filtroSemVuelo = '';
+
+  // ── Barra de filtros superior ───────────────────────────────
+  filtroBarraCodigo    = '';
+  filtroBarraOrigen    = '';
+  filtroBarraDestino   = '';
+  filtroBarraContinente = '';
+  filtroBarraPais      = '';
+  mostrarBarraFiltros  = false;
+  mostrarBarsSuperiores = true;
+
+  // ── Stop / pausa de simulación ────────────────────────────
+  simulacionPausada = false;
+
+  // ── Header auto-ocultar al usar el mapa ──────────────────
+  simHeaderOculto = false;
+  private headerHideTimer: any = null;
+
   // ── Panel eventos colapsable ───────────────────────────────
   eventosExpanded = false;
 
@@ -189,14 +214,41 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
-    private readonly sesion: SimulacionSesionService
+    private readonly sesion: SimulacionSesionService,
+    private readonly renderer: Renderer2
   ) {}
 
   ngOnInit(): void  {
+    this.renderer.addClass(document.body, 'sim-fullscreen');
     this.cargarAeropuertos();
     this.cargarFechaMinima();
   }
-  ngOnDestroy(): void { this.detener(); this.cerrarWs(); }
+  ngOnDestroy(): void {
+    this.renderer.removeClass(document.body, 'sim-fullscreen');
+    if (this.headerHideTimer) { clearTimeout(this.headerHideTimer); this.headerHideTimer = null; }
+    if (this.estado === 'listo' || this.estado === 'streaming') {
+      this.sesion.guardar({
+        vuelos: this.vuelos,
+        arcosVuelo: this.arcosVuelo,
+        tiempoInicioMs: this.tiempoInicioMs,
+        tiempoFinMs: this.tiempoFinMs,
+        tiempoActualMs: this.tiempoActualMs,
+        resumen: this.resumen,
+        resumenesAeropuerto: this.resumenesAeropuerto,
+        cancelacionesEnMapa: this.cancelacionesEnMapa,
+        vuelosCancelados: this.vuelosCancelados,
+        modoColapso: this.modoColapso,
+        colapsoDetectado: this.colapsoDetectado,
+        fechaColapsoMs: this.fechaColapsoMs,
+        fechaColapsoEstimadaMs: this.fechaColapsoEstimadaMs,
+        duracionHastaColapsoMin: this.duracionHastaColapsoMin,
+        pctNoAsignados: this.pctNoAsignados,
+        simulacionPausada: this.simulacionPausada,
+      });
+    }
+    this.detener();
+    this.cerrarWs();
+  }
 
   private cargarFechaMinima(): void {
     this.simulacionService.obtenerFechaMinima().subscribe({
@@ -229,6 +281,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
           const lon = this.parseDMS(a.longitud);
           const pos: AeropuertoPosicion = {
             codigoOaci: a.codigoOaci, ciudad: a.ciudad,
+            pais: a.pais ?? '', continente: a.continente ?? '',
             lat, lon,
             x: this.lonToX(lon),
             y: this.latToY(lat),
@@ -238,8 +291,39 @@ export class SimulacionComponent implements OnInit, OnDestroy {
           this.aeropuertoMap.set(a.codigoOaci, pos);
         });
         this.cdr.detectChanges();
+        if (this.sesion.tieneSesion) { this.restaurarSesion(); }
       }
     });
+  }
+
+  private restaurarSesion(): void {
+    const snap = this.sesion.obtener();
+    if (!snap) return;
+    this.vuelos = snap.vuelos ?? [];
+    this.vueloMap.clear();
+    this.vuelos.forEach((v: VueloSimulacion) => this.vueloMap.set(v.codigoVuelo, v));
+    this.arcosVuelo = snap.arcosVuelo ?? [];
+    this.tiempoInicioMs = snap.tiempoInicioMs ?? 0;
+    this.tiempoFinMs = snap.tiempoFinMs ?? 0;
+    this.tiempoActualMs = snap.tiempoActualMs ?? 0;
+    this.resumen = snap.resumen ?? null;
+    this.resumenesAeropuerto = snap.resumenesAeropuerto ?? new Map();
+    this.cancelacionesEnMapa = snap.cancelacionesEnMapa ?? new Map();
+    this.vuelosCancelados = snap.vuelosCancelados ?? new Set();
+    this.modoColapso = snap.modoColapso ?? false;
+    this.colapsoDetectado = snap.colapsoDetectado ?? false;
+    this.fechaColapsoMs = snap.fechaColapsoMs ?? 0;
+    this.fechaColapsoEstimadaMs = snap.fechaColapsoEstimadaMs ?? 0;
+    this.duracionHastaColapsoMin = snap.duracionHastaColapsoMin ?? 0;
+    this.pctNoAsignados = snap.pctNoAsignados ?? 0;
+    this.simulacionPausada = snap.simulacionPausada ?? false;
+    this.estado = 'listo';
+    this.mostrarConfig = false;
+    this.actualizarEstado();
+    if (!this.simulacionPausada && this.tiempoActualMs < this.tiempoFinMs) {
+      this.iniciar();
+    }
+    this.cdr.detectChanges();
   }
 
   // ── SIMULACIÓN ─────────────────────────────────────────────
@@ -275,6 +359,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.duracionHastaColapsoMin = 0;
     this.pctNoAsignados = 0;
     this.totalCiclos = 12;
+    this.simulacionPausada = false;
+    this.filtroVueloMapa = null;
 
     this.estado = 'cargando';
     this.mostrarConfig = false;
@@ -648,21 +734,38 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     return `Día ${dia} · ${hora}`;
   }
 
-  /** Arcos en tránsito; si hay filtro de aeropuerto, solo los de ese aeropuerto */
+  /** Arcos en tránsito; respeta filtros de aeropuerto, vuelo y barra */
   get arcosVisibles(): ArcoVuelo[] {
     let arcos = this.arcosVuelo.filter(a => a.estado === 'EN_VUELO');
-    if (this.aeropuertoFiltroMapa) {
-      const c = this.aeropuertoFiltroMapa;
-      arcos = arcos.filter(a => a.vuelo.origen === c || a.vuelo.destino === c);
+    if (this.filtroVueloMapa) {
+      arcos = arcos.filter(a => a.vuelo.codigoVuelo === this.filtroVueloMapa);
+    } else {
+      if (this.aeropuertoFiltroMapa) {
+        const c = this.aeropuertoFiltroMapa;
+        arcos = arcos.filter(a => a.vuelo.origen === c || a.vuelo.destino === c);
+      }
+      if (this.hayFiltrosBarra) {
+        arcos = arcos.filter(a => this.vueloPassaFiltrosBarra(a.vuelo));
+      }
     }
     return arcos;
   }
 
-  /** Aviones visibles en el mapa (respeta filtro de aeropuerto) */
+  /** Aviones visibles en el mapa (respeta filtros de aeropuerto, vuelo y barra) */
   get planosVisibles(): PlanoEnMapa[] {
-    if (!this.aeropuertoFiltroMapa) return this.planosEnMapa;
-    const c = this.aeropuertoFiltroMapa;
-    return this.planosEnMapa.filter(p => p.vuelo.origen === c || p.vuelo.destino === c);
+    let planes = this.planosEnMapa;
+    if (this.filtroVueloMapa) {
+      planes = planes.filter(p => p.vuelo.codigoVuelo === this.filtroVueloMapa);
+    } else {
+      if (this.aeropuertoFiltroMapa) {
+        const c = this.aeropuertoFiltroMapa;
+        planes = planes.filter(p => p.vuelo.origen === c || p.vuelo.destino === c);
+      }
+      if (this.hayFiltrosBarra) {
+        planes = planes.filter(p => this.vueloPassaFiltrosBarra(p.vuelo));
+      }
+    }
+    return planes;
   }
 
   get progresoSlider(): number {
@@ -686,7 +789,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
         const o = this.aeropuertoMap.get(v.origen);
         const d = this.aeropuertoMap.get(v.destino);
         if (!o || !d) return null;
-        const arco: ArcoVuelo = { d: this.calcArco(o.x, o.y, d.x, d.y), estado: 'PENDIENTE', vuelo: v };
+        const fullPath = this.calcArco(o.x, o.y, d.x, d.y);
+        const arco: ArcoVuelo = { d: fullPath, dRemaining: fullPath, estado: 'PENDIENTE', vuelo: v };
         return arco;
       })
       .filter((x): x is ArcoVuelo => x !== null);
@@ -729,6 +833,17 @@ export class SimulacionComponent implements OnInit, OnDestroy {
           angulo: Math.atan2(tan.dy, tan.dx) * 180 / Math.PI + 90, progreso: t };
       })
       .filter((x): x is PlanoEnMapa => x !== null);
+
+    // ── Actualizar arco restante para aviones en vuelo ──
+    const planoByVuelo = new Map(this.planosEnMapa.map(p => [p.vuelo.codigoVuelo, p]));
+    this.arcosVuelo.forEach(arco => {
+      if (arco.estado === 'EN_VUELO') {
+        const plano = planoByVuelo.get(arco.vuelo.codigoVuelo);
+        if (plano && plano.progreso > 0.002) {
+          arco.dRemaining = this.calcArcoRemaining(arco.vuelo, plano.progreso);
+        }
+      }
+    });
 
     // ── Maletas en aeropuerto (aún no han salido) ──
     this.maletasEnAeropuerto.clear();
@@ -804,11 +919,12 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   getAeroColorClass(codigo: string): string {
     const aero = this.aeropuertoMap.get(codigo);
-    if (!aero) return 'aero-libre';
+    if (!aero) return 'aero-vacio';
     const bags = this.getBagsEnAeropuerto(codigo);
+    if (bags === 0) return 'aero-vacio';
     const pct = (bags / aero.capacidad) * 100;
-    if (pct < 50) return 'aero-libre';
-    if (pct < 75) return 'aero-medio';
+    if (pct < this.UMBRAL_AMBAR) return 'aero-libre';
+    if (pct < this.UMBRAL_ROJO)  return 'aero-medio';
     return 'aero-critico';
   }
 
@@ -1023,6 +1139,18 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.vueloSeleccionado = this.vueloSeleccionado?.codigoVuelo === v.codigoVuelo ? null : v;
   }
 
+  seleccionarVueloConFiltro(v: VueloSimulacion): void {
+    if (this.filtroVueloMapa === v.codigoVuelo) {
+      this.filtroVueloMapa = null;
+      this.vueloSeleccionado = null;
+    } else {
+      this.filtroVueloMapa = v.codigoVuelo;
+      this.aeropuertoFiltroMapa = null;
+      this.seleccionarVuelo(v);
+    }
+    this.cdr.detectChanges();
+  }
+
   // ── TOOLTIP ────────────────────────────────────────────────
 
   onAirportHover(event: MouseEvent, a: AeropuertoPosicion): void {
@@ -1091,8 +1219,17 @@ export class SimulacionComponent implements OnInit, OnDestroy {
 
   parseDMS(dms: string): number {
     if (!dms) return 0;
-    const match = dms.match(/(\d+)\D+(\d+)\D+([\d.]+)\D*([NSEWnsew])/);
-    if (!match) return parseFloat(dms) || 0;
+    const s = dms.trim();
+    // "12.021S" or "77.114W" — decimal degrees with direction suffix
+    const decDir = s.match(/^([\d.]+)\s*([NSEWnsew])$/i);
+    if (decDir) {
+      let v = parseFloat(decDir[1]);
+      if (/[SW]/i.test(decDir[2])) v = -v;
+      return v;
+    }
+    // Standard DMS: "12°02'08S" or "12 02 08 S"
+    const match = s.match(/(\d+)\D+(\d+)\D+([\d.]+)\D*([NSEWnsew])/);
+    if (!match) return parseFloat(s) || 0;
     const [, deg, min, sec, dir] = match;
     let decimal = +deg + +min / 60 + +sec / 3600;
     if (dir.toUpperCase() === 'S' || dir.toUpperCase() === 'W') decimal = -decimal;
@@ -1109,9 +1246,19 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     let lista = this.vuelos.map(v => {
       const cancelado = this.vuelosCancelados.has(v.codigoVuelo);
       const estado = cancelado ? 'CANCELADO' : this.getEstadoVuelo(v);
-      return { vuelo: v, estadoVuelo: estado, cancelado, semaforo: 'VERDE' as string };
+      const fails = v.envios.filter((e: any) => e.cumpleSla === false).length;
+      const total = v.envios.length;
+      const failRatio = total > 0 ? fails / total : 0;
+      const failPct = failRatio * 100;
+      // Umbrales: Libre <30%, Medio 30-65%, Crítico >65%
+      const sem = total === 0 ? 'VACIO'
+        : failPct < 30 ? 'VERDE'
+        : failPct <= 65 ? 'AMARILLO'
+        : 'ROJO';
+      const semLabel = total === 0 ? '' : failPct < 30 ? 'LIBRE' : failPct <= 65 ? 'MEDIO' : 'CRITICO';
+      return { vuelo: v, estadoVuelo: estado, cancelado, semaforo: sem, semLabel, slaFailPct: Math.round(failPct) };
     });
-    if (this.filtroEstadoVuelo) lista = lista.filter(item => item.estadoVuelo === this.filtroEstadoVuelo);
+    if (this.filtroSemVuelo) lista = lista.filter(item => item.semLabel === this.filtroSemVuelo);
     if (this.filtroVueloCodigo) {
       const q = this.filtroVueloCodigo.toLowerCase();
       lista = lista.filter(item =>
@@ -1124,16 +1271,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
       const c = this.aeropuertoFiltroMapa;
       lista = lista.filter(item => item.vuelo.origen === c || item.vuelo.destino === c);
     }
-    if (this.sortVuelo === 'salida') lista.sort((a, b) => a.vuelo.horaSalida.getTime() - b.vuelo.horaSalida.getTime());
-    else if (this.sortVuelo === 'llegada') lista.sort((a, b) => a.vuelo.horaLlegada.getTime() - b.vuelo.horaLlegada.getTime());
-    else if (this.sortVuelo === 'origen') lista.sort((a, b) => a.vuelo.origen.localeCompare(b.vuelo.origen));
-    else if (this.sortVuelo === 'maletas') lista.sort((a, b) => b.vuelo.totalMaletas - a.vuelo.totalMaletas);
-    return lista.slice(0, 60).map(item => {
-      const fails = item.vuelo.envios.filter((e: any) => e.cumpleSla === false).length;
-      const total = item.vuelo.envios.length;
-      const failRatio = total > 0 ? fails / total : 0;
-      return { ...item, semaforo: failRatio >= 0.5 ? 'ROJO' : failRatio > 0 ? 'AMARILLO' : 'VERDE', slaFailPct: Math.round(failRatio * 100) };
-    });
+    if (this.hayFiltrosBarra) {
+      lista = lista.filter(item => this.vueloPassaFiltrosBarra(item.vuelo));
+    }
+    const now = this.tiempoActualMs;
+    if (this.sortVuelo === 'maletas')         lista.sort((a, b) => b.vuelo.totalMaletas - a.vuelo.totalMaletas);
+    else if (this.sortVuelo === 'proxSalida') lista.sort((a, b) => Math.abs(a.vuelo.horaSalida.getTime() - now) - Math.abs(b.vuelo.horaSalida.getTime() - now));
+    else                                       lista.sort((a, b) => Math.abs(a.vuelo.horaLlegada.getTime() - now) - Math.abs(b.vuelo.horaLlegada.getTime() - now));
+    return lista.slice(0, 60);
   }
 
   get panelAlmacenesFiltrados(): any[] {
@@ -1178,11 +1323,25 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     const todos: any[] = [];
     this.vuelos.slice(0, 200).forEach(v => {
       v.envios.forEach(e => {
-        todos.push({ id: e.idEnvio, cantidad: e.cantidad, origen: v.origen, destino: v.destino, vuelo: v.codigoVuelo, cumpleSla: e.cumpleSla });
+        todos.push({ id: e.idEnvio, cantidad: e.cantidad, origen: v.origen, destino: v.destino, vuelo: v.codigoVuelo, cumpleSla: e.cumpleSla, _vuelo: v });
       });
     });
     let lista = todos;
-    if (this.filtroEnvioOrigen)  { const q = this.filtroEnvioOrigen.toLowerCase();  lista = lista.filter(e => e.origen.toLowerCase().includes(q));  }
+    // Aplicar filtro de aeropuerto del mapa
+    if (this.aeropuertoFiltroMapa) {
+      const c = this.aeropuertoFiltroMapa;
+      lista = lista.filter(e => e.origen === c || e.destino === c);
+    }
+    // Aplicar filtros de barra superior
+    if (this.hayFiltrosBarra) {
+      lista = lista.filter(e => this.vueloPassaFiltrosBarra(e._vuelo));
+    }
+    // Aplicar filtro de código del panel de vuelos
+    if (this.filtroVueloCodigo) {
+      const q = this.filtroVueloCodigo.toLowerCase();
+      lista = lista.filter(e => e.vuelo.toLowerCase().includes(q) || e.origen.toLowerCase().includes(q) || e.destino.toLowerCase().includes(q));
+    }
+    if (this.filtroEnvioOrigen)  { const q = this.filtroEnvioOrigen.toLowerCase();  lista = lista.filter(e => e.origen.toLowerCase().includes(q)); }
     if (this.filtroEnvioDestino) { const q = this.filtroEnvioDestino.toLowerCase(); lista = lista.filter(e => e.destino.toLowerCase().includes(q)); }
     return lista.slice(0, 80);
   }
@@ -1246,6 +1405,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     this.zoomLevel = Math.max(1, Math.min(6, this.zoomLevel + delta));
     if (this.zoomLevel <= 1) { this.zoomLevel = 1; this.panX = 0; this.panY = 0; }
     else this.clampPan();
+    this.programarOcultarHeader();
     this.cdr.detectChanges();
   }
 
@@ -1420,5 +1580,119 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     const h = simDate.getHours().toString().padStart(2, '0');
     const min = simDate.getMinutes().toString().padStart(2, '0');
     return `${d}/${m}/${y} ${h}:${min}`;
+  }
+
+  // ── FILTROS BARRA SUPERIOR ─────────────────────────────────
+
+  get hayFiltrosBarra(): boolean {
+    return !!(this.filtroBarraCodigo || this.filtroBarraOrigen || this.filtroBarraDestino ||
+              this.filtroBarraContinente || this.filtroBarraPais);
+  }
+
+  limpiarBarraFiltros(): void {
+    this.filtroBarraCodigo = '';
+    this.filtroBarraOrigen = '';
+    this.filtroBarraDestino = '';
+    this.filtroBarraContinente = '';
+    this.filtroBarraPais = '';
+  }
+
+  vueloPassaFiltrosBarra(vuelo: VueloSimulacion): boolean {
+    if (this.filtroBarraCodigo) {
+      if (!vuelo.codigoVuelo.toLowerCase().includes(this.filtroBarraCodigo.toLowerCase())) return false;
+    }
+    if (this.filtroBarraOrigen) {
+      if (!vuelo.origen.toUpperCase().includes(this.filtroBarraOrigen.toUpperCase())) return false;
+    }
+    if (this.filtroBarraDestino) {
+      if (!vuelo.destino.toUpperCase().includes(this.filtroBarraDestino.toUpperCase())) return false;
+    }
+    if (this.filtroBarraContinente || this.filtroBarraPais) {
+      const aO = this.aeropuertoMap.get(vuelo.origen);
+      const aD = this.aeropuertoMap.get(vuelo.destino);
+      if (this.filtroBarraContinente) {
+        const q = this.filtroBarraContinente.toUpperCase();
+        const match = (aO?.continente?.toUpperCase().includes(q) ?? false) ||
+                      (aD?.continente?.toUpperCase().includes(q) ?? false);
+        if (!match) return false;
+      }
+      if (this.filtroBarraPais) {
+        const q = this.filtroBarraPais.toLowerCase();
+        const match = (aO?.pais?.toLowerCase().includes(q) ?? false) ||
+                      (aD?.pais?.toLowerCase().includes(q) ?? false);
+        if (!match) return false;
+      }
+    }
+    return true;
+  }
+
+  // ── COLOR SEMÁFORO AVIÓN ───────────────────────────────────
+
+  getAvionColorClass(plano: PlanoEnMapa): string {
+    const v = plano.vuelo;
+    if (v.totalMaletas === 0 || v.envios.length === 0) return 'avion-gris';
+    const fails = v.envios.filter(e => e.cumpleSla === false).length;
+    const ratio = fails / v.envios.length;
+    if (ratio >= 0.5) return 'avion-rojo';
+    if (ratio > 0)    return 'avion-amarillo';
+    return 'avion-verde';
+  }
+
+  // ── ARCO RESTANTE (borra trail mientras avanza) ────────────
+
+  private calcArcoRemaining(v: VueloSimulacion, t: number): string {
+    const o = this.aeropuertoMap.get(v.origen);
+    const d = this.aeropuertoMap.get(v.destino);
+    if (!o || !d) return '';
+    const cp  = this.ctrlPoint(o.x, o.y, d.x, d.y);
+    const Q1x = (1 - t) * cp.x + t * d.x;
+    const Q1y = (1 - t) * cp.y + t * d.y;
+    const pos = this.bezierPt(t, o.x, o.y, cp.x, cp.y, d.x, d.y);
+    return `M ${pos.x.toFixed(1)} ${pos.y.toFixed(1)} Q ${Q1x.toFixed(1)} ${Q1y.toFixed(1)} ${d.x.toFixed(1)} ${d.y.toFixed(1)}`;
+  }
+
+  // ── STOP / PAUSA DE SIMULACIÓN ─────────────────────────────
+
+  toggleStop(): void {
+    this.simulacionPausada = !this.simulacionPausada;
+    if (this.simulacionPausada) {
+      this.detener();
+    } else {
+      this.iniciar();
+    }
+  }
+
+  // ── HEADER AUTO-OCULTAR ────────────────────────────────────
+
+  onSimWrapMouseMove(event: MouseEvent): void {
+    if (this.simHeaderOculto && event.clientY < 150) {
+      this.simHeaderOculto = false;
+      if (this.headerHideTimer) { clearTimeout(this.headerHideTimer); this.headerHideTimer = null; }
+      this.cdr.detectChanges();
+    }
+  }
+
+  private programarOcultarHeader(): void {
+    if (this.headerHideTimer) clearTimeout(this.headerHideTimer);
+    this.headerHideTimer = setTimeout(() => {
+      this.simHeaderOculto = true;
+      this.headerHideTimer = null;
+      this.cdr.detectChanges();
+    }, 1500);
+  }
+
+  // ── OPCIONES ÚNICAS PARA FILTROS ──────────────────────────
+
+  get uniqueOrigenes(): string[] {
+    return Array.from(new Set(this.vuelos.map(v => v.origen))).sort();
+  }
+  get uniqueDestinos(): string[] {
+    return Array.from(new Set(this.vuelos.map(v => v.destino))).sort();
+  }
+  get uniqueContinentes(): string[] {
+    return Array.from(new Set(this.aeropuertos.map(a => a.continente).filter(Boolean))).sort();
+  }
+  get uniquePaises(): string[] {
+    return Array.from(new Set(this.aeropuertos.map(a => a.pais).filter(Boolean))).sort();
   }
 }
