@@ -124,7 +124,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   readonly SVG_H   = 857;
   readonly LAT_MAX = 84;
   readonly LAT_MIN = -62.6;
-
+  readonly MAP_X_OFFSET = -18;
+  readonly MAP_Y_OFFSET = 10;
   // ── Control de tiempo ──────────────────────────────────────
   tiempoInicioMs = 0;
   tiempoFinMs    = 0;
@@ -283,8 +284,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
             codigoOaci: a.codigoOaci, ciudad: a.ciudad,
             pais: a.pais ?? '', continente: a.continente ?? '',
             lat, lon,
-            x: this.lonToX(lon),
-            y: this.latToY(lat),
+            x: this.lonToX(lon) + this.MAP_X_OFFSET + this.getAirportXOffset(a.codigoOaci),
+            y: this.latToY(lat) + this.MAP_Y_OFFSET,
             capacidad: a.capacidad
           };
           this.aeropuertos.push(pos);
@@ -295,6 +296,21 @@ export class SimulacionComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+//ajustar ubicaciones aeropuerto
+private getAirportXOffset(codigoOaci: string): number {
+  const ajustes: Record<string, number> = {
+    SCEL: 15, // Santiago de Chile: mover a la derecha
+    SABE: 12, // Buenos Aires: separar un poco de Montevideo
+    SUAA: 18  // Montevideo: mover un poco a la derecha
+  };
+
+  return ajustes[codigoOaci] ?? 0;
+}
+
+
+//
+
 
   private restaurarSesion(): void {
     const snap = this.sesion.obtener();

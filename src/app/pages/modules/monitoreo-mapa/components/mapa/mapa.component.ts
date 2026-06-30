@@ -121,9 +121,11 @@ export class MapaComponent implements OnInit, OnDestroy {
   readonly SVG_W   = 2000;
   readonly SVG_H   = 857;
   readonly LAT_MAX = 84;
-  readonly LAT_MIN = -70.3;
+  readonly LAT_MIN = -62.6;
   readonly LNG_MIN = -180;
   readonly LNG_MAX = 180;
+  readonly MAP_X_OFFSET = -18;
+  readonly MAP_Y_OFFSET = 10;
   readonly worldMapUrl = '/world.svg';
 
   // ── Parámetros de planificación ──────────────────────────────
@@ -270,6 +272,17 @@ export class MapaComponent implements OnInit, OnDestroy {
     });
     this.cargarAeropuertos();
     this.cargarUmbralesSemaforo();
+  }
+
+//metodo para ubicacion de mapas
+  private getAirportXOffset(codigoOaci: string): number {
+    const ajustes: Record<string, number> = {
+      SCEL: 15,
+      SABE: 12,
+      SUAA: 18
+    };
+
+    return ajustes[codigoOaci] ?? 0;
   }
 
   private restaurarFiltros(fs: any): void {
@@ -1148,7 +1161,10 @@ export class MapaComponent implements OnInit, OnDestroy {
         this.aeropuertos.forEach(a => {
           const lat = this.parseDMS(a.latitud);
           const lon = this.parseDMS(a.longitud);
-          this.aeropuertoSvgMap.set(a.codigoOaci, { x: this.lonToX(lon), y: this.latToY(lat) });
+          this.aeropuertoSvgMap.set(a.codigoOaci, {
+            x: this.lonToX(lon) + this.MAP_X_OFFSET + this.getAirportXOffset(a.codigoOaci),
+            y: this.latToY(lat) + this.MAP_Y_OFFSET
+          });
         });
 
         this.cdr.detectChanges();
