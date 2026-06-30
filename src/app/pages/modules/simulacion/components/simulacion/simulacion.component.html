@@ -245,7 +245,7 @@
           <g *ngFor="let a of aeropuertos; trackBy: trackAero">
             <!-- Círculo interactivo -->
             <circle
-              [attr.cx]="a.x" [attr.cy]="a.y" r="9"
+              [attr.cx]="a.x" [attr.cy]="a.y" r="7"
               [class]="'aero-nodo ' + getAeroColorClass(a.codigoOaci) + (aeropuertoFiltroMapa === a.codigoOaci ? ' aero-selected' : esAeropuertoDimmed(a.codigoOaci) ? ' aero-dimmed' : '')"
               style="pointer-events:all; cursor:pointer"
               (mouseenter)="onAirportHover($event, a)"
