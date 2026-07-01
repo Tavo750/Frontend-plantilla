@@ -58,7 +58,12 @@ export class MenuService {
         routerLink: ['inicio', 'inicio']
       },
       // { id: 'Dashboard', label: 'Dashboard', icon: 'pi pi-chart-bar', routerLink: ['Dashboard'] },
-      // { id: 'Reportes', label: 'Reportes', icon: 'pi pi-file-export', routerLink: ['Reportes'] },
+      { 
+        id: 'Reportes', 
+        label: 'Reportes', 
+        icon: 'pi pi-file-export', 
+        routerLink: ['Reportes'] 
+      },
       {
         id: 'RegistroMaletas',
         label: 'Registro de Maletas',
