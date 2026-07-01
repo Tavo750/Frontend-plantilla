@@ -9,12 +9,18 @@ import { EnvioMaletas } from './envio.service';
   providedIn: 'root'
 })
 export class EnvioDiarioService {
-  private readonly apiUrl = `${environment.apiUrl}envio/envio-diario`;
+  private readonly apiUrl = `${environment.apiUrl}envio/envios-maletas`;
 
   constructor(private readonly http: HttpClient) {}
 
   listarEnvios(): Observable<ApiResponse<EnvioMaletas[]>> {
     return this.http.get<ApiResponse<EnvioMaletas[]>>(this.apiUrl);
+  }
+
+  listarEnviosPorAeropuerto(idAeropuerto: number): Observable<ApiResponse<EnvioMaletas[]>> {
+    return this.http.get<ApiResponse<EnvioMaletas[]>>(
+      `${this.apiUrl}/aeropuerto/${idAeropuerto}`
+    );
   }
 
   obtenerPorId(id: number): Observable<ApiResponse<EnvioMaletas>> {
