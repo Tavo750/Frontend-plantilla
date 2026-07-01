@@ -63,13 +63,18 @@ export class ReportesComponent implements OnInit {
     this.cargar();
   }
 
+  // Máximo de páginas a cargar: más allá de este límite las estadísticas
+  // son representativas y la deep-pagination (OFFSET enorme) es muy lenta.
+  private readonly MAX_PAGINAS = 10;
+  private readonly PAGE_SIZE   = 200;
+
   cargar(): void {
     this.cargando = true;
     this.error = false;
     this.envios = [];
 
     // 1. Cargar primera página para conocer totalPages
-    this.envioService.listarEnviosPaginado(0, 200).subscribe({
+    this.envioService.listarEnviosPaginado(0, this.PAGE_SIZE).subscribe({
       next: (resp: ApiResponse<SpringPage<EnvioMaletas>>) => {
         const page0 = resp.data;
         this.totalRegistros = page0.totalElements;
@@ -84,14 +89,24 @@ export class ReportesComponent implements OnInit {
           return;
         }
 
-        // 2. Cargar el resto de páginas en paralelo
+        // 2. Cargar páginas adicionales respetando el límite MAX_PAGINAS
+        const pagesToLoad = Math.min(page0.totalPages - 1, this.MAX_PAGINAS - 1);
+
+        if (pagesToLoad <= 0) {
+          this.enviosFiltrados = [...this.envios];
+          this.calcularEstadisticas();
+          this.cargando = false;
+          this.cdr.detectChanges();
+          return;
+        }
+
         this.cargandoPaginas = true;
         this.cargando = false;
         this.cdr.detectChanges();
 
         const restantes = Array.from(
-          { length: page0.totalPages - 1 },
-          (_, i) => this.envioService.listarEnviosPaginado(i + 1, 200)
+          { length: pagesToLoad },
+          (_, i) => this.envioService.listarEnviosPaginado(i + 1, this.PAGE_SIZE)
         );
 
         forkJoin(restantes).subscribe({
