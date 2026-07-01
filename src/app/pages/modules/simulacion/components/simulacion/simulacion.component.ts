@@ -579,6 +579,7 @@ private getAirportXOffset(codigoOaci: string): number {
     this.cerrarWs();
 
     // Si INIT no fijó tiempoInicioMs (caso borde: sin vuelosEnAire), calcular desde UI
+    // Se agrega 'Z' para interpretar como UTC, igual que el backend (ZoneOffset.UTC)
     if (!this.tiempoInicioMs) {
       const fechaStr = this.fechaInicio instanceof Date
         ? this.fechaInicio.toISOString().substring(0, 10)
@@ -663,10 +664,11 @@ private getAirportXOffset(codigoOaci: string): number {
     if (!this.primerosVuelosRecibidos && this.vuelos.length > 0) {
       this.primerosVuelosRecibidos = true;
       // Inicio = fecha elegida por el usuario (sin importar a qué hora sale el primer vuelo)
+      // Se agrega 'Z' para interpretar como UTC, igual que el backend (ZoneOffset.UTC)
       const fechaStr = this.fechaInicio instanceof Date
         ? this.fechaInicio.toISOString().substring(0, 10)
         : String(this.fechaInicio).substring(0, 10);
-      this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00`).getTime();
+      this.tiempoInicioMs = new Date(`${fechaStr}T${this.horaInicio || '00:00'}:00Z`).getTime();
       this.tiempoFinMs    = this.vuelos.reduce((max, v) => Math.max(max, v.horaLlegada.getTime()), this.tiempoInicioMs);
       this.tiempoActualMs = this.tiempoInicioMs;
       this.computarArcos();
@@ -737,7 +739,9 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   get tiempoLabel(): string {
+    // Usar timeZone UTC porque el backend genera timestamps en ZoneOffset.UTC
     return new Date(this.tiempoActualMs).toLocaleString('es-PE', {
+      timeZone: 'UTC',
       weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
     });
   }
@@ -746,7 +750,8 @@ private getAirportXOffset(codigoOaci: string): number {
     if (!this.tiempoInicioMs || !this.tiempoActualMs) return '';
     const diffMs  = this.tiempoActualMs - this.tiempoInicioMs;
     const dia     = Math.max(1, Math.floor(diffMs / (24 * this.HORA_MS)) + 1);
-    const hora    = new Date(this.tiempoActualMs).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    // Usar timeZone UTC porque el backend genera timestamps en ZoneOffset.UTC
+    const hora    = new Date(this.tiempoActualMs).toLocaleTimeString('es-PE', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
     return `Día ${dia} · ${hora}`;
   }
 
@@ -1589,12 +1594,14 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   get fechaSimDisplay(): string {
+    // El backend genera los timestamps usando ZoneOffset.UTC, por eso
+    // se deben usar los métodos UTC para evitar el desfase horario local.
     const simDate = new Date(this.tiempoActualMs);
-    const d = simDate.getDate().toString().padStart(2, '0');
-    const m = (simDate.getMonth() + 1).toString().padStart(2, '0');
-    const y = simDate.getFullYear();
-    const h = simDate.getHours().toString().padStart(2, '0');
-    const min = simDate.getMinutes().toString().padStart(2, '0');
+    const d = simDate.getUTCDate().toString().padStart(2, '0');
+    const m = (simDate.getUTCMonth() + 1).toString().padStart(2, '0');
+    const y = simDate.getUTCFullYear();
+    const h = simDate.getUTCHours().toString().padStart(2, '0');
+    const min = simDate.getUTCMinutes().toString().padStart(2, '0');
     return `${d}/${m}/${y} ${h}:${min}`;
   }
 

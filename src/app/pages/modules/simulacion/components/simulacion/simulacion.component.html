@@ -1,4 +1,4 @@
-﻿<div class="sim-wrap" (mousemove)="onSimWrapMouseMove($event)">
+<div class="sim-wrap" (mousemove)="onSimWrapMouseMove($event)">
 
   <!-- ── HEADER ────────────────────────────────────────────── -->
   <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto">
@@ -430,7 +430,7 @@
                 <div class="pitem-bar-fill" [class]="getSemaforoClass(item.semaforo)" [style.width.%]="item.slaFailPct"></div>
               </div>
               <div class="pitem-meta">
-                <span>{{ item.vuelo.horaSalida | date:'dd/MM HH:mm' }}</span>
+                <span>{{ item.vuelo.horaSalida | date:'dd/MM HH:mm':'UTC' }}</span>
                 <span>{{ item.vuelo.totalMaletas }} mal. · {{ item.vuelo.envios.length }} env.</span>
               </div>
               <div class="pitem-actions" *ngIf="vueloSeleccionado?.codigoVuelo === item.vuelo.codigoVuelo">
@@ -461,12 +461,12 @@
             <div class="route-row">
               <div class="route-node">
                 <div class="route-code">{{ vueloSeleccionado.origen }}</div>
-                <div class="route-time">{{ vueloSeleccionado.horaSalida | date:'dd/MM HH:mm' }}</div>
+                <div class="route-time">{{ vueloSeleccionado.horaSalida | date:'dd/MM HH:mm':'UTC' }}</div>
               </div>
               <div class="route-arrow"><div class="arr-line"></div><i class="pi pi-angle-right arr-icon"></i></div>
               <div class="route-node">
                 <div class="route-code">{{ vueloSeleccionado.destino }}</div>
-                <div class="route-time">{{ vueloSeleccionado.horaLlegada | date:'dd/MM HH:mm' }}</div>
+                <div class="route-time">{{ vueloSeleccionado.horaLlegada | date:'dd/MM HH:mm':'UTC' }}</div>
               </div>
             </div>
             <div class="prog-section" *ngIf="getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
