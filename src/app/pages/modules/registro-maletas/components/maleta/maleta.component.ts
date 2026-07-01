@@ -113,7 +113,7 @@ export class MaletaComponent implements OnInit {
         this.configurarOrigenDesdeUsuario();
 
         console.log('[Maleta] idOrigen después de configurar usuario:', this.idOrigen);
-
+        
         this.cargarEnvios();
 
         this.cdr.detectChanges();
@@ -169,17 +169,7 @@ export class MaletaComponent implements OnInit {
         }))
       );
 
-      this.envios = this.ordenarEnvios(
-        data.filter((envio: any) => {
-          const idOrigenEnvio = this.obtenerIdAeropuertoOrigenEnvio(envio);
-          const idDestinoEnvio = this.obtenerIdAeropuertoDestinoEnvio(envio);
-
-          return (
-            idOrigenEnvio === idAeropuertoUsuario ||
-            idDestinoEnvio === idAeropuertoUsuario
-          );
-        })
-      );
+      this.envios = this.ordenarEnvios(data as EnvioMaletas[]);
 
       console.log('[Maleta] Total envíos filtrados por aeropuerto:', this.envios.length);
       console.log('[Maleta] Primer envío filtrado:', this.envios[0]);
@@ -236,6 +226,7 @@ export class MaletaComponent implements OnInit {
         this.mostrarFormulario = false;
         this.limpiarFormulario();
         this.messageService.add({ severity: 'success', summary: '¡Envío registrado!', detail: 'El envío fue creado correctamente.' });
+        this.limpiarTodosLosFiltros();
         this.cargarEnvios();
         this.cdr.detectChanges();
       },
@@ -924,6 +915,18 @@ private obtenerIdAeropuertoDestinoEnvio(envio: any): number {
     }
 
     return 0;
+  }
+
+  private limpiarTodosLosFiltros(): void {
+    this.estadoFiltro = null;
+    this.textoBusqueda = '';
+    this.idEnvioFiltro = '';
+    this.continenteOrigenFiltro = null;
+    this.continenteDestinoFiltro = null;
+    this.codigoOrigenFiltro = null;
+    this.codigoDestinoFiltro = null;
+    this.fechaRegistroDesde = null;
+    this.fechaRegistroHasta = null;
   }
 
 }
