@@ -1,14 +1,11 @@
 ﻿<div class="sim-wrap" (mousemove)="onSimWrapMouseMove($event)">
 
-  <!-- ── HEADER ────────────────────────────────────────────── -->
-  <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto">
-    <div class="header-left">
-      <i class="pi pi-globe header-icon"></i>
-      <div>
-        <div class="header-brand">Simulación de Operaciones</div>
-        <div class="header-sub">Monitoreo en tiempo real del sistema de transporte</div>
-      </div>
-    </div>
+  <!-- ── HEADER (flotante y movible) ───────────────────────── -->
+  <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto"
+    [class.sim-header-dragged]="headerX !== null"
+    [style.left.px]="headerX" [style.top.px]="headerY">
+
+    <i class="pi pi-arrows-alt drag-handle" (mousedown)="onHeaderDragStart($event)" title="Arrastrar barra"></i>
 
     <div class="header-center" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
       <div style="display: flex; gap: 2rem; align-items: center; font-size: 0.85rem;">
@@ -17,6 +14,10 @@
         </div>
         <div style="color: #94a3b8;">
           Sim: <span style="color: #4ade80; font-weight: 600; font-family: monospace;">{{ fechaSimDisplay }}</span>
+        </div>
+        <div class="sync-chip" *ngIf="esperandoDatos && estado === 'streaming'" title="El reloj espera la siguiente ventana de datos planificados">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Sincronizando…</span>
         </div>
       </div>
     </div>
@@ -43,6 +44,13 @@
         [title]="simulacionPausada ? 'Reanudar simulación' : 'Pausar simulación'">
         <i [class]="simulacionPausada ? 'pi pi-play' : 'pi pi-pause'"></i>
         <span>{{ simulacionPausada ? 'Reanudar' : 'Stop' }}</span>
+      </button>
+      <button class="btn-cfg btn-cancel-sim"
+        *ngIf="estado === 'streaming' || estado === 'listo' || estado === 'cargando'"
+        (click)="detenerTodo()"
+        title="Cancelar la simulación por completo">
+        <i class="pi pi-times"></i>
+        <span>Cancelar</span>
       </button>
       <button class="btn-cfg" (click)="mostrarBarraFiltros = !mostrarBarraFiltros"
         [class.btn-cfg-active]="hayFiltrosBarra" title="Filtros de mapa">
@@ -147,7 +155,7 @@
       <div class="cvb-title">COLAPSO LOGÍSTICO DETECTADO</div>
       <div class="cvb-detail">
         El sistema colapsó el
-        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm' }}</strong>
+        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm':'UTC' }}</strong>
         · Operó
         <strong>{{ (duracionHastaColapsoMin / 60 / 24) | number:'1.1-1' }} días simulados</strong>
         antes del colapso
@@ -156,7 +164,7 @@
     </div>
     <div class="cvb-estimada" *ngIf="fechaColapsoEstimadaMs > 0">
       <span class="cvb-estimada-label">Colapso estimado</span>
-      <span class="cvb-estimada-fecha">{{ fechaColapsoEstimadaMs | date:'dd/MM/yyyy' }}</span>
+      <span class="cvb-estimada-fecha">{{ fechaColapsoEstimadaMs | date:'dd/MM/yyyy':'UTC' }}</span>
     </div>
   </div>
 
@@ -168,11 +176,6 @@
 
   <!-- ── STATS BAR ─────────────────────────────────────────── -->
   <div class="stats-bar" *ngIf="(estado === 'listo' || estado === 'streaming') && mostrarBarsSuperiores">
-    <div class="stat-chip">
-      <div class="s-lbl">Período</div>
-      <div class="s-val">{{ dias }} días</div>
-    </div>
-    <div class="stat-divider"></div>
     <div class="stat-chip">
       <div class="s-lbl">Vuelos completados</div>
       <div class="s-val">{{ getVuelosCompletados() }}</div>
@@ -316,13 +319,6 @@
           <i class="pi pi-window-maximize"></i>
         </button>
 
-        <!-- Leyenda -->
-        <div class="leyenda">
-          <div class="ley-item"><span class="ley-dot dot-vuelo"></span>En tránsito</div>
-          <div class="ley-item"><span class="ley-dot dot-badge"></span>Almacén</div>
-        </div>
-
-
         <!-- Tooltip flotante -->
         <div
           class="map-tooltip"
@@ -400,10 +396,9 @@
           </div>
 
           <div class="panel-sort">
-            <span class="ps-label">Ord:</span>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'proxSalida'"  (click)="setSortVuelo('proxSalida')" title="Próxima salida">↑ Salida</button>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'proxLlegada'" (click)="setSortVuelo('proxLlegada')" title="Próxima llegada">↓ Llegada</button>
-            <button class="sort-btn" [class.sort-active]="sortVuelo === 'maletas'" (click)="setSortVuelo('maletas')">Maletas</button>
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'todos'"   (click)="setVistaVuelo('todos')"   title="Todos los vuelos (lista estable)">Todos</button>
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'salida'"  (click)="setVistaVuelo('salida')"  title="Vuelos por despegar">↑ Salida</button>
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'llegada'" (click)="setVistaVuelo('llegada')" title="Vuelos por aterrizar">↓ Llegada</button>
           </div>
 
           <div class="sem-summary-row">
@@ -424,23 +419,23 @@
                 <span class="sem-dot-sm" [class]="getSemaforoClass(item.semaforo)"></span>
                 <span class="pitem-code">{{ item.vuelo.codigoVuelo }}</span>
                 <span class="pitem-route">{{ item.vuelo.origen }} → {{ item.vuelo.destino }}</span>
-                <span class="ev-badge" [class]="getEstadoVueloClass(item.estadoVuelo)">{{ getEstadoVueloLabel(item.estadoVuelo) }}</span>
               </div>
               <div class="pitem-bar">
                 <div class="pitem-bar-fill" [class]="getSemaforoClass(item.semaforo)" [style.width.%]="item.slaFailPct"></div>
               </div>
               <div class="pitem-meta">
-                <span>{{ item.vuelo.horaSalida | date:'dd/MM HH:mm' }}</span>
+                <span>{{ item.vuelo.horaSalida | date:'dd/MM HH:mm':'UTC' }}</span>
                 <span>{{ item.vuelo.totalMaletas }} mal. · {{ item.vuelo.envios.length }} env.</span>
               </div>
               <div class="pitem-actions" *ngIf="vueloSeleccionado?.codigoVuelo === item.vuelo.codigoVuelo">
                 <button *ngIf="!item.cancelado"
                   class="btn-gestion btn-gestion-cancelar"
-                  [class.btn-gestion-cancelar-mañana]="item.estadoVuelo === 'EN_VUELO'"
+                  [class.btn-gestion-cancelar-mañana]="item.estadoVuelo !== 'PENDIENTE'"
+                  [disabled]="!puedeCancelar(item.vuelo)"
                   (click)="$event.stopPropagation(); pedirCancelarVuelo(item.vuelo)"
-                  [title]="item.estadoVuelo === 'EN_VUELO' ? 'Cancelar vuelo del día siguiente' : 'Cancelar este vuelo'">
+                  [title]="getCancelTitle(item)">
                   <i class="pi pi-times-circle"></i>
-                  {{ item.estadoVuelo === 'EN_VUELO' ? 'Cancelar (mañana)' : 'Cancelar' }}
+                  {{ item.estadoVuelo !== 'PENDIENTE' ? 'Cancelar (mañana)' : 'Cancelar' }}
                 </button>
                 <button *ngIf="item.cancelado"
                   class="btn-gestion btn-gestion-reactivar"
@@ -461,12 +456,12 @@
             <div class="route-row">
               <div class="route-node">
                 <div class="route-code">{{ vueloSeleccionado.origen }}</div>
-                <div class="route-time">{{ vueloSeleccionado.horaSalida | date:'dd/MM HH:mm' }}</div>
+                <div class="route-time">{{ vueloSeleccionado.horaSalida | date:'dd/MM HH:mm':'UTC' }}</div>
               </div>
               <div class="route-arrow"><div class="arr-line"></div><i class="pi pi-angle-right arr-icon"></i></div>
               <div class="route-node">
                 <div class="route-code">{{ vueloSeleccionado.destino }}</div>
-                <div class="route-time">{{ vueloSeleccionado.horaLlegada | date:'dd/MM HH:mm' }}</div>
+                <div class="route-time">{{ vueloSeleccionado.horaLlegada | date:'dd/MM HH:mm':'UTC' }}</div>
               </div>
             </div>
             <div class="prog-section" *ngIf="getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
@@ -500,7 +495,7 @@
                   <i [class]="ev.tipo === 'despegue' ? 'pi pi-send ev-dep' : 'pi pi-map-marker ev-arr'"></i>
                   <div class="event-body">
                     <div class="event-msg">{{ ev.mensaje }}</div>
-                    <div class="event-time">{{ ev.hora | date:'dd/MM HH:mm' }}</div>
+                    <div class="event-time">{{ ev.hora | date:'dd/MM HH:mm':'UTC' }}</div>
                   </div>
                 </div>
               </div>
@@ -560,14 +555,28 @@
               <i class="pi pi-times"></i>
             </button>
           </div>
+          <!-- Búsqueda de envío/maleta por ID -->
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="busquedaEnvio" placeholder="Buscar envío por ID…" class="pf-input" />
+            <button class="pf-clear" *ngIf="busquedaEnvio" (click)="busquedaEnvio = ''" title="Limpiar búsqueda"><i class="pi pi-times"></i></button>
+          </div>
           <!-- Filtros solo si no hay vuelo seleccionado -->
           <div class="panel-filters" *ngIf="!vueloSeleccionado">
             <input type="text" [(ngModel)]="filtroEnvioOrigen"  placeholder="Origen…"  class="pf-input pf-input-sm" />
             <input type="text" [(ngModel)]="filtroEnvioDestino" placeholder="Destino…" class="pf-input pf-input-sm" />
             <button class="pf-clear" (click)="limpiarFiltrosEnvios()" title="Limpiar filtros"><i class="pi pi-times"></i></button>
           </div>
+          <!-- Ordenamiento -->
+          <div class="panel-sort" *ngIf="!vueloSeleccionado">
+            <span class="ps-label">Ord:</span>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'recientes'" (click)="sortEnvio = 'recientes'" title="Registros más recientes primero">↓ Recientes</button>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'antiguos'"  (click)="sortEnvio = 'antiguos'"  title="Registros más antiguos primero">↑ Antiguos</button>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'carga'"     (click)="sortEnvio = 'carga'"     title="Mayor carga primero">Carga</button>
+          </div>
           <div class="panel-list">
-            <div *ngFor="let e of panelEnviosFiltrados; trackBy: trackPanelEnvio" class="pitem pitem-envio">
+            <div *ngFor="let e of panelEnviosFiltrados; trackBy: trackPanelEnvio" class="pitem pitem-envio"
+              [class.pitem-selected]="envioSeleccionadoId === e.id"
+              (click)="toggleEnvioTracking(e.id)">
               <div class="pitem-top">
                 <span class="pitem-code">#{{ e.id }}</span>
                 <span class="pitem-route">{{ e.origen }} → {{ e.destino }}</span>
@@ -577,7 +586,42 @@
               </div>
               <div class="pitem-meta">
                 <span>{{ e.cantidad }} maletas</span>
+                <span *ngIf="e.regMs">Reg. {{ e.regMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                <span *ngIf="e.tramos > 1">{{ e.tramos }} tramos</span>
                 <span *ngIf="!vueloSeleccionado">{{ e.vuelo }}</span>
+              </div>
+
+              <!-- Tracking completo del envío -->
+              <div class="envio-tracking" *ngIf="envioSeleccionadoId === e.id && trackingSel"
+                (click)="$event.stopPropagation()">
+                <div class="trk-row trk-estado">
+                  <i class="pi pi-map-marker"></i>
+                  <span>{{ trackingSel.estado }}</span>
+                </div>
+                <div class="trk-row" *ngIf="trackingSel.fechaRegistroMs">
+                  <i class="pi pi-clock"></i>
+                  <span>Registrado: {{ trackingSel.fechaRegistroMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                </div>
+                <div class="trk-row" *ngIf="trackingSel.fechaLimiteMs">
+                  <i class="pi pi-flag"></i>
+                  <span>Límite entrega: {{ trackingSel.fechaLimiteMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                </div>
+                <div class="trk-tramos">
+                  <div class="trk-tramo" *ngFor="let t of trackingSel.tramos; let i = index">
+                    <span class="trk-num">{{ i + 1 }}</span>
+                    <div class="trk-tramo-body">
+                      <div class="trk-tramo-vuelo">{{ t.vuelo }} · {{ t.origen }} → {{ t.destino }}</div>
+                      <div class="trk-tramo-horas">{{ t.salida | date:'dd/MM HH:mm':'UTC' }} → {{ t.llegada | date:'dd/MM HH:mm':'UTC' }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="trk-row trk-resumen">
+                  <span>{{ trackingSel.escalas }} escala(s)</span>
+                  <span>Duración: {{ formatDuracion(trackingSel.duracionMin) }}</span>
+                  <span [class.sla-ok]="trackingSel.cumpleSla !== false" [class.sla-fail]="trackingSel.cumpleSla === false">
+                    {{ trackingSel.cumpleSla !== false ? '✓ SLA' : '⚠ SLA' }}
+                  </span>
+                </div>
               </div>
             </div>
             <div *ngIf="panelEnviosFiltrados.length === 0" class="panel-empty">
@@ -629,7 +673,7 @@
       <i [class]="vueloYaEnVuelo ? 'pi pi-info-circle confirm-icon confirm-icon-info' : 'pi pi-exclamation-triangle confirm-icon'"></i>
 
       <ng-container *ngIf="vueloYaEnVuelo">
-        <p>El vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong> ya está en tránsito.</p>
+        <p>El vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong> ya despegó o aterrizó.</p>
         <p class="confirm-sub">{{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
         <p class="confirm-hint">
           La cancelación se hará efectiva para el vuelo del <strong>día siguiente</strong>.
@@ -662,6 +706,14 @@
 
 
   </p-dialog>
+
+  <!-- Overlay: replanificación de rutas tras cancelar vuelo -->
+  <div class="replan-overlay" *ngIf="replanificando">
+    <div class="replan-box">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Replanificando rutas de las maletas…</span>
+    </div>
+  </div>
 
   <p-toast></p-toast>
 </div>

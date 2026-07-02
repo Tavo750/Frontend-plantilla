@@ -83,6 +83,35 @@
   min-width: 0;
 }
 
+/* ========== SIDEBAR COLLAPSE ARROW ========== */
+.sidebar-collapse-arrow {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  border-radius: 0 8px 8px 0;
+  border: 1px solid var(--color-border);
+  border-left: none;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.3s ease, background 0.2s ease;
+}
+
+.sidebar-collapse-arrow:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+}
+
+.sidebar-collapse-arrow i {
+  font-size: 0.85rem;
+}
+
 /* ========== MOBILE DRAWER OVERLAY ========== */
 .drawer-overlay {
   position: fixed;

@@ -7,6 +7,17 @@
     <app-sidebar [open]="isSidebarOpen"></app-sidebar>
   </aside>
 
+  <!-- Flecha flotante para colapsar/expandir el sidebar -->
+  <button
+    *ngIf="!isMobile"
+    class="sidebar-collapse-arrow"
+    [style.left.px]="isSidebarOpen ? 228 : 56"
+    (click)="toggleSidebar()"
+    [attr.aria-label]="isSidebarOpen ? 'Ocultar menú' : 'Mostrar menú'"
+  >
+    <i class="pi" [ngClass]="isSidebarOpen ? 'pi-angle-left' : 'pi-angle-right'"></i>
+  </button>
+
   <!-- Contenido principal -->
   <div class="layout-main">
     <!-- Barra superior -->
