@@ -9,7 +9,7 @@ import { EnvioMaletas } from './envio.service';
   providedIn: 'root'
 })
 export class EnvioDiarioService {
-  private readonly apiUrl = `${environment.apiUrl}envio/envios-maletas`;
+  private readonly apiUrl = `${environment.apiUrl}envio/envio-diario`;
 
   constructor(private readonly http: HttpClient) {}
 
