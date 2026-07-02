@@ -169,11 +169,14 @@ button {
   white-space: nowrap;
 }
 
-/* ── MODO SIMULACIÓN: oculta layout-header para maximizar mapa ── */
+/* ── MODO SIMULACIÓN: oculta layout-header y footer para maximizar mapa ── */
 body.sim-fullscreen .layout-header {
   display: none !important;
 }
 body.sim-fullscreen .layout-content {
   padding: 0 !important;
   overflow: hidden;
+}
+body.sim-fullscreen app-footer {
+  display: none !important;
 }
