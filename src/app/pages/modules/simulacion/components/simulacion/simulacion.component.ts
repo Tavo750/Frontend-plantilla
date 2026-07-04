@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone,
+  Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef, NgZone,
   ViewChild, ElementRef, HostListener, Renderer2
 } from '@angular/core';
 import { MessageService } from 'primeng/api';
@@ -66,11 +66,12 @@ export interface ResumenAeropuertoItem {
   templateUrl: './simulacion.component.html',
   styleUrl: './simulacion.component.css'
 })
-export class SimulacionComponent implements OnInit, OnDestroy {
+export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ── Formulario ─────────────────────────────────────────────
-  fechaInicio: Date = new Date('2026-01-02');
-  fechaMinima: Date = new Date('2026-01-02');
+  fechaInicio: Date = new Date('2026-01-01T00:00:00');
+  fechaMinima: Date = new Date('2026-01-01T00:00:00');
+  fechaMaxima: Date = new Date('2027-12-31T00:00:00');
   horaInicio: string = '00:00';
   dias = 5;
 
@@ -134,11 +135,14 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   mostrarSidebar = false;
   startTimeReal  = 0;
 
-  /** Milisegundos entre ticks de animación (1 s real = fluido y ligero) */
-  private readonly TICK_MS  = 1000;
+  /** Milisegundos entre ticks de animación — 4 fps: aviones fluidos sin costo excesivo */
+  private readonly TICK_MS  = 250;
   private readonly HORA_MS  = 3_600_000;
-  /** Horas de simulación por tick — K=120 a 1fps: 120×1s/3600 */
-  private readonly AVANCE_H = 0.03333;
+  /** Horas de simulación por tick — K=120 a 4fps: 120×0.25s/3600 (misma velocidad total) */
+  private readonly AVANCE_H = 0.0083333;
+  /** Ticks entre actualizaciones pesadas (semáforos, almacenes, paneles) = 1 s */
+  private readonly TICKS_PESADO = 4;
+  private tickCount = 0;
 
   private intervalId: any = null;
   private ws: WebSocket | null = null;
@@ -186,6 +190,27 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   private dragOffX = 0;
   private dragOffY = 0;
 
+  // ── Tiempo transcurrido (real y simulado) ──────────────────
+  /** Wall-clock del arranque de la simulación (para "tiempo real transcurrido") */
+  simInicioRealMs = 0;
+
+  get transcurridoSimDisplay(): string {
+    const ms = Math.max(0, this.tiempoActualMs - this.tiempoInicioMs);
+    const dias = Math.floor(ms / 86_400_000);
+    const hh = Math.floor((ms % 86_400_000) / 3_600_000).toString().padStart(2, '0');
+    const mm = Math.floor((ms % 3_600_000) / 60_000).toString().padStart(2, '0');
+    return `${dias} días ${hh}:${mm}`;
+  }
+
+  get transcurridoRealDisplay(): string {
+    if (!this.simInicioRealMs) return '00:00:00';
+    const s = Math.max(0, Math.floor((Date.now() - this.simInicioRealMs) / 1000));
+    const hh = Math.floor(s / 3600).toString().padStart(2, '0');
+    const mm = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+
   // ── Barra de filtros superior ───────────────────────────────
   filtroBarraCodigo    = '';
   filtroBarraOrigen    = '';
@@ -226,6 +251,7 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   fechaColapsoEstimadaMs  = 0;
   duracionHastaColapsoMin = 0;
   pctNoAsignados          = 0;
+  colapsoMotivo           = '';
   totalCiclos             = 12;
 
   // ── Zoom / Pan ─────────────────────────────────────────────
@@ -246,7 +272,8 @@ export class SimulacionComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
     private readonly sesion: SimulacionSesionService,
-    private readonly renderer: Renderer2
+    private readonly renderer: Renderer2,
+    private readonly hostEl: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void  {
@@ -256,6 +283,9 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   }
   ngOnDestroy(): void {
     this.renderer.removeClass(document.body, 'sim-fullscreen');
+    document.removeEventListener('mousemove', this.docMouseMove);
+    document.removeEventListener('mouseup', this.docMouseUp);
+    this.hostEl.nativeElement.removeEventListener('wheel', this.hostWheel);
     if (this.headerHideTimer) { clearTimeout(this.headerHideTimer); this.headerHideTimer = null; }
     if (this.estado === 'listo' || this.estado === 'streaming') {
       this.sesion.guardar({
@@ -272,9 +302,11 @@ export class SimulacionComponent implements OnInit, OnDestroy {
         colapsoDetectado: this.colapsoDetectado,
         fechaColapsoMs: this.fechaColapsoMs,
         fechaColapsoEstimadaMs: this.fechaColapsoEstimadaMs,
+        colapsoMotivo: this.colapsoMotivo,
         duracionHastaColapsoMin: this.duracionHastaColapsoMin,
         pctNoAsignados: this.pctNoAsignados,
         simulacionPausada: this.simulacionPausada,
+        transcurridoRealMs: this.simInicioRealMs ? Date.now() - this.simInicioRealMs : 0,
       });
     }
     this.detener();
@@ -282,10 +314,12 @@ export class SimulacionComponent implements OnInit, OnDestroy {
   }
 
   private cargarFechaMinima(): void {
-    this.simulacionService.obtenerFechaMinima().subscribe({
-      next: (fecha) => {
-        this.fechaMinima = fecha;
-        this.fechaInicio = new Date(fecha);
+    // Habilitar el selector desde la PRIMERA fecha con pedidos en la BD
+    this.simulacionService.obtenerRangoDatos().subscribe({
+      next: (rango) => {
+        this.fechaMinima = rango.desde;
+        this.fechaMaxima = rango.hasta;
+        this.fechaInicio = new Date(rango.desde);
         this.cdr.detectChanges();
       }
     });
@@ -360,9 +394,11 @@ private getAirportXOffset(codigoOaci: string): number {
     this.colapsoDetectado = snap.colapsoDetectado ?? false;
     this.fechaColapsoMs = snap.fechaColapsoMs ?? 0;
     this.fechaColapsoEstimadaMs = snap.fechaColapsoEstimadaMs ?? 0;
+    this.colapsoMotivo = snap.colapsoMotivo ?? '';
     this.duracionHastaColapsoMin = snap.duracionHastaColapsoMin ?? 0;
     this.pctNoAsignados = snap.pctNoAsignados ?? 0;
     this.simulacionPausada = snap.simulacionPausada ?? false;
+    this.simInicioRealMs = Date.now() - (snap.transcurridoRealMs ?? 0);
     this.estado = 'listo';
     this.mostrarConfig = false;
     this.recomputarDisponibilidadAlmacen();
@@ -511,10 +547,11 @@ private getAirportXOffset(codigoOaci: string): number {
         this.fechaColapsoMs          = msg.tiempoColapsoMs as number;
         this.duracionHastaColapsoMin = msg.duracionSimMinutos as number;
         this.pctNoAsignados          = msg.pctNoAsignados as number;
+        this.colapsoMotivo           = msg.motivo ?? `${this.pctNoAsignados}% de maletas sin asignar`;
         this.messageService.add({
           severity: 'error', sticky: true,
           summary:  '⚠️ Colapso logístico confirmado',
-          detail:   `Sistema colapsó el ${new Date(this.fechaColapsoMs).toLocaleDateString('es-PE', { timeZone: 'UTC' })} — ${this.pctNoAsignados}% de maletas sin asignar`
+          detail:   `Sistema colapsó el ${new Date(this.fechaColapsoMs).toLocaleDateString('es-PE', { timeZone: 'UTC' })} — ${this.colapsoMotivo}`
         });
         this.cdr.detectChanges();
         break;
@@ -532,6 +569,7 @@ private getAirportXOffset(codigoOaci: string): number {
     this.tiempoInicioMs = tiempoInicioMs;
     this.tiempoActualMs = tiempoInicioMs;
     this.tiempoFinMs    = tiempoInicioMs;
+    this.simInicioRealMs = Date.now();
 
     // En modo colapso el inicio lo fija el backend (no la fecha del formulario):
     // evitar que onWsUpdate lo recalcule desde la UI
@@ -782,8 +820,9 @@ private getAirportXOffset(codigoOaci: string): number {
             this.tiempoActualMs = Math.min(next, this.tiempoFinMs);
           }
         }
-        // No llama detener() — sigue avanzando mientras llegan más ventanas
-        this.actualizarEstado();
+        // Tick ligero a 4 fps (posiciones); pesado 1 vez por segundo (paneles/estado)
+        this.actualizarPosiciones();
+        if (++this.tickCount % this.TICKS_PESADO === 0) this.actualizarEstadoPesado();
         this.cdr.detectChanges();
       }, this.TICK_MS);
     });
@@ -813,7 +852,9 @@ private getAirportXOffset(codigoOaci: string): number {
           this.tiempoActualMs = this.tiempoFinMs;
           this.detener();
         }
-        this.actualizarEstado();
+        // Tick ligero a 4 fps (posiciones); pesado 1 vez por segundo (paneles/estado)
+        this.actualizarPosiciones();
+        if (++this.tickCount % this.TICKS_PESADO === 0 || !this.reproduciendo) this.actualizarEstadoPesado();
         this.cdr.detectChanges();
       }, this.TICK_MS);
     });
@@ -908,30 +949,18 @@ private getAirportXOffset(codigoOaci: string): number {
       .filter((x): x is ArcoVuelo => x !== null);
   }
 
+  /** Actualización completa: posiciones + estado pesado (para eventos discretos) */
   private actualizarEstado(): void {
+    this.actualizarPosiciones();
+    this.actualizarEstadoPesado();
+  }
+
+  /**
+   * Parte LIGERA del tick (corre a 4 fps): solo posiciones de aviones y
+   * borrado de estela. Mantiene la animación fluida sin recalcular paneles.
+   */
+  private actualizarPosiciones(): void {
     const now = this.tiempoActualMs;
-
-    // Cancelaciones de 1 día: reactivar vuelos cuyo día simulado ya pasó
-    this.reactivarCanceladosExpirados();
-
-    // ── Estado arcos + detección de eventos de transición ──
-    this.arcosVuelo.forEach(arco => {
-      const s = arco.vuelo.horaSalida.getTime();
-      const l = arco.vuelo.horaLlegada.getTime();
-      const nuevo: 'PENDIENTE' | 'EN_VUELO' | 'ATERRIZADO' =
-        now >= l ? 'ATERRIZADO' : now >= s ? 'EN_VUELO' : 'PENDIENTE';
-      const anterior = this.estadosAnteriores.get(arco.vuelo.codigoVuelo) ?? 'PENDIENTE';
-      if (anterior !== nuevo) {
-        if (nuevo === 'EN_VUELO')
-          this.agregarEvento(
-            `Vuelo ${arco.vuelo.codigoVuelo}: ${arco.vuelo.origen} → ${arco.vuelo.destino} despegó`, 'despegue');
-        else if (nuevo === 'ATERRIZADO')
-          this.agregarEvento(
-            `Vuelo ${arco.vuelo.codigoVuelo}: aterrizó en ${arco.vuelo.destino}`, 'aterrizaje');
-        this.estadosAnteriores.set(arco.vuelo.codigoVuelo, nuevo);
-      }
-      arco.estado = nuevo;
-    });
 
     // ── Aviones en el aire ──
     this.planosEnMapa = this.vuelos
@@ -958,6 +987,36 @@ private getAirportXOffset(codigoOaci: string): number {
           arco.dRemaining = this.calcArcoRemaining(arco.vuelo, plano.progreso);
         }
       }
+    });
+  }
+
+  /**
+   * Parte PESADA del tick (corre 1 vez por segundo): transiciones de estado,
+   * eventos, ocupación de almacenes, cancelaciones y refresco de paneles.
+   */
+  private actualizarEstadoPesado(): void {
+    const now = this.tiempoActualMs;
+
+    // Cancelaciones de 1 día: reactivar vuelos cuyo día simulado ya pasó
+    this.reactivarCanceladosExpirados();
+
+    // ── Estado arcos + detección de eventos de transición ──
+    this.arcosVuelo.forEach(arco => {
+      const s = arco.vuelo.horaSalida.getTime();
+      const l = arco.vuelo.horaLlegada.getTime();
+      const nuevo: 'PENDIENTE' | 'EN_VUELO' | 'ATERRIZADO' =
+        now >= l ? 'ATERRIZADO' : now >= s ? 'EN_VUELO' : 'PENDIENTE';
+      const anterior = this.estadosAnteriores.get(arco.vuelo.codigoVuelo) ?? 'PENDIENTE';
+      if (anterior !== nuevo) {
+        if (nuevo === 'EN_VUELO')
+          this.agregarEvento(
+            `Vuelo ${arco.vuelo.codigoVuelo}: ${arco.vuelo.origen} → ${arco.vuelo.destino} despegó`, 'despegue');
+        else if (nuevo === 'ATERRIZADO')
+          this.agregarEvento(
+            `Vuelo ${arco.vuelo.codigoVuelo}: aterrizó en ${arco.vuelo.destino}`, 'aterrizaje');
+        this.estadosAnteriores.set(arco.vuelo.codigoVuelo, nuevo);
+      }
+      arco.estado = nuevo;
     });
 
     // ── Maletas en aeropuerto ──
@@ -986,6 +1045,9 @@ private getAirportXOffset(codigoOaci: string): number {
         this.cancelacionesEnMapa.delete(key);
       }
     });
+
+    // Refrescar los paneles memoizados (listas/indicadores del panel derecho)
+    this.bumpUi();
   }
 
   private agregarEvento(mensaje: string, tipo: 'despegue' | 'aterrizaje'): void {
@@ -1189,10 +1251,12 @@ private getAirportXOffset(codigoOaci: string): number {
 
   seleccionarAeropuerto(codigo: string): void {
     this.aeropuertoFiltroMapa = this.aeropuertoFiltroMapa === codigo ? null : codigo;
+    this.bumpUi();
   }
 
   limpiarFiltroMapa(): void {
     this.aeropuertoFiltroMapa = null;
+    this.bumpUi();
   }
 
   toggleEventos(): void {
@@ -1306,6 +1370,7 @@ private getAirportXOffset(codigoOaci: string): number {
 
   seleccionarVuelo(v: VueloSimulacion): void {
     this.vueloSeleccionado = this.vueloSeleccionado?.codigoVuelo === v.codigoVuelo ? null : v;
+    this.bumpUi();
   }
 
   seleccionarVueloConFiltro(v: VueloSimulacion): void {
@@ -1317,6 +1382,7 @@ private getAirportXOffset(codigoOaci: string): number {
       this.aeropuertoFiltroMapa = null;
       this.seleccionarVuelo(v);
     }
+    this.bumpUi();
     this.cdr.detectChanges();
   }
 
@@ -1409,9 +1475,53 @@ private getAirportXOffset(codigoOaci: string): number {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // ── PANEL DATOS ────────────────────────────────────────────
+  // ── PANEL DATOS (memoizado) ────────────────────────────────
+  // Los getters de panel se re-evalúan en CADA ciclo de change detection de
+  // Angular (incluidos los provocados por eventos de mouse). Reconstruir y
+  // ordenar miles de filas por ciclo congelaba la interacción con el mapa.
+  // Solución: computar una vez por "versión de UI" (tick pesado de 1 s o
+  // interacción del usuario vía bumpUi()) y servir el arreglo cacheado.
+
+  private uiVersion = 0;
+  private cacheVersion = -1;
+  private cPanelVuelos: any[] = [];
+  private cPanelAlmacenes: any[] = [];
+  private cPanelEnvios: any[] = [];
+  private cIndicadores: any = { enVuelo: 0, total: 0, semFlota: 'VACIO', pctAlmacenes: 0, semAlmacenes: 'VACIO' };
+
+  /** Invalida los paneles memoizados (llamar tras cambiar filtros/orden/datos) */
+  bumpUi(): void { this.uiVersion++; }
+
+  private refrescarCachesSiHaceFalta(): void {
+    if (this.cacheVersion === this.uiVersion) return;
+    this.cacheVersion = this.uiVersion;
+    this.cPanelAlmacenes = this.computarPanelAlmacenes();
+    this.cPanelVuelos    = this.computarPanelVuelos();
+    this.cPanelEnvios    = this.computarPanelEnvios();
+    this.cIndicadores    = this.computarIndicadores();
+  }
 
   get panelVuelosFiltrados(): any[] {
+    this.refrescarCachesSiHaceFalta();
+    return this.cPanelVuelos;
+  }
+
+  get panelAlmacenesFiltrados(): any[] {
+    this.refrescarCachesSiHaceFalta();
+    return this.cPanelAlmacenes;
+  }
+
+  get panelEnviosFiltrados(): any[] {
+    this.refrescarCachesSiHaceFalta();
+    return this.cPanelEnvios;
+  }
+
+  get simIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
+    this.refrescarCachesSiHaceFalta();
+    return this.cIndicadores;
+  }
+
+  private computarPanelVuelos(): any[] {
     let lista = this.vuelos.map(v => {
       const cancelado = this.vuelosCancelados.has(v.codigoVuelo);
       const estado = cancelado ? 'CANCELADO' : this.getEstadoVuelo(v);
@@ -1457,7 +1567,7 @@ private getAirportXOffset(codigoOaci: string): number {
     return lista.slice(0, 60);
   }
 
-  get panelAlmacenesFiltrados(): any[] {
+  private computarPanelAlmacenes(): any[] {
     const now = this.tiempoActualMs;
     const salen  = new Map<string, number>();
     const entran = new Map<string, number>();
@@ -1485,7 +1595,7 @@ private getAirportXOffset(codigoOaci: string): number {
     return lista;
   }
 
-  get panelEnviosFiltrados(): any[] {
+  private computarPanelEnvios(): any[] {
     // Si hay vuelo seleccionado, mostrar solo sus envíos
     if (this.vueloSeleccionado) {
       return this.vueloSeleccionado.envios.map(e => ({
@@ -1571,6 +1681,7 @@ private getAirportXOffset(codigoOaci: string): number {
       this.envioSeleccionadoId = id;
       this.trackingSel = this.buildTrackingEnvio(id);
     }
+    this.bumpUi();
   }
 
   /** Reconstruye la ruta completa de un envío a partir de los vuelos que lo transportan. */
@@ -1638,12 +1749,12 @@ private getAirportXOffset(codigoOaci: string): number {
     return estado === 'EN_VUELO' ? 'ev-badge-vuelo' : estado === 'ATERRIZADO' ? 'ev-badge-aterrizado' : estado === 'CANCELADO' ? 'ev-badge-cancelado' : 'ev-badge-pendiente';
   }
 
-  setSortVuelo(sort: string): void    { this.sortVuelo = sort; }
-  setVistaVuelo(v: 'todos' | 'salida' | 'llegada'): void { this.vistaVuelo = v; }
-  setSortAlmacen(sort: string): void  { this.sortAlmacen = sort; }
-  setFiltroEstadoVuelo(e: string): void         { this.filtroEstadoVuelo = e; }
-  filtrarPorSemaforoAlmacen(s: string | null): void { this.semaforoAlmacenFiltro = s; }
-  limpiarFiltrosEnvios(): void { this.filtroEnvioOrigen = ''; this.filtroEnvioDestino = ''; }
+  setSortVuelo(sort: string): void    { this.sortVuelo = sort; this.bumpUi(); }
+  setVistaVuelo(v: 'todos' | 'salida' | 'llegada'): void { this.vistaVuelo = v; this.bumpUi(); }
+  setSortAlmacen(sort: string): void  { this.sortAlmacen = sort; this.bumpUi(); }
+  setFiltroEstadoVuelo(e: string): void         { this.filtroEstadoVuelo = e; this.bumpUi(); }
+  filtrarPorSemaforoAlmacen(s: string | null): void { this.semaforoAlmacenFiltro = s; this.bumpUi(); }
+  limpiarFiltrosEnvios(): void { this.filtroEnvioOrigen = ''; this.filtroEnvioDestino = ''; this.bumpUi(); }
 
   trackPanelVuelo(_: number, item: any): string  { return item.vuelo.codigoVuelo; }
   trackPanelAlmacen(_: number, item: any): string { return item.codigo; }
@@ -1676,30 +1787,12 @@ private getAirportXOffset(codigoOaci: string): number {
   zoomOut():   void { this.zoomLevel = Math.max(1, this.zoomLevel - 0.5); if (this.zoomLevel <= 1) { this.panX = 0; this.panY = 0; } else this.clampPan(); this.cdr.detectChanges(); }
   resetZoom(): void { this.zoomLevel = 1; this.panX = 0; this.panY = 0; this.cdr.detectChanges(); }
 
-  onMapWheel(event: WheelEvent): void {
-    event.preventDefault();
-    const delta = event.deltaY > 0 ? -0.2 : 0.2;
-    this.zoomLevel = Math.max(1, Math.min(6, this.zoomLevel + delta));
-    if (this.zoomLevel <= 1) { this.zoomLevel = 1; this.panX = 0; this.panY = 0; }
-    else this.clampPan();
-    this.programarOcultarHeader();
-    this.cdr.detectChanges();
-  }
-
   onMapMouseDown(event: MouseEvent): void {
     if (this.zoomLevel <= 1) return;
     this.isDragging = true;
     this.dragStartX = event.clientX - this.panX;
     this.dragStartY = event.clientY - this.panY;
     event.preventDefault();
-  }
-
-  onMapMouseMove(event: MouseEvent): void {
-    if (!this.isDragging) return;
-    this.panX = event.clientX - this.dragStartX;
-    this.panY = event.clientY - this.dragStartY;
-    this.clampPan();
-    this.cdr.detectChanges();
   }
 
   onMapMouseUp(): void { this.isDragging = false; }
@@ -1716,12 +1809,12 @@ private getAirportXOffset(codigoOaci: string): number {
 
   // ── INDICADORES GLOBALES ────────────────────────────────────
 
-  get simIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
+  private computarIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
     const enVuelo = this.planosEnMapa.length;
     const total = this.vuelos.length;
     const pctFlota = total > 0 ? (enVuelo / total) * 100 : 0;
     const semFlota = pctFlota >= 20 ? 'VERDE' : pctFlota > 0 ? 'AMARILLO' : 'VACIO';
-    const almList = this.panelAlmacenesFiltrados;
+    const almList = this.cPanelAlmacenes;
     const pctAlmacenes = almList.length > 0
       ? almList.reduce((s: number, a: any) => s + (a.pct as number), 0) / almList.length
       : 0;
@@ -1779,6 +1872,7 @@ private getAirportXOffset(codigoOaci: string): number {
     this.fechaColapsoEstimadaMs  = 0;
     this.duracionHastaColapsoMin = 0;
     this.pctNoAsignados          = 0;
+    this.colapsoMotivo           = '';
     this.totalCiclos             = 12;
     this.ventanaFinMs            = 0;
     this.esperandoDatos          = false;
@@ -1877,6 +1971,7 @@ private getAirportXOffset(codigoOaci: string): number {
     this.filtroBarraDestino = '';
     this.filtroBarraContinente = '';
     this.filtroBarraPais = '';
+    this.bumpUi();
   }
 
   vueloPassaFiltrosBarra(vuelo: VueloSimulacion): boolean {
@@ -1964,29 +2059,83 @@ private getAirportXOffset(codigoOaci: string): number {
     ev.stopPropagation();
   }
 
-  @HostListener('document:mousemove', ['$event'])
-  onDocMouseMoveHeader(ev: MouseEvent): void {
-    if (!this.draggingHeader) return;
-    const header = document.querySelector('.sim-header') as HTMLElement | null;
-    const parent = header?.offsetParent as HTMLElement | null;
-    if (!header || !parent) return;
-    const parentRect = parent.getBoundingClientRect();
-    this.headerX = Math.max(0, Math.min(parentRect.width - 60, ev.clientX - parentRect.left - this.dragOffX));
-    this.headerY = Math.max(0, Math.min(parentRect.height - 40, ev.clientY - parentRect.top - this.dragOffY));
-    this.cdr.detectChanges();
+  /**
+   * Listeners de mouse registrados FUERA de NgZone.
+   *
+   * Un binding (mousemove) de template dispara un ciclo completo de change
+   * detection de Angular por cada pixel recorrido — con miles de vuelos eso
+   * congelaba la interacción. Aquí los gestos (pan del mapa, arrastre del
+   * header) mutan el DOM directamente y solo se sincroniza el estado Angular
+   * al soltar el mouse (un único detectChanges por gesto).
+   */
+  ngAfterViewInit(): void {
+    const host = this.hostEl.nativeElement as HTMLElement;
+    this.ngZone.runOutsideAngular(() => {
+      document.addEventListener('mousemove', this.docMouseMove, { passive: true });
+      document.addEventListener('mouseup', this.docMouseUp, { passive: true });
+      host.addEventListener('wheel', this.hostWheel, { passive: false });
+    });
   }
 
-  @HostListener('document:mouseup')
-  onDocMouseUpHeader(): void {
-    this.draggingHeader = false;
-  }
-
-  onSimWrapMouseMove(event: MouseEvent): void {
-    if (this.simHeaderOculto && event.clientY < 150) {
-      this.simHeaderOculto = false;
-      if (this.headerHideTimer) { clearTimeout(this.headerHideTimer); this.headerHideTimer = null; }
-      this.cdr.detectChanges();
+  private readonly docMouseMove = (ev: MouseEvent): void => {
+    // 1. Arrastre del header flotante → posición directa al DOM
+    if (this.draggingHeader) {
+      const header = this.hostEl.nativeElement.querySelector('.sim-header') as HTMLElement | null;
+      const parent = header?.offsetParent as HTMLElement | null;
+      if (header && parent) {
+        const parentRect = parent.getBoundingClientRect();
+        this.headerX = Math.max(0, Math.min(parentRect.width - 60, ev.clientX - parentRect.left - this.dragOffX));
+        this.headerY = Math.max(0, Math.min(parentRect.height - 40, ev.clientY - parentRect.top - this.dragOffY));
+        header.style.left = this.headerX + 'px';
+        header.style.top = this.headerY + 'px';
+        header.style.transform = 'none';
+      }
+      return;
     }
+    // 2. Pan del mapa → transform directo al DOM (sin change detection)
+    if (this.isDragging) {
+      this.panX = ev.clientX - this.dragStartX;
+      this.panY = ev.clientY - this.dragStartY;
+      this.clampPan();
+      this.aplicarTransformDirecto();
+      return;
+    }
+    // 3. Auto-mostrar header al acercar el mouse arriba (solo si cambia el estado)
+    if (this.simHeaderOculto && ev.clientY < 150) {
+      this.ngZone.run(() => {
+        this.simHeaderOculto = false;
+        if (this.headerHideTimer) { clearTimeout(this.headerHideTimer); this.headerHideTimer = null; }
+        this.cdr.detectChanges();
+      });
+    }
+  };
+
+  private readonly docMouseUp = (): void => {
+    const habiaGesto = this.draggingHeader || this.isDragging;
+    this.draggingHeader = false;
+    this.isDragging = false;
+    if (habiaGesto) {
+      // Sincronizar el estado Angular una sola vez al terminar el gesto
+      this.ngZone.run(() => this.cdr.detectChanges());
+    }
+  };
+
+  private readonly hostWheel = (ev: WheelEvent): void => {
+    const enMapa = (ev.target as HTMLElement)?.closest?.('.map-container');
+    if (!enMapa) return;
+    ev.preventDefault();
+    const delta = ev.deltaY > 0 ? -0.2 : 0.2;
+    this.zoomLevel = Math.max(1, Math.min(6, this.zoomLevel + delta));
+    if (this.zoomLevel <= 1) { this.zoomLevel = 1; this.panX = 0; this.panY = 0; }
+    else this.clampPan();
+    this.aplicarTransformDirecto();
+    this.programarOcultarHeader();
+  };
+
+  /** Aplica el transform de zoom/pan directamente al layer (sin pasar por Angular) */
+  private aplicarTransformDirecto(): void {
+    const layer = this.hostEl.nativeElement.querySelector('.map-transform-layer') as HTMLElement | null;
+    if (layer) layer.style.transform = this.transformStyle;
   }
 
   private programarOcultarHeader(): void {
@@ -2000,16 +2149,25 @@ private getAirportXOffset(codigoOaci: string): number {
 
   // ── OPCIONES ÚNICAS PARA FILTROS ──────────────────────────
 
-  get uniqueOrigenes(): string[] {
-    return Array.from(new Set(this.vuelos.map(v => v.origen))).sort();
+  // Cacheadas por cantidad de vuelos/aeropuertos (solo cambian al llegar datos)
+  private cUniqueKey = -1;
+  private cUniqueOrigenes: string[] = [];
+  private cUniqueDestinos: string[] = [];
+  private cUniqueContinentes: string[] = [];
+  private cUniquePaises: string[] = [];
+
+  private refrescarUniquesSiHaceFalta(): void {
+    const key = this.vuelos.length * 100000 + this.aeropuertos.length;
+    if (key === this.cUniqueKey) return;
+    this.cUniqueKey = key;
+    this.cUniqueOrigenes    = Array.from(new Set(this.vuelos.map(v => v.origen))).sort();
+    this.cUniqueDestinos    = Array.from(new Set(this.vuelos.map(v => v.destino))).sort();
+    this.cUniqueContinentes = Array.from(new Set(this.aeropuertos.map(a => a.continente).filter(Boolean))).sort();
+    this.cUniquePaises      = Array.from(new Set(this.aeropuertos.map(a => a.pais).filter(Boolean))).sort();
   }
-  get uniqueDestinos(): string[] {
-    return Array.from(new Set(this.vuelos.map(v => v.destino))).sort();
-  }
-  get uniqueContinentes(): string[] {
-    return Array.from(new Set(this.aeropuertos.map(a => a.continente).filter(Boolean))).sort();
-  }
-  get uniquePaises(): string[] {
-    return Array.from(new Set(this.aeropuertos.map(a => a.pais).filter(Boolean))).sort();
-  }
+
+  get uniqueOrigenes(): string[]    { this.refrescarUniquesSiHaceFalta(); return this.cUniqueOrigenes; }
+  get uniqueDestinos(): string[]    { this.refrescarUniquesSiHaceFalta(); return this.cUniqueDestinos; }
+  get uniqueContinentes(): string[] { this.refrescarUniquesSiHaceFalta(); return this.cUniqueContinentes; }
+  get uniquePaises(): string[]      { this.refrescarUniquesSiHaceFalta(); return this.cUniquePaises; }
 }
