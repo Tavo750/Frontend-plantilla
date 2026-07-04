@@ -1,89 +1,122 @@
-﻿<div class="sim-wrap" (mousemove)="onSimWrapMouseMove($event)">
+﻿<div class="sim-wrap">
 
-  <!-- ── HEADER (flotante y movible) ───────────────────────── -->
+  <!-- ── HEADER (flotante y movible: reloj + indicadores + stats + filtros) ── -->
   <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto"
     [class.sim-header-dragged]="headerX !== null"
     [style.left.px]="headerX" [style.top.px]="headerY">
 
-    <i class="pi pi-arrows-alt drag-handle" (mousedown)="onHeaderDragStart($event)" title="Arrastrar barra"></i>
+    <div class="sim-header-row">
+      <i class="pi pi-arrows-alt drag-handle" (mousedown)="onHeaderDragStart($event)" title="Arrastrar barra"></i>
 
-    <div class="header-center" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
-      <div style="display: flex; gap: 2rem; align-items: center; font-size: 0.85rem;">
-        <div style="color: #94a3b8;">
-          Real: <span style="color: #60a5fa; font-weight: 600; font-family: monospace;">{{ fechaRealDisplay }}</span>
+      <div class="header-center" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
+        <div class="tiempo-block">
+          <div class="tb-title">Tiempo simulado</div>
+          <div class="tb-fecha tb-sim"><i class="pi pi-clock"></i> {{ fechaSimDisplay }}</div>
+          <div class="tb-sub">Tiempo transcurrido</div>
+          <div class="tb-transcurrido">{{ transcurridoSimDisplay }}</div>
         </div>
-        <div style="color: #94a3b8;">
-          Sim: <span style="color: #4ade80; font-weight: 600; font-family: monospace;">{{ fechaSimDisplay }}</span>
+        <div class="tiempo-block">
+          <div class="tb-title">Tiempo real</div>
+          <div class="tb-fecha tb-real"><i class="pi pi-clock"></i> {{ fechaRealDisplay }}</div>
+          <div class="tb-sub">Tiempo transcurrido</div>
+          <div class="tb-transcurrido">{{ transcurridoRealDisplay }}</div>
         </div>
         <div class="sync-chip" *ngIf="esperandoDatos && estado === 'streaming'" title="El reloj espera la siguiente ventana de datos planificados">
           <i class="pi pi-spin pi-spinner"></i>
           <span>Sincronizando…</span>
         </div>
       </div>
-    </div>
 
-    <div class="sim-indicadores" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
-      <div class="si-item">
-        <span class="si-label">Flota</span>
-        <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semFlota)"></span>
-        <span class="si-val">{{ simIndicadores.enVuelo }}/{{ simIndicadores.total }}</span>
+      <div class="sim-indicadores" *ngIf="(estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
+        <div class="si-item">
+          <span class="si-label">Flota</span>
+          <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semFlota)"></span>
+          <span class="si-val">{{ simIndicadores.enVuelo }}/{{ simIndicadores.total }}</span>
+        </div>
+        <div class="si-sep"></div>
+        <div class="si-item">
+          <span class="si-label">Almacenes</span>
+          <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semAlmacenes)"></span>
+          <span class="si-val">{{ simIndicadores.pctAlmacenes | number:'1.0-0' }}%</span>
+        </div>
       </div>
-      <div class="si-sep"></div>
-      <div class="si-item">
-        <span class="si-label">Almacenes</span>
-        <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semAlmacenes)"></span>
-        <span class="si-val">{{ simIndicadores.pctAlmacenes | number:'1.0-0' }}%</span>
+
+      <div class="header-actions">
+        <button class="btn-cfg btn-stop-sim"
+          [class.btn-stop-pausado]="simulacionPausada"
+          *ngIf="estado === 'streaming' || estado === 'listo'"
+          (click)="toggleStop()"
+          [title]="simulacionPausada ? 'Reanudar simulación' : 'Pausar simulación'">
+          <i [class]="simulacionPausada ? 'pi pi-play' : 'pi pi-pause'"></i>
+          <span>{{ simulacionPausada ? 'Reanudar' : 'Stop' }}</span>
+        </button>
+        <button class="btn-cfg btn-cancel-sim"
+          *ngIf="estado === 'streaming' || estado === 'listo' || estado === 'cargando'"
+          (click)="detenerTodo()"
+          title="Cancelar la simulación por completo">
+          <i class="pi pi-times"></i>
+          <span>Cancelar</span>
+        </button>
+        <button class="btn-cfg" (click)="mostrarBarraFiltros = !mostrarBarraFiltros"
+          [class.btn-cfg-active]="hayFiltrosBarra" title="Filtros de mapa">
+          <i class="pi pi-filter"></i>
+        </button>
+        <button class="btn-cfg" (click)="mostrarBarsSuperiores = !mostrarBarsSuperiores"
+          title="Colapsar/expandir estadísticas">
+          <i [class]="mostrarBarsSuperiores ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+        </button>
+        <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
+          <i class="pi pi-sliders-h"></i>
+        </button>
       </div>
     </div>
 
-    <div class="header-actions">
-      <button class="btn-cfg btn-stop-sim"
-        [class.btn-stop-pausado]="simulacionPausada"
-        *ngIf="estado === 'streaming' || estado === 'listo'"
-        (click)="toggleStop()"
-        [title]="simulacionPausada ? 'Reanudar simulación' : 'Pausar simulación'">
-        <i [class]="simulacionPausada ? 'pi pi-play' : 'pi pi-pause'"></i>
-        <span>{{ simulacionPausada ? 'Reanudar' : 'Stop' }}</span>
-      </button>
-      <button class="btn-cfg btn-cancel-sim"
-        *ngIf="estado === 'streaming' || estado === 'listo' || estado === 'cargando'"
-        (click)="detenerTodo()"
-        title="Cancelar la simulación por completo">
-        <i class="pi pi-times"></i>
-        <span>Cancelar</span>
-      </button>
-      <button class="btn-cfg" (click)="mostrarBarraFiltros = !mostrarBarraFiltros"
-        [class.btn-cfg-active]="hayFiltrosBarra" title="Filtros de mapa">
-        <i class="pi pi-filter"></i>
-      </button>
-      <button class="btn-cfg" (click)="mostrarBarsSuperiores = !mostrarBarsSuperiores"
-        title="Colapsar/expandir barras superiores">
-        <i [class]="mostrarBarsSuperiores ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
-      </button>
-      <button class="btn-cfg" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
-        <i class="pi pi-sliders-h"></i>
-      </button>
+    <!-- Fila de estadísticas (dentro de la barra movible) -->
+    <div class="sim-header-row stats-row" *ngIf="(estado === 'listo' || estado === 'streaming') && mostrarBarsSuperiores">
+      <div class="stat-chip">
+        <div class="s-lbl">Vuelos completados</div>
+        <div class="s-val">{{ getVuelosCompletados() }}</div>
+      </div>
+      <div class="stat-chip">
+        <div class="s-lbl">Vuelos activos</div>
+        <div class="s-val s-blue">{{ getVuelosActivos() }}</div>
+      </div>
+      <div class="stat-chip">
+        <div class="s-lbl">Maletas Totales</div>
+        <div class="s-val">{{ getPaquetesTotales() }}</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-chip">
+        <div class="s-lbl s-green">Maletas Entregadas</div>
+        <div class="s-val s-green">{{ getMaletasEntregadas() }}</div>
+      </div>
+      <div class="stat-chip">
+        <div class="s-lbl s-orange">Maletas en Tránsito</div>
+        <div class="s-val s-orange">{{ getMaletasEnVuelo() }}</div>
+      </div>
+      <div class="stat-chip">
+        <div class="s-lbl s-red">Maletas Retrasadas</div>
+        <div class="s-val s-red">{{ getMaletasRetrasadas() }}</div>
+      </div>
     </div>
-  </div>
 
-  <!-- ── BARRA DE FILTROS ──────────────────────────────────────── -->
-  <div class="filtros-bar" *ngIf="mostrarBarraFiltros && (estado === 'streaming' || estado === 'listo' || estado === 'cargando')">
-    <div class="filtros-inner">
+    <!-- Fila de filtros (dentro de la barra movible) -->
+    <div class="sim-header-row filtros-row" *ngIf="mostrarBarraFiltros && (estado === 'streaming' || estado === 'listo' || estado === 'cargando')">
       <i class="pi pi-filter filtros-icon"></i>
       <div class="fb-field">
         <label class="fb-label">Código</label>
-        <input class="fb-input" type="text" [(ngModel)]="filtroBarraCodigo" placeholder="LA2501…" />
+        <input class="fb-input" type="text" [(ngModel)]="filtroBarraCodigo" (ngModelChange)="bumpUi()" placeholder="LA2501…" />
       </div>
       <div class="fb-field">
         <label class="fb-label">Origen</label>
-        <select class="fb-select" [(ngModel)]="filtroBarraOrigen">
+        <select class="fb-select" [(ngModel)]="filtroBarraOrigen" (ngModelChange)="bumpUi()">
           <option value="">Todos</option>
           <option *ngFor="let o of uniqueOrigenes" [value]="o">{{ o }}</option>
         </select>
       </div>
       <div class="fb-field">
         <label class="fb-label">Destino</label>
-        <select class="fb-select" [(ngModel)]="filtroBarraDestino">
+        <select class="fb-select" [(ngModel)]="filtroBarraDestino" (ngModelChange)="bumpUi()">
           <option value="">Todos</option>
           <option *ngFor="let d of uniqueDestinos" [value]="d">{{ d }}</option>
         </select>
@@ -91,14 +124,14 @@
       <div class="fb-sep"></div>
       <div class="fb-field">
         <label class="fb-label">Continente</label>
-        <select class="fb-select" [(ngModel)]="filtroBarraContinente">
+        <select class="fb-select" [(ngModel)]="filtroBarraContinente" (ngModelChange)="bumpUi()">
           <option value="">Todos</option>
           <option *ngFor="let c of uniqueContinentes" [value]="c">{{ c }}</option>
         </select>
       </div>
       <div class="fb-field">
         <label class="fb-label">País</label>
-        <select class="fb-select" [(ngModel)]="filtroBarraPais">
+        <select class="fb-select" [(ngModel)]="filtroBarraPais" (ngModelChange)="bumpUi()">
           <option value="">Todos</option>
           <option *ngFor="let p of uniquePaises" [value]="p">{{ p }}</option>
         </select>
@@ -117,7 +150,8 @@
     <div class="config-inner">
       <div class="cfg-field">
         <label>Fecha de inicio</label>
-        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="fechaMinima"></p-datepicker>
+        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true"
+          [minDate]="fechaMinima" [maxDate]="fechaMaxima" [defaultDate]="fechaMinima"></p-datepicker>
       </div>
       <div class="cfg-field">
         <label>Hora de inicio</label>
@@ -159,7 +193,7 @@
         · Operó
         <strong>{{ (duracionHastaColapsoMin / 60 / 24) | number:'1.1-1' }} días simulados</strong>
         antes del colapso
-        · <strong class="cvb-pct">{{ pctNoAsignados }}%</strong> de maletas sin asignar
+        · <strong class="cvb-pct">{{ colapsoMotivo || (pctNoAsignados + '% de maletas sin asignar') }}</strong>
       </div>
     </div>
     <div class="cvb-estimada" *ngIf="fechaColapsoEstimadaMs > 0">
@@ -174,35 +208,6 @@
     <span>{{ mensajeProgreso || 'Analizando datos para estimar fecha de colapso...' }}</span>
   </div>
 
-  <!-- ── STATS BAR ─────────────────────────────────────────── -->
-  <div class="stats-bar" *ngIf="(estado === 'listo' || estado === 'streaming') && mostrarBarsSuperiores">
-    <div class="stat-chip">
-      <div class="s-lbl">Vuelos completados</div>
-      <div class="s-val">{{ getVuelosCompletados() }}</div>
-    </div>
-    <div class="stat-chip">
-      <div class="s-lbl">Vuelos activos</div>
-      <div class="s-val s-blue">{{ getVuelosActivos() }}</div>
-    </div>
-    <div class="stat-chip">
-      <div class="s-lbl">Maletas Totales</div>
-      <div class="s-val">{{ getPaquetesTotales() }}</div>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat-chip">
-      <div class="s-lbl s-green">Maletas Entregadas</div>
-      <div class="s-val s-green">{{ getMaletasEntregadas() }}</div>
-    </div>
-    <div class="stat-chip">
-      <div class="s-lbl s-orange">Maletas en Tránsito</div>
-      <div class="s-val s-orange">{{ getMaletasEnVuelo() }}</div>
-    </div>
-    <div class="stat-chip">
-      <div class="s-lbl s-red">Maletas Retrasadas</div>
-      <div class="s-val s-red">{{ getMaletasRetrasadas() }}</div>
-    </div>
-  </div>
-
   <!-- ── EMPTY STATE ────────────────────────────────────────── -->
   <div class="empty-state" *ngIf="estado === 'idle'">
     <i class="pi pi-globe"></i>
@@ -215,13 +220,12 @@
     <div class="main-content">
 
       <!-- ── MAPA ──────────────────────────────────────────── -->
+      <!-- mousemove y wheel se manejan fuera de NgZone (ver ngAfterViewInit):
+           evita un ciclo de change detection por cada pixel de movimiento -->
       <div class="map-container" #mapContainerEl
         [style.cursor]="cursorStyle"
         (mousedown)="onMapMouseDown($event)"
-        (mousemove)="onMapMouseMove($event)"
-        (mouseup)="onMapMouseUp()"
-        (mouseleave)="onMapMouseUp()"
-        (wheel)="onMapWheel($event)">
+        (mouseup)="onMapMouseUp()">
 
         <div class="map-transform-layer" [style.transform]="transformStyle">
 
@@ -367,10 +371,10 @@
           </ng-container>
           <ng-container *ngIf="activeTab === 'vuelos'">
             <span class="psf-label">Sem:</span>
-            <button class="sem-chip"              [class.active]="filtroSemVuelo === ''"        (click)="filtroSemVuelo = ''">Todos</button>
-            <button class="sem-chip chip-verde"   [class.active]="filtroSemVuelo === 'LIBRE'"   (click)="filtroSemVuelo = 'LIBRE'">Libre</button>
-            <button class="sem-chip chip-amarillo"[class.active]="filtroSemVuelo === 'MEDIO'"   (click)="filtroSemVuelo = 'MEDIO'">Medio</button>
-            <button class="sem-chip chip-rojo"    [class.active]="filtroSemVuelo === 'CRITICO'" (click)="filtroSemVuelo = 'CRITICO'">Crítico</button>
+            <button class="sem-chip"              [class.active]="filtroSemVuelo === ''"        (click)="filtroSemVuelo = ''; bumpUi()">Todos</button>
+            <button class="sem-chip chip-verde"   [class.active]="filtroSemVuelo === 'LIBRE'"   (click)="filtroSemVuelo = 'LIBRE'; bumpUi()">Libre</button>
+            <button class="sem-chip chip-amarillo"[class.active]="filtroSemVuelo === 'MEDIO'"   (click)="filtroSemVuelo = 'MEDIO'; bumpUi()">Medio</button>
+            <button class="sem-chip chip-rojo"    [class.active]="filtroSemVuelo === 'CRITICO'" (click)="filtroSemVuelo = 'CRITICO'; bumpUi()">Crítico</button>
           </ng-container>
         </div>
 
@@ -391,7 +395,7 @@
         <ng-container *ngIf="activeTab === 'vuelos'">
 
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="filtroVueloCodigo" placeholder="Código, origen o destino…" class="pf-input" />
+            <input type="text" [(ngModel)]="filtroVueloCodigo" (ngModelChange)="bumpUi()" placeholder="Código, origen o destino…" class="pf-input" />
             <span class="gestion-badge" *ngIf="vuelosCancelados.size > 0">{{ vuelosCancelados.size }} ✕</span>
           </div>
 
@@ -507,7 +511,7 @@
         <!-- TAB: ALMACENES -->
         <ng-container *ngIf="activeTab === 'almacenes'">
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="filtroAlmacenCodigo" placeholder="Código / Ciudad…" class="pf-input" />
+            <input type="text" [(ngModel)]="filtroAlmacenCodigo" (ngModelChange)="bumpUi()" placeholder="Código / Ciudad…" class="pf-input" />
           </div>
           <div class="panel-sort">
             <span class="ps-label">Ord:</span>
@@ -557,13 +561,13 @@
           </div>
           <!-- Búsqueda de envío/maleta por ID -->
           <div class="panel-filters">
-            <input type="text" [(ngModel)]="busquedaEnvio" placeholder="Buscar envío por ID…" class="pf-input" />
+            <input type="text" [(ngModel)]="busquedaEnvio" (ngModelChange)="bumpUi()" placeholder="Buscar envío por ID…" class="pf-input" />
             <button class="pf-clear" *ngIf="busquedaEnvio" (click)="busquedaEnvio = ''" title="Limpiar búsqueda"><i class="pi pi-times"></i></button>
           </div>
           <!-- Filtros solo si no hay vuelo seleccionado -->
           <div class="panel-filters" *ngIf="!vueloSeleccionado">
-            <input type="text" [(ngModel)]="filtroEnvioOrigen"  placeholder="Origen…"  class="pf-input pf-input-sm" />
-            <input type="text" [(ngModel)]="filtroEnvioDestino" placeholder="Destino…" class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioOrigen" (ngModelChange)="bumpUi()"  placeholder="Origen…"  class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioDestino" (ngModelChange)="bumpUi()" placeholder="Destino…" class="pf-input pf-input-sm" />
             <button class="pf-clear" (click)="limpiarFiltrosEnvios()" title="Limpiar filtros"><i class="pi pi-times"></i></button>
           </div>
           <!-- Ordenamiento -->

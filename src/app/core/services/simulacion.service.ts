@@ -129,26 +129,21 @@ export class SimulacionService {
       .replace(/\/+$/, '') + '/ws/simulacion';
   }
 
-  /** Obtiene la fecha mínima de datos disponibles desde monitoreo */
-  obtenerFechaMinima(): Observable<Date> {
+  /**
+   * Rango de fechas con pedidos en la BD: la simulación se puede iniciar desde
+   * la PRIMERA fecha con envíos registrados (no desde la fecha actual).
+   */
+  obtenerRangoDatos(): Observable<{ desde: Date; hasta: Date }> {
     return new Observable(observer => {
-      this.http.get<ApiResponse<any>>(`${this.apiUrl}/monitoreo/estado`).subscribe({
+      this.http.get<ApiResponse<any>>(`${this.apiUrl}/rango-datos`).subscribe({
         next: (resp) => {
-          if (resp.data?.relojSim) {
-            const relojSim = resp.data.relojSim;
-            const partes = relojSim.split('T');
-            if (partes.length === 2) {
-              const fecha = new Date(partes[0]);
-              observer.next(fecha);
-              observer.complete();
-              return;
-            }
-          }
-          observer.next(new Date('2026-01-02'));
+          const desde = resp.data?.desde ? new Date(`${resp.data.desde}T00:00:00`) : new Date('2026-01-01T00:00:00');
+          const hasta = resp.data?.hasta ? new Date(`${resp.data.hasta}T00:00:00`) : new Date('2027-12-31T00:00:00');
+          observer.next({ desde, hasta });
           observer.complete();
         },
         error: () => {
-          observer.next(new Date('2026-01-02'));
+          observer.next({ desde: new Date('2026-01-01T00:00:00'), hasta: new Date('2027-12-31T00:00:00') });
           observer.complete();
         }
       });
