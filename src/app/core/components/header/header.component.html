@@ -12,10 +12,7 @@
         <ng-container *ngFor="let item of breadcrumbItems; let last = last">
           <li>
             <i class="pi pi-chevron-right breadcrumb-separator"></i>
-            <span
-              class="breadcrumb-item"
-              [class.active]="last"
-              [attr.aria-current]="last ? 'page' : null"
+            <span class="breadcrumb-item" [class.active]="last" [attr.aria-current]="last ? 'page' : null"
               [title]="item.label">
               {{ item.label }}
             </span>
@@ -52,10 +49,10 @@
           </span>
         </div>
         <div class="profile-menu-divider"></div>
-        <button class="profile-menu-item" (click)="onLogout()">
+        <!-- <button class="profile-menu-item" (click)="onLogout()">
           <i class="pi pi-sign-out"></i>
           <span>Cerrar sesión</span>
-        </button>
+        </button> -->
       </div>
     </div>
   </div>
