@@ -21,8 +21,8 @@
   </div>
 
   <!-- LOADING -->
-  <div class="loading-state" *ngIf="cargando">
-    <p-progressspinner strokeWidth="3" animationDuration=".7s"></p-progressspinner>
+  <div class="loading-state" *ngIf="cargando || cargandoPaginas">
+    <p-progressSpinner strokeWidth="3" animationDuration=".7s"></p-progressSpinner>
     <span>Cargando datos...</span>
   </div>
 
@@ -36,7 +36,7 @@
   </div>
 
   <!-- CONTENIDO -->
-  <ng-container *ngIf="!cargando && !error">
+  <ng-container *ngIf="!cargando && !cargandoPaginas && !error">
 
     <!-- ── KPI CARDS ────────────────────────────────────────── -->
     <div class="kpi-grid">
