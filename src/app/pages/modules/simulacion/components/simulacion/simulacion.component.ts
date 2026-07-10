@@ -3,7 +3,7 @@ import {
   ViewChild, ElementRef, HostListener, Renderer2
 } from '@angular/core';
 import { MessageService } from 'primeng/api';
-import { SimulacionService, EventoSimulacion, ResumenSimulacion } from '../../../../../core/services/simulacion.service';
+import { SimulacionService, EventoSimulacion, ResumenSimulacion, SimulacionActiva } from '../../../../../core/services/simulacion.service';
 import { AeropuertoService } from '../../../../../core/services/aeropuerto.service';
 import { SimulacionSesionService } from '../../services/simulacion-sesion.service';
 
@@ -28,6 +28,7 @@ export interface VueloSimulacion {
   horaSalida: Date;
   horaLlegada: Date;
   totalMaletas: number;
+  capacidad?: number;
   envios: { idEnvio: number; cantidad: number; cumpleSla?: boolean; fechaRegistroMs?: number; fechaLimiteMs?: number }[];
 }
 
@@ -131,6 +132,11 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   tiempoInicioMs = 0;
   tiempoFinMs    = 0;
   tiempoActualMs = 0;
+  /** Duración de la "foto" de simulación: exactamente 5 días desde el inicio.
+   *  La animación se corta aquí, congelando el estado (aviones en vuelo,
+   *  maletas en almacén) aunque haya vuelos que aterricen después. */
+  private readonly DIAS_FOTO = 5;
+  private get duracionFotoMs(): number { return this.DIAS_FOTO * 24 * this.HORA_MS; }
   reproduciendo  = false;
   mostrarSidebar = false;
   startTimeReal  = 0;
@@ -173,6 +179,8 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ── Vista del panel vuelos (Todos / Salida / Llegada) ─────
   vistaVuelo: 'todos' | 'salida' | 'llegada' = 'todos';
+  // ── Orden de la lista de UT (código / origen / destino) ───
+  ordenVuelo: 'codigo' | 'origen' | 'destino' = 'codigo';
 
   // ── Replanificación tras cancelar vuelo ────────────────────
   replanificando = false;
@@ -182,11 +190,24 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   envioSeleccionadoId: number | null = null;
   trackingSel: any = null;
   sortEnvio: 'recientes' | 'antiguos' | 'carga' = 'recientes';
+  // ── Filtro por estado del envío en la simulación ──────────
+  // '' = todos los registrados · PENDIENTE (aún no se planifica/registra) ·
+  // ESPERANDO (registrado, esperando su vuelo) · EN_VUELO · ENTREGADO
+  estadoFiltroEnvio: '' | 'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO' = '';
+
+  // ── Rutas de envíos en el mapa (selección acumulativa) ─────
+  enviosRutaSeleccionados = new Set<number>();
+  rutasEnviosMapa: { id: number; color: string; paths: string[] }[] = [];
+  private readonly COLORES_RUTA = ['#f472b6', '#22d3ee', '#a78bfa', '#fb923c', '#4ade80', '#facc15', '#f87171', '#34d399'];
+
+  // ── Flujo de envíos del almacén seleccionado ───────────────
+  filtroFlujoAlmacen: 'todos' | 'entrando' | 'saliendo' = 'todos';
 
   // ── Header movible (drag) ──────────────────────────────────
   headerX: number | null = null;
   headerY: number | null = null;
   private draggingHeader = false;
+  private draggingTiempo = false;
   private dragOffX = 0;
   private dragOffY = 0;
 
@@ -220,8 +241,35 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   mostrarBarraFiltros  = false;
   mostrarBarsSuperiores = true;
 
+  // ── Barra de tiempo (independiente y movible) ──────────────
+  /** Barra separada con Tiempo real vs simulado; se puede ocultar (es grande) */
+  mostrarBarraTiempo = true;
+  barraTiempoX: number | null = null;
+  barraTiempoY: number | null = null;
+  /** Comprime la barra movible principal al mínimo (solo controles) */
+  barraComprimida = false;
+
+  // ── Simulación compartida (multi-dispositivo) ──────────────
+  /** true si esta pantalla se unió a la simulación de otro (no es la líder) */
+  esEspectador = false;
+  /** Al unirse: esperamos el SYNC para alinear el reloj antes de reproducir */
+  private esperandoSync = false;
+  private simIdUnido: string | null = null;
+  simulacionesActivas: SimulacionActiva[] = [];
+  private pollActivasId: any = null;
+
   // ── Stop / pausa de simulación ────────────────────────────
   simulacionPausada = false;
+
+  // ── Fin de la simulación (día 5): pausa eterna + métricas ──
+  /** true cuando la simulación llegó al día 5 y quedó congelada para siempre */
+  simFinalizada = false;
+  /** Métricas del estado final calculadas al terminar (para el reporte) */
+  metricasFinales: any = null;
+  /** Overlay de "Simulación finalizada" visible (se puede cerrar para ver el mapa) */
+  mostrarMetricasFinales = false;
+  /** Envíos aún sin planificar (arrastre) reportados en el último ciclo del backend */
+  private enArrastreFinal = 0;
 
   // ── Búfer de datos planificados (anti-micropausas) ─────────
   /** Fin de la última ventana planificada recibida del backend (ms época UTC) */
@@ -280,9 +328,14 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
     this.renderer.addClass(document.body, 'sim-fullscreen');
     this.cargarAeropuertos();
     this.cargarFechaMinima();
+    this.cargarSimulacionesActivas();
+    // Refrescar SIEMPRE la lista de simulaciones compartidas (sin restricciones):
+    // cualquier usuario que entre debe ver que hay una simulación activa.
+    this.pollActivasId = setInterval(() => this.cargarSimulacionesActivas(), 6000);
   }
   ngOnDestroy(): void {
     this.renderer.removeClass(document.body, 'sim-fullscreen');
+    if (this.pollActivasId) { clearInterval(this.pollActivasId); this.pollActivasId = null; }
     document.removeEventListener('mousemove', this.docMouseMove);
     document.removeEventListener('mouseup', this.docMouseUp);
     this.hostEl.nativeElement.removeEventListener('wheel', this.hostWheel);
@@ -411,9 +464,8 @@ private getAirportXOffset(codigoOaci: string): number {
 
   // ── SIMULACIÓN ─────────────────────────────────────────────
 
-  ejecutarSimulacion(): void {
-    this.detener();
-    this.cerrarWs();
+  /** Limpia todo el estado de una simulación (usado al iniciar una nueva o al unirse a otra) */
+  private limpiarEstadoSim(): void {
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
@@ -449,9 +501,26 @@ private getAirportXOffset(codigoOaci: string): number {
     this.busquedaEnvio = '';
     this.envioSeleccionadoId = null;
     this.trackingSel = null;
+    this.enviosRutaSeleccionados.clear();
+    this.rutasEnviosMapa = [];
+    this.filtroFlujoAlmacen = 'todos';
     this.replanificando = false;
     this.ventanaFinMs = 0;
     this.esperandoDatos = false;
+    this.simFinalizada = false;
+    this.metricasFinales = null;
+    this.mostrarMetricasFinales = false;
+    this.enArrastreFinal = 0;
+  }
+
+  ejecutarSimulacion(): void {
+    this.detener();
+    this.cerrarWs();
+    this.limpiarEstadoSim();
+    // Esta pantalla es la LÍDER de una nueva simulación compartida
+    this.esEspectador = false;
+    this.esperandoSync = false;
+    this.simIdUnido = null;
 
     this.estado = 'cargando';
     this.mostrarConfig = false;
@@ -459,6 +528,104 @@ private getAirportXOffset(codigoOaci: string): number {
     this.cdr.detectChanges();
 
     this.conectarWebSocket();
+  }
+
+  // ── SIMULACIÓN COMPARTIDA (multi-dispositivo) ──────────────
+
+  cargarSimulacionesActivas(): void {
+    this.simulacionService.obtenerSimulacionesActivas().subscribe({
+      next: (lista) => {
+        // Sin filtros: se muestran todas las simulaciones activas a cualquier usuario.
+        this.simulacionesActivas = lista ?? [];
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** Une esta pantalla a una simulación en curso: verá exactamente lo mismo que el líder. */
+  unirseASimulacion(sim: SimulacionActiva): void {
+    this.detener();
+    this.cerrarWs();
+    this.limpiarEstadoSim();
+    this.esEspectador = true;
+    this.esperandoSync = true;      // no reproducir hasta recibir SYNC
+    this.simIdUnido = sim.simId;
+    this.estado = 'cargando';
+    this.mostrarConfig = false;
+    this.mensajeProgreso = 'Uniéndose a la simulación en curso...';
+    this.cdr.detectChanges();
+    this.conectarWebSocketUnirse(sim.simId);
+  }
+
+  private conectarWebSocketUnirse(simId: string): void {
+    this.cerrarWs();
+    const wsUrl = this.simulacionService.getWsUrl();
+    this.ngZone.runOutsideAngular(() => {
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        this.ws!.send(JSON.stringify({ type: 'JOIN', simId }));
+        this.ngZone.run(() => {
+          this.estado = 'streaming';
+          this.mensajeProgreso = 'Conectado · reconstruyendo el estado de la simulación...';
+          this.cdr.detectChanges();
+        });
+      };
+
+      this.ws.onmessage = (event: MessageEvent) => {
+        this.ngZone.run(() => {
+          try { this.manejarMensajeWs(JSON.parse(event.data)); }
+          catch (e) { console.error('Error parsing WS simulacion', e); }
+        });
+      };
+
+      this.ws.onerror = () => {
+        this.ngZone.run(() => {
+          if (this.estado !== 'listo' && this.estado !== 'idle') {
+            this.estado = 'idle'; this.mensajeProgreso = '';
+            this.messageService.add({
+              severity: 'error', summary: 'Error WebSocket',
+              detail: 'Se interrumpió la conexión con la simulación.'
+            });
+            this.cdr.detectChanges();
+          }
+        });
+      };
+
+      this.ws.onclose = () => {
+        this.ngZone.run(() => {
+          if (this.estado === 'streaming' || this.estado === 'cargando') {
+            this.estado = 'idle'; this.mensajeProgreso = '';
+            this.cdr.detectChanges();
+          }
+        });
+      };
+    });
+  }
+
+  private onWsSync(msg: any): void {
+    // Alinear el reloj local al MISMO instante que ve el líder de la simulación.
+    const transcurridoRealMs = (msg.transcurridoRealMs as number) ?? 0;
+    const finalizada = !!msg.finalizada;
+    const simMsPorRealMs = (this.HORA_MS * this.AVANCE_H) / this.TICK_MS; // = K (120)
+    this.simInicioRealMs = Date.now() - transcurridoRealMs;
+    const objetivo = this.tiempoInicioMs + transcurridoRealMs * simMsPorRealMs;
+    this.tiempoActualMs = Math.min(Math.max(objetivo, this.tiempoInicioMs), this.tiempoFinMs || objetivo);
+    this.esperandoSync = false;
+
+    this.recomputarDisponibilidadAlmacen();
+    this.computarArcos();
+    this.actualizarEstado();
+
+    if (finalizada) {
+      // La simulación ya terminó: mostrar la foto congelada con métricas, sin reproducir.
+      this.estado = 'listo';
+      this.finalizarSimulacion();
+    } else {
+      this.estado = 'streaming';
+      if (!this.intervalId) this.iniciarAutoPlayStreaming();
+    }
+    this.cdr.detectChanges();
   }
 
   private conectarWebSocket(): void {
@@ -524,6 +691,7 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'INIT':    this.onWsInit(msg);   break;
       case 'UPDATE':  this.onWsUpdate(msg); break;
       case 'FIN':     this.onWsFin(msg);    break;
+      case 'SYNC':    this.onWsSync(msg);   break;
       case 'STOPPED': break;
 
       case 'BUSCANDO_COLAPSO':
@@ -568,40 +736,38 @@ private getAirportXOffset(codigoOaci: string): number {
     const tiempoInicioMs = msg.tiempoSimulacionMs as number;
     this.tiempoInicioMs = tiempoInicioMs;
     this.tiempoActualMs = tiempoInicioMs;
-    this.tiempoFinMs    = tiempoInicioMs;
+    // La "foto" dura exactamente 5 días desde el inicio elegido: el reloj se
+    // detendrá aquí (no al aterrizar el último avión).
+    this.tiempoFinMs    = tiempoInicioMs + this.duracionFotoMs;
     this.simInicioRealMs = Date.now();
+    // El inicio ya está fijado; onWsUpdate no debe recalcularlo desde la UI.
+    this.primerosVuelosRecibidos = true;
 
-    // En modo colapso el inicio lo fija el backend (no la fecha del formulario):
-    // evitar que onWsUpdate lo recalcule desde la UI
-    if (this.modoColapso) this.primerosVuelosRecibidos = true;
-
-    // Aviones ya en vuelo al inicio (maletas = 0, se verán vacíos)
+    // Estado del mapa a la fecha/hora elegida: los aviones que YA están volando en
+    // ese instante aparecen en pantalla (vacíos, 0 maletas). Aviones y aeropuertos
+    // se irán llenando conforme los pedidos llegan en el tiempo simulado.
     (msg.vuelosEnAire ?? []).forEach((v: any) => {
       const key = v.codigoVuelo;
-      if (!this.vueloMap.has(key)) {
-        const vuelo: VueloSimulacion = {
-          codigoVuelo: key,
-          origen: v.origen, destino: v.destino,
-          horaSalida:  new Date(v.horaSalidaMs),
-          horaLlegada: new Date(v.horaLlegadaMs),
-          totalMaletas: 0, envios: []
-        };
-        this.vueloMap.set(key, vuelo);
-        this.vuelos.push(vuelo);
-      }
+      if (this.vueloMap.has(key)) return;
+      const vuelo: VueloSimulacion = {
+        codigoVuelo: key,
+        origen: v.origen, destino: v.destino,
+        horaSalida:  new Date(v.horaSalidaMs),
+        horaLlegada: new Date(v.horaLlegadaMs),
+        totalMaletas: 0,
+        capacidad: v.capacidad ?? 0,
+        envios: []
+      };
+      this.vueloMap.set(key, vuelo);
+      this.vuelos.push(vuelo);
     });
-
-    if (this.vuelos.length > 0) {
-      this.tiempoFinMs = this.vuelos.reduce(
-        (max, v) => Math.max(max, v.horaLlegada.getTime()), tiempoInicioMs);
-      this.primerosVuelosRecibidos = true;
-    }
 
     this.computarArcos();
     this.actualizarEstado();
 
-    // Iniciar animación a velocidad K (AVANCE_H = K=120 ya incorporado)
-    if (!this.intervalId) { this.iniciarAutoPlayStreaming(); }
+    // Iniciar animación a velocidad K. Si somos espectadores (JOIN), esperamos el
+    // SYNC para alinear el reloj al instante del líder antes de reproducir.
+    if (!this.esperandoSync && !this.intervalId) { this.iniciarAutoPlayStreaming(); }
 
     this.mensajeProgreso = 'Simulación iniciada · primer ciclo ALNS en 10 seg...';
     this.cdr.detectChanges();
@@ -618,6 +784,7 @@ private getAirportXOffset(codigoOaci: string): number {
       this.esperandoDatos = false;
     }
     const stats = msg.estadisticas ?? {};
+    this.enArrastreFinal = stats.enArrastre ?? this.enArrastreFinal;
     this.mensajeProgreso =
       `Ciclo ${this.ciclosCompletados}/${stats.ciclosTotales ?? this.totalCiclos} · ${stats.asignados ?? 0} pedidos asignados`;
 
@@ -628,6 +795,7 @@ private getAirportXOffset(codigoOaci: string): number {
         const existing = this.vueloMap.get(key)!;
         existing.totalMaletas += (v.totalMaletas ?? 0);
         existing.envios = [...existing.envios, ...(v.envios ?? [])];
+        if (v.capacidad && !existing.capacidad) existing.capacidad = v.capacidad;
       } else {
         const vuelo: VueloSimulacion = {
           codigoVuelo: key,
@@ -635,6 +803,7 @@ private getAirportXOffset(codigoOaci: string): number {
           horaSalida:  new Date(v.horaSalidaMs),
           horaLlegada: new Date(v.horaLlegadaMs),
           totalMaletas: v.totalMaletas ?? 0,
+          capacidad: v.capacidad ?? 0,
           envios: v.envios ?? []
         };
         this.vueloMap.set(key, vuelo);
@@ -649,12 +818,10 @@ private getAirportXOffset(codigoOaci: string): number {
       }
     });
 
-    if (this.vuelos.length > 0) {
-      const newFin = this.vuelos.reduce(
-        (max, v) => Math.max(max, v.horaLlegada.getTime()), this.tiempoInicioMs);
-      if (newFin > this.tiempoFinMs) this.tiempoFinMs = newFin;
-      if (!this.primerosVuelosRecibidos) this.primerosVuelosRecibidos = true;
-    }
+    // El fin de la "foto" es fijo (inicio + 5 días); NO se extiende hasta el
+    // último aterrizaje: al llegar al día 5 se congela el estado.
+    this.tiempoFinMs = this.tiempoInicioMs + this.duracionFotoMs;
+    if (!this.primerosVuelosRecibidos) this.primerosVuelosRecibidos = true;
 
     this.recomputarDisponibilidadAlmacen();
     this.computarArcos();
@@ -693,19 +860,153 @@ private getAirportXOffset(codigoOaci: string): number {
       });
     }
 
-    // Continuar la reproducción desde la posición actual: con el prefetch del
-    // backend el FIN llega ANTES de que la animación alcance el final, así que
-    // reiniciar aquí saltaría el reloj hacia atrás. iniciar() ya reinicia solo
-    // cuando la animación llegó al final (comportamiento de replay).
+    // Continuar la reproducción desde la posición actual hasta el día 5. NUNCA se
+    // reinicia (nada de bucle): al alcanzar el día 5 la simulación se congela y
+    // se muestra "Simulación finalizada" con las métricas del estado final.
     this.esperandoDatos = false;
     this.detener();
-    this.iniciar();
+    if (this.tiempoActualMs >= this.tiempoFinMs - 1) {
+      this.finalizarSimulacion();
+    } else {
+      this.iniciar();
+    }
+  }
+
+  /**
+   * Congela la simulación de forma permanente al llegar al día 5 (pausa eterna).
+   * No reinicia el reloj. Calcula las métricas del estado final para el reporte.
+   */
+  private finalizarSimulacion(): void {
+    const yaEstaba = this.simFinalizada;
+    this.detener();
+    this.tiempoActualMs = this.tiempoFinMs;
+    this.estado = 'listo';
+    this.reproduciendo = false;
+    this.simFinalizada = true;
+    if (!yaEstaba) {
+      this.metricasFinales = this.computarMetricasFinales();
+      this.mostrarMetricasFinales = true;
+    }
+    this.actualizarEstado();
+    this.cdr.detectChanges();
+  }
+
+  /** Estado del sistema al corte del día 5: aviones, pedidos y maletas por situación. */
+  private computarMetricasFinales(): any {
+    const fin = this.tiempoFinMs;
+    let avionesVolando = 0, avionesAterrizados = 0, avionesSinDespegar = 0;
+    this.vuelos.forEach(v => {
+      const s = v.horaSalida.getTime(), l = v.horaLlegada.getTime();
+      if (l <= fin) avionesAterrizados++;
+      else if (s <= fin) avionesVolando++;
+      else avionesSinDespegar++;
+    });
+    // Agrupar por envío (ruta completa punta a punta)
+    const porEnvio = new Map<number, { reg: number; prim: number; ult: number; cant: number; sla: boolean }>();
+    this.vuelos.forEach(v => v.envios.forEach(e => {
+      const reg = e.fechaRegistroMs ?? v.horaSalida.getTime();
+      const cur = porEnvio.get(e.idEnvio);
+      if (!cur) {
+        porEnvio.set(e.idEnvio, {
+          reg, prim: v.horaSalida.getTime(), ult: v.horaLlegada.getTime(),
+          cant: e.cantidad, sla: e.cumpleSla !== false
+        });
+      } else {
+        cur.prim = Math.min(cur.prim, v.horaSalida.getTime());
+        cur.ult  = Math.max(cur.ult, v.horaLlegada.getTime());
+        cur.reg  = Math.min(cur.reg, reg);
+        if (e.cumpleSla === false) cur.sla = false;
+      }
+    }));
+    let entregados = 0, enVuelo = 0, esperando = 0;
+    let maletasTotal = 0, maletasEntregadas = 0, fueraSla = 0;
+    porEnvio.forEach(e => {
+      maletasTotal += e.cant;
+      if (!e.sla) fueraSla++;
+      if (e.ult <= fin) { entregados++; maletasEntregadas += e.cant; }
+      else if (e.prim <= fin) enVuelo++;
+      else esperando++;
+    });
+    let maletasEnAlmacen = 0;
+    this.maletasEnAeropuerto.forEach(n => maletasEnAlmacen += n);
+    return {
+      fechaInicio: new Date(this.tiempoInicioMs),
+      fechaFin: new Date(fin),
+      ciclos: this.ciclosCompletados,
+      vuelosTotal: this.vuelos.length,
+      avionesVolando, avionesAterrizados, avionesSinDespegar,
+      pedidosTotal: porEnvio.size,
+      pedidosEntregados: entregados,
+      pedidosEnVuelo: enVuelo,
+      pedidosEsperando: esperando,
+      pedidosSinPlanificar: this.enArrastreFinal,
+      maletasTotal, maletasEntregadas, maletasEnAlmacen,
+      pedidosFueraSla: fueraSla
+    };
+  }
+
+  cerrarMetricasFinales(): void {
+    this.mostrarMetricasFinales = false;
+    this.cdr.detectChanges();
+  }
+
+  /** Genera y descarga el reporte del estado final de la simulación. */
+  descargarReporte(): void {
+    const m = this.metricasFinales;
+    if (!m) return;
+    const fmt = (d: Date) => new Date(d).toLocaleString('es-PE', { timeZone: 'UTC' });
+    const lineas = [
+      '═══════════════════════════════════════════════',
+      '   REPORTE FINAL DE SIMULACIÓN — MoraPack',
+      '═══════════════════════════════════════════════',
+      '',
+      `Fecha de inicio (simulada):  ${fmt(m.fechaInicio)}`,
+      `Fecha de corte (día 5):      ${fmt(m.fechaFin)}`,
+      `Ciclos de planificación:     ${m.ciclos}`,
+      '',
+      '── AVIONES / VUELOS ─────────────────────────────',
+      `Vuelos totales del período:  ${m.vuelosTotal}`,
+      `Aviones aún en vuelo:        ${m.avionesVolando}`,
+      `Aviones ya aterrizados:      ${m.avionesAterrizados}`,
+      `Vuelos planificados sin despegar: ${m.avionesSinDespegar}`,
+      '',
+      '── PEDIDOS ──────────────────────────────────────',
+      `Pedidos totales:             ${m.pedidosTotal}`,
+      `  · Entregados:              ${m.pedidosEntregados}`,
+      `  · En vuelo (en tránsito):  ${m.pedidosEnVuelo}`,
+      `  · Esperando avión:         ${m.pedidosEsperando}`,
+      `  · Aún sin planificar:      ${m.pedidosSinPlanificar}`,
+      `  · Fuera de SLA:            ${m.pedidosFueraSla}`,
+      '',
+      '── MALETAS ──────────────────────────────────────',
+      `Maletas totales:             ${m.maletasTotal}`,
+      `Maletas entregadas:          ${m.maletasEntregadas}`,
+      `Maletas en almacenes:        ${m.maletasEnAlmacen}`,
+      '',
+      `Generado: ${new Date().toLocaleString('es-PE')}`,
+      '═══════════════════════════════════════════════',
+    ];
+    const blob = new Blob([lineas.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date(m.fechaInicio).toISOString().substring(0, 10);
+    a.href = url;
+    a.download = `reporte-simulacion-${stamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   detenerTodo(): void {
     this.sesion.limpiar(); // el usuario detuvo: no conservar sesión
     this.detener(); this.cerrarWs();
+    this.esEspectador = false; this.esperandoSync = false; this.simIdUnido = null;
+    this.simFinalizada = false; this.metricasFinales = null; this.mostrarMetricasFinales = false;
+    this.enArrastreFinal = 0;
+    this.cargarSimulacionesActivas();
     this.ventanaFinMs = 0; this.esperandoDatos = false;
+    this.enviosRutaSeleccionados.clear(); this.rutasEnviosMapa = [];
     this.estado = 'idle'; this.mostrarConfig = true;
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
@@ -800,6 +1101,9 @@ private getAirportXOffset(codigoOaci: string): number {
         desde = t.vuelo.horaLlegada.getTime(); // la escala ocupa el siguiente almacén al aterrizar
       });
     });
+
+    // Los envíos seleccionados pueden haber ganado tramos con la nueva ventana
+    if (this.enviosRutaSeleccionados.size > 0) this.recomputarRutasEnvios();
   }
 
   private iniciarAutoPlayStreaming(): void {
@@ -818,6 +1122,11 @@ private getAirportXOffset(codigoOaci: string): number {
           this.esperandoDatos = false;
           if (this.tiempoActualMs < this.tiempoFinMs) {
             this.tiempoActualMs = Math.min(next, this.tiempoFinMs);
+          }
+          // Llegó al día 5: pausa eterna + métricas finales (nunca reinicia)
+          if (this.tiempoActualMs >= this.tiempoFinMs) {
+            this.ngZone.run(() => this.finalizarSimulacion());
+            return;
           }
         }
         // Tick ligero a 4 fps (posiciones); pesado 1 vez por segundo (paneles/estado)
@@ -838,10 +1147,15 @@ private getAirportXOffset(codigoOaci: string): number {
 
   // ── CONTROL DE TIEMPO ──────────────────────────────────────
 
-  togglePlay(): void { this.reproduciendo ? this.detener() : this.iniciar(); }
+  togglePlay(): void {
+    // Simulación finalizada = pausa eterna: el botón no reinicia (no hay bucle),
+    // solo vuelve a mostrar las métricas finales.
+    if (this.simFinalizada) { this.mostrarMetricasFinales = true; this.cdr.detectChanges(); return; }
+    this.reproduciendo ? this.detener() : this.iniciar();
+  }
 
   iniciar(): void {
-    if (this.tiempoActualMs >= this.tiempoFinMs) this.tiempoActualMs = this.tiempoInicioMs;
+    if (this.simFinalizada) return; // nunca reproducir tras el día 5
     this.reproduciendo = true;
     this.startTimeReal = Date.now();
     this.ngZone.runOutsideAngular(() => {
@@ -849,8 +1163,9 @@ private getAirportXOffset(codigoOaci: string): number {
         // Avanza AVANCE_H horas por cada tick de TICK_MS ms
         this.tiempoActualMs += this.HORA_MS * this.AVANCE_H;
         if (this.tiempoActualMs >= this.tiempoFinMs) {
-          this.tiempoActualMs = this.tiempoFinMs;
-          this.detener();
+          // Llegó al día 5: congelar de forma permanente (sin bucle) y mostrar métricas
+          this.ngZone.run(() => this.finalizarSimulacion());
+          return;
         }
         // Tick ligero a 4 fps (posiciones); pesado 1 vez por segundo (paneles/estado)
         this.actualizarPosiciones();
@@ -900,11 +1215,14 @@ private getAirportXOffset(codigoOaci: string): number {
       if (this.hayFiltrosBarra) {
         arcos = arcos.filter(a => this.vueloPassaFiltrosBarra(a.vuelo));
       }
+      if (this.filtroSemVuelo) {
+        arcos = arcos.filter(a => this.getSemVueloLabel(a.vuelo) === this.filtroSemVuelo);
+      }
     }
     return arcos;
   }
 
-  /** Aviones visibles en el mapa (respeta filtros de aeropuerto, vuelo y barra) */
+  /** Aviones visibles en el mapa (respeta filtros de aeropuerto, vuelo, barra y semáforo) */
   get planosVisibles(): PlanoEnMapa[] {
     let planes = this.planosEnMapa;
     if (this.filtroVueloMapa) {
@@ -916,6 +1234,9 @@ private getAirportXOffset(codigoOaci: string): number {
       }
       if (this.hayFiltrosBarra) {
         planes = planes.filter(p => this.vueloPassaFiltrosBarra(p.vuelo));
+      }
+      if (this.filtroSemVuelo) {
+        planes = planes.filter(p => this.getSemVueloLabel(p.vuelo) === this.filtroSemVuelo);
       }
     }
     return planes;
@@ -1037,6 +1358,12 @@ private getAirportXOffset(codigoOaci: string): number {
       if (enAlmacen > 0) {
         this.maletasEnAeropuerto.set(v.origen, (this.maletasEnAeropuerto.get(v.origen) ?? 0) + enAlmacen);
       }
+    });
+    // Un almacén NO puede exceder su capacidad física: se topa la ocupación a
+    // la capacidad del aeropuerto (nunca se muestra >100%).
+    this.maletasEnAeropuerto.forEach((bags, code) => {
+      const cap = this.aeropuertoMap.get(code)?.capacidad ?? 0;
+      if (cap > 0 && bags > cap) this.maletasEnAeropuerto.set(code, cap);
     });
 
     // Limpiar marcadores de cancelación expirados (vuelo ya habría aterrizado)
@@ -1386,6 +1713,39 @@ private getAirportXOffset(codigoOaci: string): number {
     this.cdr.detectChanges();
   }
 
+  /** Clic en un avión del mapa: lleva a la pestaña Vuelos/UT, resalta ese vuelo
+   *  y su ruta (ocultando el resto) y hace scroll hasta él en la lista. */
+  abrirVueloDesdeMapa(v: VueloSimulacion): void {
+    this.activeTab = 'vuelos';
+    this.aeropuertoFiltroMapa = null;
+    this.filtroVueloMapa = v.codigoVuelo;
+    this.vueloSeleccionado = v;
+    this.bumpUi();
+    this.cdr.detectChanges();
+    this.scrollAVuelo(v.codigoVuelo);
+  }
+
+  private scrollAVuelo(codigo: string): void {
+    setTimeout(() => {
+      const safe = (window as any).CSS?.escape ? CSS.escape(codigo) : codigo.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      const el = this.hostEl.nativeElement.querySelector('#vuelo-' + safe) as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  }
+
+  /** Desde el detalle del vuelo: ir a la pestaña Envíos con el vuelo ya seleccionado. */
+  verEnviosDelVuelo(v: VueloSimulacion): void {
+    this.vueloSeleccionado = v;
+    this.activeTab = 'envios';
+    this.bumpUi();
+    this.cdr.detectChanges();
+  }
+
+  /** true cuando la simulación llegó al fin del día 5 y quedó congelada (la "foto"). */
+  get fotoCongelada(): boolean {
+    return this.simFinalizada && !this.modoColapso;
+  }
+
   // ── TOOLTIP ────────────────────────────────────────────────
 
   onAirportHover(event: MouseEvent, a: AeropuertoPosicion): void {
@@ -1422,6 +1782,12 @@ private getAirportXOffset(codigoOaci: string): number {
       `  #${e.idEnvio}: ${e.cantidad} maletas${e.cumpleSla === false ? ' ⚠' : ''}`
     );
     const extra = p.vuelo.envios.length > 5 ? [`  ...y ${p.vuelo.envios.length-5} más`] : [];
+    const cap    = p.vuelo.capacidad ?? 0;
+    const maletas = Math.min(p.vuelo.totalMaletas, cap > 0 ? cap : p.vuelo.totalMaletas);
+    const pctOcup = cap > 0 ? Math.min(100, Math.round(maletas / cap * 100)) : 0;
+    const capLine = cap > 0
+      ? `Capacidad: ${cap} maletas · Ocupación: ${pctOcup}%`
+      : `Capacidad: s/d`;
     this.tooltip = {
       visible: true,
       x: flip ? relX - 250 : relX + 14,
@@ -1429,7 +1795,8 @@ private getAirportXOffset(codigoOaci: string): number {
       lines: [
         `✈ Vuelo ${p.vuelo.codigoVuelo}`,
         `${p.vuelo.origen} → ${p.vuelo.destino}`,
-        `Total: ${p.vuelo.totalMaletas} maletas · ${p.vuelo.envios.length} envíos`,
+        `Maletas a bordo: ${maletas} · ${p.vuelo.envios.length} envíos`,
+        capLine,
         slaLbl,
         ...envLines,
         ...extra
@@ -1487,7 +1854,8 @@ private getAirportXOffset(codigoOaci: string): number {
   private cPanelVuelos: any[] = [];
   private cPanelAlmacenes: any[] = [];
   private cPanelEnvios: any[] = [];
-  private cIndicadores: any = { enVuelo: 0, total: 0, semFlota: 'VACIO', pctAlmacenes: 0, semAlmacenes: 'VACIO' };
+  private cFlujoAlmacen: any[] = [];
+  private cIndicadores: any = { enVuelo: 0, total: 0, semFlota: 'VACIO', pctAlmacenes: 0, semAlmacenes: 'VACIO', pctCarga: 0, semCarga: 'VACIO', cargaMaletas: 0, cargaCapacidad: 0 };
 
   /** Invalida los paneles memoizados (llamar tras cambiar filtros/orden/datos) */
   bumpUi(): void { this.uiVersion++; }
@@ -1498,7 +1866,43 @@ private getAirportXOffset(codigoOaci: string): number {
     this.cPanelAlmacenes = this.computarPanelAlmacenes();
     this.cPanelVuelos    = this.computarPanelVuelos();
     this.cPanelEnvios    = this.computarPanelEnvios();
+    this.cFlujoAlmacen   = this.computarFlujoAlmacen();
     this.cIndicadores    = this.computarIndicadores();
+  }
+
+  get flujoAlmacen(): any[] {
+    this.refrescarCachesSiHaceFalta();
+    return this.cFlujoAlmacen;
+  }
+
+  /**
+   * Envíos planificados que ENTRAN y SALEN del almacén seleccionado
+   * (grupo de maletas por vuelo, con hora programada y contraparte).
+   */
+  private computarFlujoAlmacen(): any[] {
+    const c = this.aeropuertoFiltroMapa;
+    if (!c) return [];
+    const now = this.tiempoActualMs;
+    const items: any[] = [];
+    this.vuelos.forEach(v => {
+      const sale  = v.origen === c  && now < v.horaSalida.getTime();
+      const entra = v.destino === c && now < v.horaLlegada.getTime();
+      if (!sale && !entra) return;
+      v.envios.forEach(e => {
+        if (sale)  items.push({ tipo: 'SALE',  id: e.idEnvio, cantidad: e.cantidad, vuelo: v.codigoVuelo, contraparte: v.destino, horaMs: v.horaSalida.getTime() });
+        if (entra) items.push({ tipo: 'ENTRA', id: e.idEnvio, cantidad: e.cantidad, vuelo: v.codigoVuelo, contraparte: v.origen,  horaMs: v.horaLlegada.getTime() });
+      });
+    });
+    let lista = items;
+    if (this.filtroFlujoAlmacen === 'entrando')      lista = lista.filter(i => i.tipo === 'ENTRA');
+    else if (this.filtroFlujoAlmacen === 'saliendo') lista = lista.filter(i => i.tipo === 'SALE');
+    lista.sort((a, b) => a.horaMs - b.horaMs);
+    return lista.slice(0, 50);
+  }
+
+  setFiltroFlujoAlmacen(f: 'todos' | 'entrando' | 'saliendo'): void {
+    this.filtroFlujoAlmacen = f;
+    this.bumpUi();
   }
 
   get panelVuelosFiltrados(): any[] {
@@ -1516,7 +1920,8 @@ private getAirportXOffset(codigoOaci: string): number {
     return this.cPanelEnvios;
   }
 
-  get simIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
+  get simIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string;
+                          pctCarga: number; semCarga: string; cargaMaletas: number; cargaCapacidad: number } {
     this.refrescarCachesSiHaceFalta();
     return this.cIndicadores;
   }
@@ -1534,7 +1939,7 @@ private getAirportXOffset(codigoOaci: string): number {
         : failPct < 30 ? 'VERDE'
         : failPct <= 65 ? 'AMARILLO'
         : 'ROJO';
-      const semLabel = total === 0 ? '' : failPct < 30 ? 'LIBRE' : failPct <= 65 ? 'MEDIO' : 'CRITICO';
+      const semLabel = total === 0 ? 'VACIO' : failPct < 30 ? 'LIBRE' : failPct <= 65 ? 'MEDIO' : 'CRITICO';
       return { vuelo: v, estadoVuelo: estado, cancelado, semaforo: sem, semLabel, slaFailPct: Math.round(failPct) };
     });
     if (this.filtroSemVuelo) lista = lista.filter(item => item.semLabel === this.filtroSemVuelo);
@@ -1561,11 +1966,21 @@ private getAirportXOffset(codigoOaci: string): number {
       lista = lista.filter(item => item.estadoVuelo === 'EN_VUELO');
       lista.sort((a, b) => a.vuelo.horaLlegada.getTime() - b.vuelo.horaLlegada.getTime());
     } else {
-      // Orden estable por código: la lista no se reordena con el tiempo simulado
-      lista.sort((a, b) => a.vuelo.codigoVuelo.localeCompare(b.vuelo.codigoVuelo));
+      // Orden estable (no se reordena con el tiempo simulado): código / origen / destino
+      if (this.ordenVuelo === 'origen') {
+        lista.sort((a, b) => a.vuelo.origen.localeCompare(b.vuelo.origen)
+          || a.vuelo.codigoVuelo.localeCompare(b.vuelo.codigoVuelo));
+      } else if (this.ordenVuelo === 'destino') {
+        lista.sort((a, b) => a.vuelo.destino.localeCompare(b.vuelo.destino)
+          || a.vuelo.codigoVuelo.localeCompare(b.vuelo.codigoVuelo));
+      } else {
+        lista.sort((a, b) => a.vuelo.codigoVuelo.localeCompare(b.vuelo.codigoVuelo));
+      }
     }
     return lista.slice(0, 60);
   }
+
+  setOrdenVuelo(o: 'codigo' | 'origen' | 'destino'): void { this.ordenVuelo = o; this.bumpUi(); }
 
   private computarPanelAlmacenes(): any[] {
     const now = this.tiempoActualMs;
@@ -1598,14 +2013,19 @@ private getAirportXOffset(codigoOaci: string): number {
   private computarPanelEnvios(): any[] {
     // Si hay vuelo seleccionado, mostrar solo sus envíos
     if (this.vueloSeleccionado) {
-      return this.vueloSeleccionado.envios.map(e => ({
-        id: e.idEnvio, cantidad: e.cantidad,
-        origen: this.vueloSeleccionado!.origen,
-        destino: this.vueloSeleccionado!.destino,
-        vuelo: this.vueloSeleccionado!.codigoVuelo,
-        cumpleSla: e.cumpleSla,
-        fechaRegistroMs: e.fechaRegistroMs
-      }));
+      const vs = this.vueloSeleccionado;
+      return vs.envios.map(e => {
+        const reg = e.fechaRegistroMs ?? vs.horaSalida.getTime();
+        return {
+          id: e.idEnvio, cantidad: e.cantidad,
+          origen: vs.origen,
+          destino: vs.destino,
+          vuelo: vs.codigoVuelo,
+          cumpleSla: e.cumpleSla,
+          fechaRegistroMs: e.fechaRegistroMs, regMs: reg,
+          estado: this.estadoEnvio(reg, vs.horaSalida.getTime(), vs.horaLlegada.getTime())
+        };
+      });
     }
     // Envíos que van llegando al sistema conforme se REGISTRAN (hora simulada).
     // Un envío con escalas viaja en varios vuelos: se agrupa en una sola fila
@@ -1616,7 +2036,6 @@ private getAirportXOffset(codigoOaci: string): number {
       v.envios.forEach(e => {
         // Sin fechaRegistroMs (backend antiguo): usar la salida del vuelo como aproximación
         const regMs = e.fechaRegistroMs ?? v.horaSalida.getTime();
-        if (regMs > now) return; // aún no se registra a la hora simulada
         const cur = porEnvio.get(e.idEnvio);
         if (!cur) {
           porEnvio.set(e.idEnvio, {
@@ -1630,6 +2049,7 @@ private getAirportXOffset(codigoOaci: string): number {
           });
         } else {
           cur.tramos++;
+          cur.regMs = Math.min(cur.regMs, regMs);
           if (v.horaSalida.getTime() < cur.primeraSalidaMs) {
             cur.primeraSalidaMs = v.horaSalida.getTime();
             cur.origen = v.origen; cur.vuelo = v.codigoVuelo; cur._vuelo = v;
@@ -1643,6 +2063,15 @@ private getAirportXOffset(codigoOaci: string): number {
       });
     });
     let lista = Array.from(porEnvio.values());
+    // Estado de cada envío según el tiempo simulado (para el filtro y el badge)
+    lista.forEach(e => { e.estado = this.estadoEnvio(e.regMs, e.primeraSalidaMs, e.ultimaLlegadaMs); });
+    // Filtro por estado: por defecto ('') muestra los ya registrados (no pendientes);
+    // con un estado seleccionado, muestra solo ese grupo (incluye entregados y pendientes).
+    if (this.estadoFiltroEnvio) {
+      lista = lista.filter(e => e.estado === this.estadoFiltroEnvio);
+    } else {
+      lista = lista.filter(e => e.regMs <= now);
+    }
     // Búsqueda por ID de envío/maleta
     if (this.busquedaEnvio) {
       const q = this.busquedaEnvio.trim();
@@ -1671,18 +2100,96 @@ private getAirportXOffset(codigoOaci: string): number {
     return lista.slice(0, 80);
   }
 
+  /** Estado de un envío en el tiempo simulado actual. */
+  private estadoEnvio(regMs: number, primeraSalidaMs: number, ultimaLlegadaMs: number):
+      'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO' {
+    const now = this.tiempoActualMs;
+    if (regMs > now) return 'PENDIENTE';           // aún no se registra/planifica
+    if (now >= ultimaLlegadaMs) return 'ENTREGADO';
+    if (now >= primeraSalidaMs) return 'EN_VUELO';
+    return 'ESPERANDO';                            // registrado, esperando su avión
+  }
+
+  setEstadoFiltroEnvio(f: '' | 'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO'): void {
+    this.estadoFiltroEnvio = f; this.bumpUi();
+  }
+
+  getEstadoEnvioLabel(estado: string): string {
+    switch (estado) {
+      case 'PENDIENTE':  return 'Por planificar';
+      case 'ESPERANDO':  return 'Esperando avión';
+      case 'EN_VUELO':   return 'En vuelo';
+      case 'ENTREGADO':  return 'Entregado';
+      default:           return estado;
+    }
+  }
+
+  getEstadoEnvioClass(estado: string): string {
+    switch (estado) {
+      case 'PENDIENTE':  return 'est-pendiente';
+      case 'ESPERANDO':  return 'est-esperando';
+      case 'EN_VUELO':   return 'est-envuelo';
+      case 'ENTREGADO':  return 'est-entregado';
+      default:           return '';
+    }
+  }
+
   // ── TRACKING DE ENVÍOS ─────────────────────────────────────
 
+  /**
+   * Clic en un envío: selección ACUMULATIVA — se agrega/quita del conjunto
+   * cuyas rutas se dibujan en el mapa, y se muestra su tracking detallado.
+   */
   toggleEnvioTracking(id: number): void {
-    if (this.envioSeleccionadoId === id) {
-      this.envioSeleccionadoId = null;
-      this.trackingSel = null;
+    if (this.enviosRutaSeleccionados.has(id)) {
+      this.enviosRutaSeleccionados.delete(id);
+      if (this.envioSeleccionadoId === id) {
+        this.envioSeleccionadoId = null;
+        this.trackingSel = null;
+      }
     } else {
+      this.enviosRutaSeleccionados.add(id);
       this.envioSeleccionadoId = id;
       this.trackingSel = this.buildTrackingEnvio(id);
     }
+    this.recomputarRutasEnvios();
     this.bumpUi();
   }
+
+  quitarRutaEnvio(id: number): void {
+    this.enviosRutaSeleccionados.delete(id);
+    if (this.envioSeleccionadoId === id) { this.envioSeleccionadoId = null; this.trackingSel = null; }
+    this.recomputarRutasEnvios();
+    this.bumpUi();
+  }
+
+  limpiarRutasEnvios(): void {
+    this.enviosRutaSeleccionados.clear();
+    this.envioSeleccionadoId = null;
+    this.trackingSel = null;
+    this.rutasEnviosMapa = [];
+    this.bumpUi();
+  }
+
+  /** Reconstruye los trazos de ruta (uno por tramo) de cada envío seleccionado */
+  recomputarRutasEnvios(): void {
+    const rutas: { id: number; color: string; paths: string[] }[] = [];
+    let i = 0;
+    this.enviosRutaSeleccionados.forEach(id => {
+      const trk = this.buildTrackingEnvio(id);
+      const paths: string[] = [];
+      (trk.tramos ?? []).forEach((t: any) => {
+        const o = this.aeropuertoMap.get(t.origen);
+        const d = this.aeropuertoMap.get(t.destino);
+        if (o && d) paths.push(this.calcArco(o.x, o.y, d.x, d.y));
+      });
+      rutas.push({ id, color: this.COLORES_RUTA[i % this.COLORES_RUTA.length], paths });
+      i++;
+    });
+    this.rutasEnviosMapa = rutas;
+  }
+
+  trackRutaEnvio(_: number, r: any): number { return r.id; }
 
   /** Reconstruye la ruta completa de un envío a partir de los vuelos que lo transportan. */
   private buildTrackingEnvio(id: number): any {
@@ -1809,7 +2316,7 @@ private getAirportXOffset(codigoOaci: string): number {
 
   // ── INDICADORES GLOBALES ────────────────────────────────────
 
-  private computarIndicadores(): { enVuelo: number; total: number; semFlota: string; pctAlmacenes: number; semAlmacenes: string } {
+  private computarIndicadores(): any {
     const enVuelo = this.planosEnMapa.length;
     const total = this.vuelos.length;
     const pctFlota = total > 0 ? (enVuelo / total) * 100 : 0;
@@ -1819,7 +2326,32 @@ private getAirportXOffset(codigoOaci: string): number {
       ? almList.reduce((s: number, a: any) => s + (a.pct as number), 0) / almList.length
       : 0;
     const semAlmacenes = pctAlmacenes >= this.UMBRAL_ROJO ? 'ROJO' : pctAlmacenes >= this.UMBRAL_AMBAR ? 'AMARILLO' : pctAlmacenes > 0 ? 'VERDE' : 'VACIO';
-    return { enVuelo, total, semFlota, pctAlmacenes, semAlmacenes };
+
+    // Nivel de llenado de la flota (indicador del profesor): maletas que se
+    // trasladan (asignadas a vuelos aún no completados) / espacio total de esos vuelos
+    const now = this.tiempoActualMs;
+    let cargaMaletas = 0, cargaCapacidad = 0;
+    this.vuelos.forEach(v => {
+      if (now >= v.horaLlegada.getTime()) return; // vuelo completado: sale de la flota activa
+      const cap = v.capacidad ?? 0;
+      // Un avión NO puede exceder su capacidad: se topa la carga a su capacidad.
+      cargaMaletas   += cap > 0 ? Math.min(v.totalMaletas, cap) : v.totalMaletas;
+      cargaCapacidad += cap;
+    });
+    const pctCarga = cargaCapacidad > 0 ? Math.min(100, (cargaMaletas / cargaCapacidad) * 100) : 0;
+    const semCarga = pctCarga >= this.UMBRAL_ROJO ? 'ROJO'
+                   : pctCarga >= this.UMBRAL_AMBAR ? 'AMARILLO'
+                   : pctCarga > 0 ? 'VERDE' : 'VACIO';
+
+    return { enVuelo, total, semFlota, pctAlmacenes, semAlmacenes, pctCarga, semCarga, cargaMaletas, cargaCapacidad };
+  }
+
+  /** Semáforo de un vuelo (mismos umbrales que el panel): VACIO/LIBRE/MEDIO/CRITICO */
+  getSemVueloLabel(v: VueloSimulacion): string {
+    if (v.envios.length === 0) return 'VACIO';
+    const fails = v.envios.filter(e => e.cumpleSla === false).length;
+    const pct = (fails / v.envios.length) * 100;
+    return pct < 30 ? 'LIBRE' : pct <= 65 ? 'MEDIO' : 'CRITICO';
   }
 
   // ── DIMMING DE AEROPUERTOS EN MAPA (filtro por semáforo) ────
@@ -1864,6 +2396,9 @@ private getAirportXOffset(codigoOaci: string): number {
     this.codigoVueloCancelado = '';
     this.busquedaGestion = '';
     this.cancelando = false;
+    this.enviosRutaSeleccionados.clear();
+    this.rutasEnviosMapa = [];
+    this.filtroFlujoAlmacen = 'todos';
 
     // Estado colapso
     this.modoColapso             = true;
@@ -2059,6 +2594,22 @@ private getAirportXOffset(codigoOaci: string): number {
     ev.stopPropagation();
   }
 
+  // ── DRAG DE LA BARRA DE TIEMPO (independiente) ─────────────
+  onTiempoDragStart(ev: MouseEvent): void {
+    const bar = (ev.currentTarget as HTMLElement).closest('.sim-tiempo-bar') as HTMLElement | null;
+    if (!bar) return;
+    const parent = (bar.offsetParent as HTMLElement) ?? bar.parentElement!;
+    const parentRect = parent.getBoundingClientRect();
+    const rect = bar.getBoundingClientRect();
+    this.dragOffX = ev.clientX - rect.left;
+    this.dragOffY = ev.clientY - rect.top;
+    this.barraTiempoX = rect.left - parentRect.left;
+    this.barraTiempoY = rect.top - parentRect.top;
+    this.draggingTiempo = true;
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+
   /**
    * Listeners de mouse registrados FUERA de NgZone.
    *
@@ -2092,6 +2643,20 @@ private getAirportXOffset(codigoOaci: string): number {
       }
       return;
     }
+    // 1b. Arrastre de la barra de tiempo independiente
+    if (this.draggingTiempo) {
+      const bar = this.hostEl.nativeElement.querySelector('.sim-tiempo-bar') as HTMLElement | null;
+      const parent = bar?.offsetParent as HTMLElement | null;
+      if (bar && parent) {
+        const parentRect = parent.getBoundingClientRect();
+        this.barraTiempoX = Math.max(0, Math.min(parentRect.width - 60, ev.clientX - parentRect.left - this.dragOffX));
+        this.barraTiempoY = Math.max(0, Math.min(parentRect.height - 40, ev.clientY - parentRect.top - this.dragOffY));
+        bar.style.left = this.barraTiempoX + 'px';
+        bar.style.top = this.barraTiempoY + 'px';
+        bar.style.transform = 'none';
+      }
+      return;
+    }
     // 2. Pan del mapa → transform directo al DOM (sin change detection)
     if (this.isDragging) {
       this.panX = ev.clientX - this.dragStartX;
@@ -2111,8 +2676,9 @@ private getAirportXOffset(codigoOaci: string): number {
   };
 
   private readonly docMouseUp = (): void => {
-    const habiaGesto = this.draggingHeader || this.isDragging;
+    const habiaGesto = this.draggingHeader || this.draggingTiempo || this.isDragging;
     this.draggingHeader = false;
+    this.draggingTiempo = false;
     this.isDragging = false;
     if (habiaGesto) {
       // Sincronizar el estado Angular una sola vez al terminar el gesto
@@ -2139,12 +2705,8 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   private programarOcultarHeader(): void {
-    if (this.headerHideTimer) clearTimeout(this.headerHideTimer);
-    this.headerHideTimer = setTimeout(() => {
-      this.simHeaderOculto = true;
-      this.headerHideTimer = null;
-      this.cdr.detectChanges();
-    }, 1500);
+    // Auto-ocultado desactivado: el header es movible y tiene sus propios botones
+    // para mostrar/colapsar; no debe desaparecer solo al interactuar con el mapa.
   }
 
   // ── OPCIONES ÚNICAS PARA FILTROS ──────────────────────────

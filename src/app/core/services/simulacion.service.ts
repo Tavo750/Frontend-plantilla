@@ -48,6 +48,16 @@ export interface ResultadoSimulacion {
   eventos: EventoSimulacion[];
 }
 
+export interface SimulacionActiva {
+  simId: string;
+  fechaInicio: string;
+  horaInicio: string;
+  cicloActual: number;
+  maxCiclos: number;
+  finalizada: boolean;
+  espectadores: number;
+}
+
 export interface DiaSimulacion {
   dia: number;
   fecha: string;
@@ -120,6 +130,16 @@ export class SimulacionService {
   /** URL del endpoint SSE para usar con EventSource (modo legacy) */
   getStreamUrl(fechaInicio: string, horaInicio: string, dias: number): string {
     return `${this.apiUrl}/periodo/stream?fechaInicio=${fechaInicio}&horaInicio=${horaInicio}&dias=${dias}`;
+  }
+
+  /** Lista de simulaciones compartidas en ejecución (para que otros dispositivos se unan) */
+  obtenerSimulacionesActivas(): Observable<SimulacionActiva[]> {
+    return new Observable(observer => {
+      this.http.get<ApiResponse<SimulacionActiva[]>>(`${this.apiUrl}/activas`).subscribe({
+        next: (resp) => { observer.next(resp.data ?? []); observer.complete(); },
+        error: () => { observer.next([]); observer.complete(); }
+      });
+    });
   }
 
   /** URL del WebSocket para la simulación en tiempo real */

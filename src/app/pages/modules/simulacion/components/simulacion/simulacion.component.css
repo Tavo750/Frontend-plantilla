@@ -2289,6 +2289,11 @@
   align-items: stretch;
   gap: 0;
   padding: .4rem .75rem !important;
+  /* Anula el max-height:80px + overflow:hidden del bloque .sim-header base:
+     el header móvil crece verticalmente (relojes + KPI + stats + filtros) y
+     esos 80px recortaban las filas de stats y filtros. */
+  max-height: none !important;
+  overflow: visible !important;
 }
 .sim-header.sim-header-dragged {
   transform: none;
@@ -2381,6 +2386,93 @@
 }
 .sync-chip i { font-size: .7rem; }
 
+/* ── RUTAS DE ENVÍOS EN EL MAPA (selección acumulativa) ─────── */
+.ruta-envio {
+  stroke-width: 2.5;
+  stroke-dasharray: 7 4;
+  opacity: .95;
+  pointer-events: none;
+  animation: rutaDash 1.2s linear infinite;
+}
+@keyframes rutaDash {
+  to { stroke-dashoffset: -22; }
+}
+.rutas-sel-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .35rem;
+  padding: .3rem .5rem;
+  border-bottom: 1px solid #1e293b;
+}
+.rutas-sel-label {
+  font-size: .68rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+.ruta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  font-size: .68rem;
+  color: #e2e8f0;
+}
+.ruta-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ruta-chip-x {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.ruta-chip-x:hover { color: #f87171; }
+.ruta-chip-x i { font-size: .55rem; }
+.pitem-en-mapa {
+  border-left: 3px solid #22d3ee;
+}
+
+/* ── FLUJO DE ENVÍOS DEL ALMACÉN SELECCIONADO ───────────────── */
+.almacen-flujo .flujo-title {
+  font-size: .72rem;
+  color: #94a3b8;
+  flex: 1;
+  margin-left: .4rem;
+}
+.flujo-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.flujo-tag {
+  font-size: .62rem;
+  font-weight: 700;
+  padding: .05rem .4rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.flujo-in  { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+.flujo-out { background: #172554; color: #60a5fa; border: 1px solid #1e40af; }
+
+/* Chip gris (semáforo Vacío) */
+.sem-chip.chip-gris.active,
+.sem-chip.chip-gris:hover {
+  background: #334155;
+  border-color: #64748b;
+  color: #cbd5e1;
+}
+
 /* ── ANIMACIÓN DE INSERCIÓN DE ENVÍOS ───────────────────────── */
 .pitem-envio {
   animation: envioIn 0.45s ease;
@@ -2389,3 +2481,347 @@
   from { opacity: 0; transform: translateY(-10px); background: #1e3a8a; }
   to   { opacity: 1; transform: none; }
 }
+
+/* ── BARRA DE TIEMPO INDEPENDIENTE Y MOVIBLE ─────────────────── */
+.sim-tiempo-bar {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 601;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .35rem .6rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+.sim-tiempo-bar.sim-tiempo-dragged {
+  transform: none;
+}
+.sim-tiempo-bar .drag-handle {
+  cursor: move;
+  color: #64748b;
+  font-size: .85rem;
+  padding: .2rem;
+}
+.sim-tiempo-bar .drag-handle:hover { color: #94a3b8; }
+.btn-hide-tiempo {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: .8rem;
+  padding: .25rem .35rem;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+.btn-hide-tiempo:hover { color: #f87171; background: #33415580; }
+
+/* Barra principal comprimida al mínimo */
+.sim-header.sim-header-comprimido {
+  padding: .3rem .5rem !important;
+  opacity: .96;
+}
+
+/* ── SVG: ICONO DE AEROPUERTO (torre de control) ─────────────── */
+.aero-hit {
+  fill: transparent;
+  stroke: none;
+}
+.aero-ico {
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+/* ── SIMULACIONES COMPARTIDAS ACTIVAS (empty-state) ──────────── */
+.sims-activas {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 620;
+  width: min(460px, 92%);
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #1e293b;
+  border: 1px solid #3b82f6;
+  border-radius: 12px;
+  padding: .75rem;
+  text-align: left;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.sa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  margin-bottom: .5rem;
+}
+.sa-head i { color: #60a5fa; margin-right: .35rem; }
+.sa-refresh {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: .2rem .35rem;
+  border-radius: 6px;
+}
+.sa-refresh:hover { color: #e2e8f0; background: #33415580; }
+.sa-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .5rem .6rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  margin-top: .4rem;
+  background: #0f172a;
+}
+.sa-fecha {
+  font-family: monospace;
+  font-size: .82rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.sa-fecha i { color: #60a5fa; margin-right: .3rem; }
+.sa-meta {
+  display: flex;
+  gap: .75rem;
+  font-size: .7rem;
+  color: #94a3b8;
+  margin-top: .2rem;
+}
+.sa-meta .sa-fin { color: #f59e0b; }
+.sa-esp i { margin-right: .2rem; }
+.sa-join {
+  background: #2563eb;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: .78rem;
+  padding: .4rem .7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+.sa-join:hover { background: #1d4ed8; }
+.sa-empty {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem .6rem;
+  color: #94a3b8;
+  font-size: .8rem;
+  justify-content: center;
+}
+.sa-empty i { color: #64748b; }
+
+/* ── BOTÓN VER ENVÍOS (detalle de vuelo) ─────────────────────── */
+.btn-ver-envios {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  width: 100%;
+  margin: .5rem 0;
+  padding: .5rem;
+  background: #1d4ed8;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.btn-ver-envios:hover { background: #2563eb; }
+
+/* ── FILTRO POR ESTADO DE ENVÍO ──────────────────────────────── */
+.envio-estado-row { flex-wrap: wrap; }
+.sem-chip.est-esperando.active { background: #ca8a04; border-color: #eab308; color: #fff; }
+.sem-chip.est-envuelo.active   { background: #2563eb; border-color: #3b82f6; color: #fff; }
+.sem-chip.est-entregado.active { background: #16a34a; border-color: #22c55e; color: #fff; }
+.sem-chip.est-pendiente.active { background: #475569; border-color: #64748b; color: #fff; }
+
+/* Badge de estado en cada fila de envío */
+.envio-estado-badge {
+  font-size: .6rem;
+  font-weight: 700;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.envio-estado-badge.est-esperando { background: #78350f; color: #fbbf24; }
+.envio-estado-badge.est-envuelo   { background: #1e3a8a; color: #93c5fd; }
+.envio-estado-badge.est-entregado { background: #14532d; color: #86efac; }
+.envio-estado-badge.est-pendiente { background: #334155; color: #cbd5e1; }
+
+/* ── FIN DEL DÍA 5: foto congelada ───────────────────────────── */
+.foto-dia5-bar {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 610;
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  width: min(560px, 92%);
+  padding: .6rem .8rem;
+  background: #0b2a4a;
+  border: 1px solid #2563eb;
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+}
+.foto-dia5-bar > i { color: #60a5fa; font-size: 1.1rem; margin-top: .1rem; }
+.fd5-title { font-weight: 700; font-size: .82rem; color: #e2e8f0; }
+.fd5-detail { font-size: .72rem; color: #94a3b8; line-height: 1.35; margin-top: .15rem; }
+
+/* ── SIMULACIÓN FINALIZADA (pausa eterna) ────────────────────── */
+.fin-chip {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .85rem;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid #3b82f6;
+  border-radius: 999px;
+  color: #e2e8f0;
+  font-weight: 700;
+  font-size: .82rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.fin-chip i { color: #60a5fa; }
+.fin-chip-link { color: #60a5fa; font-weight: 600; font-size: .72rem; text-decoration: underline; }
+.fin-chip:hover { background: rgba(37, 99, 235, 0.25); }
+
+.fin-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(2px);
+  padding: 1rem;
+}
+.fin-card {
+  position: relative;
+  width: min(720px, 96%);
+  max-height: 90%;
+  overflow-y: auto;
+  background: #0f172a;
+  border: 1px solid #2563eb;
+  border-radius: 14px;
+  padding: 1.2rem 1.3rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.fin-card-x {
+  position: absolute;
+  top: .6rem;
+  right: .6rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: .95rem;
+  padding: .3rem;
+  border-radius: 6px;
+}
+.fin-card-x:hover { color: #f87171; background: #33415580; }
+.fin-card-head {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+.fin-card-head > i { font-size: 1.8rem; color: #3b82f6; }
+.fin-card-title { font-size: 1.25rem; font-weight: 800; color: #f8fafc; }
+.fin-card-sub { font-size: .78rem; color: #94a3b8; }
+.fin-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .8rem;
+}
+@media (max-width: 640px) { .fin-metrics { grid-template-columns: 1fr; } }
+.fin-metric-group {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: .7rem .8rem;
+}
+.fmg-title {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #60a5fa;
+  margin-bottom: .4rem;
+}
+.fm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .82rem;
+  color: #cbd5e1;
+  padding: .18rem 0;
+}
+.fm-row b { color: #f8fafc; font-variant-numeric: tabular-nums; }
+.fm-row.fm-total {
+  border-top: 1px solid #334155;
+  margin-top: .3rem;
+  padding-top: .35rem;
+  font-weight: 700;
+}
+.fin-card-actions {
+  display: flex;
+  gap: .6rem;
+  margin-top: 1.1rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.fin-btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: #16a34a;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: .85rem;
+  padding: .6rem 1rem;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.fin-btn-download:hover { background: #15803d; }
+.fin-btn-ver {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: #334155;
+  border: none;
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: .85rem;
+  padding: .6rem 1rem;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.fin-btn-ver:hover { background: #475569; }
