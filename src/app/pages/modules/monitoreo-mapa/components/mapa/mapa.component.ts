@@ -456,35 +456,6 @@ export class MapaComponent implements OnInit, OnDestroy {
       });
     }
 
-    // 1. Bootstrap instantáneo desde el último estado cacheado (al volver al módulo)
-    if (svc.estadoCacheado) {
-      this.aplicarSnapshot(svc.estadoCacheado);
-    } else {
-      this.estadoMonitoreo = 'procesando';
-    }
-
-    // 2. Conectar WS para recibir reloj + planes en vivo
-    this.iniciarWs();
-
-    // 3. Arrancar la simulación server-side una sola vez; siempre traer snapshot fresco
-    if (!svc.arrancado) {
-      svc.marcarArrancado();
-      svc.iniciarMonitoreo().subscribe({
-        next: (resp: any) => { if (resp?.data) this.aplicarSnapshot(resp.data); },
-        error: () => {}
-      });
-      // Red de seguridad: si el WS conectó después del primer PLAN, recuperar el snapshot
-      setTimeout(() => svc.getEstado().subscribe({
-        next: (resp: any) => { if (resp?.data?.vuelos?.length) this.aplicarSnapshot(resp.data); },
-        error: () => {}
-      }), 4000);
-    } else {
-      svc.getEstado().subscribe({
-        next: (resp: any) => { if (resp?.data) this.aplicarSnapshot(resp.data); },
-        error: () => {}
-      });
-    }
-
     this.cdr.detectChanges();
   }
 
