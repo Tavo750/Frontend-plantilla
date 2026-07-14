@@ -957,7 +957,7 @@ private getAirportXOffset(codigoOaci: string): number {
     const fmt = (d: Date) => new Date(d).toLocaleString('es-PE', { timeZone: 'UTC' });
     const lineas = [
       '═══════════════════════════════════════════════',
-      '   REPORTE FINAL DE SIMULACIÓN — MoraPack',
+      '   REPORTE FINAL DE SIMULACIÓN — Tasf.B2B',
       '═══════════════════════════════════════════════',
       '',
       `Fecha de inicio (simulada):  ${fmt(m.fechaInicio)}`,
