@@ -548,7 +548,12 @@
                 <div class="route-time" style="opacity:.6">{{ vueloSeleccionado.horaLlegada | date:'HH:mm':'UTC' }} UTC</div>
               </div>
             </div>
-            <div class="prog-section" *ngIf="getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
+            <div class="prog-section prog-cancelado" *ngIf="estaOcurrenciaCancelada(vueloSeleccionado)">
+              <div class="prog-labels"><span>Estado</span><span class="prog-cancelado-txt">✕ CANCELADO</span></div>
+              <div class="prog-cancelado-hint">Este vuelo fue cancelado; sus maletas quedan pendientes de replanificación.</div>
+            </div>
+            <div class="prog-section"
+              *ngIf="!estaOcurrenciaCancelada(vueloSeleccionado) && getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
               <div class="prog-labels"><span>Recorrido</span><span>{{ getProgresoVuelo(vueloSeleccionado) |
                   number:'1.0-0' }}%</span></div>
               <div class="prog-track">
@@ -792,10 +797,13 @@
                   <span>Límite entrega: {{ trackingSel.fechaLimiteMs | date:'dd/MM HH:mm':'UTC' }}</span>
                 </div>
                 <div class="trk-tramos">
-                  <div class="trk-tramo" *ngFor="let t of trackingSel.tramos; let i = index">
+                  <div class="trk-tramo" *ngFor="let t of trackingSel.tramos; let i = index"
+                    [class.trk-tramo-cancelado]="t.cancelado">
                     <span class="trk-num">{{ i + 1 }}</span>
                     <div class="trk-tramo-body">
-                      <div class="trk-tramo-vuelo">{{ t.vuelo }} · {{ t.origen }} → {{ t.destino }}</div>
+                      <div class="trk-tramo-vuelo">{{ t.vuelo }} · {{ t.origen }} → {{ t.destino }}
+                        <span *ngIf="t.cancelado" class="trk-tramo-badge-cancelado">✕ CANCELADO</span>
+                      </div>
                       <div class="trk-tramo-horas">{{ t.salida | date:'dd/MM HH:mm':'UTC' }} → {{ t.llegada |
                         date:'dd/MM HH:mm':'UTC' }}</div>
                     </div>

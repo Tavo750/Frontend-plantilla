@@ -2075,6 +2075,7 @@ private getAirportXOffset(codigoOaci: string): number {
     // Si hay vuelo seleccionado, mostrar solo sus envíos
     if (this.vueloSeleccionado) {
       const vs = this.vueloSeleccionado;
+      const vueloCancelado = this.estaOcurrenciaCancelada(vs);
       return vs.envios.map(e => {
         const reg = e.fechaRegistroMs ?? vs.horaSalida.getTime();
         return {
@@ -2084,7 +2085,10 @@ private getAirportXOffset(codigoOaci: string): number {
           vuelo: vs.codigoVuelo,
           cumpleSla: e.cumpleSla,
           fechaRegistroMs: e.fechaRegistroMs, regMs: reg,
-          estado: this.estadoEnvio(reg, vs.horaSalida.getTime(), vs.horaLlegada.getTime())
+          // Si el vuelo de esta maleta fue cancelado, no puede estar EN_VUELO ni ENTREGADO.
+          estado: vueloCancelado
+            ? 'CANCELADO'
+            : this.estadoEnvio(reg, vs.horaSalida.getTime(), vs.horaLlegada.getTime())
         };
       });
     }
@@ -2094,6 +2098,7 @@ private getAirportXOffset(codigoOaci: string): number {
     const now = this.tiempoActualMs;
     const porEnvio = new Map<number, any>();
     this.vuelos.forEach(v => {
+      const vueloCancelado = this.estaOcurrenciaCancelada(v);
       v.envios.forEach(e => {
         // Sin fechaRegistroMs (backend antiguo): usar la salida del vuelo como aproximación
         const regMs = e.fechaRegistroMs ?? v.horaSalida.getTime();
@@ -2106,9 +2111,11 @@ private getAirportXOffset(codigoOaci: string): number {
             cumpleSla: e.cumpleSla, fechaRegistroMs: e.fechaRegistroMs, regMs,
             primeraSalidaMs: v.horaSalida.getTime(),
             ultimaLlegadaMs: v.horaLlegada.getTime(),
+            tieneCancelado: vueloCancelado,
             _vuelo: v
           });
         } else {
+          if (vueloCancelado) cur.tieneCancelado = true;
           cur.tramos++;
           cur.regMs = Math.min(cur.regMs, regMs);
           if (v.horaSalida.getTime() < cur.primeraSalidaMs) {
@@ -2124,8 +2131,14 @@ private getAirportXOffset(codigoOaci: string): number {
       });
     });
     let lista = Array.from(porEnvio.values());
-    // Estado de cada envío según el tiempo simulado (para el filtro y el badge)
-    lista.forEach(e => { e.estado = this.estadoEnvio(e.regMs, e.primeraSalidaMs, e.ultimaLlegadaMs); });
+    // Estado de cada envío según el tiempo simulado (para el filtro y el badge).
+    // Si alguno de sus tramos fue cancelado, el envío queda CANCELADO (pendiente de
+    // replanificación) en vez de EN_VUELO/ENTREGADO derivado de horas de un vuelo que no salió.
+    lista.forEach(e => {
+      e.estado = e.tieneCancelado
+        ? 'CANCELADO'
+        : this.estadoEnvio(e.regMs, e.primeraSalidaMs, e.ultimaLlegadaMs);
+    });
     // Filtro por estado: por defecto ('') muestra los ya registrados (no pendientes);
     // con un estado seleccionado, muestra solo ese grupo (incluye entregados y pendientes).
     if (this.estadoFiltroEnvio) {
@@ -2181,6 +2194,7 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'ESPERANDO':  return 'Esperando avión';
       case 'EN_VUELO':   return 'En vuelo';
       case 'ENTREGADO':  return 'Entregado';
+      case 'CANCELADO':  return 'Vuelo cancelado';
       default:           return estado;
     }
   }
@@ -2191,6 +2205,7 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'ESPERANDO':  return 'est-esperando';
       case 'EN_VUELO':   return 'est-envuelo';
       case 'ENTREGADO':  return 'est-entregado';
+      case 'CANCELADO':  return 'est-cancelado';
       default:           return '';
     }
   }
@@ -2262,7 +2277,8 @@ private getAirportXOffset(codigoOaci: string): number {
     this.vuelos.forEach(v => {
       const e = v.envios.find(en => en.idEnvio === id);
       if (e) {
-        tramos.push({ vuelo: v.codigoVuelo, origen: v.origen, destino: v.destino, salida: v.horaSalida, llegada: v.horaLlegada });
+        tramos.push({ vuelo: v.codigoVuelo, origen: v.origen, destino: v.destino,
+          salida: v.horaSalida, llegada: v.horaLlegada, cancelado: this.estaOcurrenciaCancelada(v) });
         if (e.fechaRegistroMs) fechaRegistroMs = e.fechaRegistroMs;
         if (e.fechaLimiteMs)   fechaLimiteMs   = e.fechaLimiteMs;
         cantidad = e.cantidad;
@@ -2271,16 +2287,19 @@ private getAirportXOffset(codigoOaci: string): number {
     });
     tramos.sort((a, b) => a.salida.getTime() - b.salida.getTime());
 
-    // Estado actual según hora simulada
+    // Estado actual según hora simulada. Un tramo cancelado corta la ruta: la maleta
+    // no viaja en ese vuelo y queda pendiente de replanificación (no "entregada").
     const now = this.tiempoActualMs;
     let estado = tramos.length > 0 ? `En espera en ${tramos[0].origen}` : 'Sin ruta asignada';
     let completados = 0;
+    let cancelado = false;
     for (const t of tramos) {
+      if (t.cancelado) { estado = `Vuelo ${t.vuelo} CANCELADO · pendiente de replanificación`; cancelado = true; break; }
       if (now >= t.llegada.getTime()) { estado = `En ${t.destino}`; completados++; }
       else if (now >= t.salida.getTime()) { estado = `En vuelo ${t.vuelo} (${t.origen} → ${t.destino})`; break; }
       else break;
     }
-    if (tramos.length > 0 && completados >= tramos.length) {
+    if (!cancelado && tramos.length > 0 && completados >= tramos.length) {
       estado = `Entregado en ${tramos[tramos.length - 1].destino}`;
     }
 

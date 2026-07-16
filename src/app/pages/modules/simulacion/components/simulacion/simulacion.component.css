@@ -928,6 +928,15 @@
   transition: width 0.15s ease;
 }
 
+.prog-cancelado {
+  padding: 0.4rem 0.5rem;
+  background: #451111;
+  border: 1px solid #7f1d1d;
+  border-radius: 6px;
+}
+.prog-cancelado-txt { color: #fca5a5; font-weight: 700; letter-spacing: 0.02em; }
+.prog-cancelado-hint { font-size: 0.68rem; color: #fca5a5; opacity: 0.85; }
+
 .bags-section {
   display: flex;
   flex-direction: column;
@@ -2230,6 +2239,20 @@
 }
 .trk-tramo-vuelo { font-size: .72rem; color: #e2e8f0; font-weight: 600; }
 .trk-tramo-horas { font-size: .68rem; color: #94a3b8; }
+.trk-tramo-cancelado { opacity: 0.9; }
+.trk-tramo-cancelado .trk-tramo-vuelo,
+.trk-tramo-cancelado .trk-tramo-horas { text-decoration: line-through; color: #fca5a5; }
+.trk-tramo-badge-cancelado {
+  margin-left: .35rem;
+  padding: 0 .3rem;
+  border-radius: 4px;
+  background: #7f1d1d;
+  color: #fca5a5;
+  font-size: .6rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
 .trk-resumen {
   justify-content: space-between;
   border-top: 1px dashed #334155;
@@ -2665,6 +2688,7 @@
 .envio-estado-badge.est-envuelo   { background: #1e3a8a; color: #93c5fd; }
 .envio-estado-badge.est-entregado { background: #14532d; color: #86efac; }
 .envio-estado-badge.est-pendiente { background: #334155; color: #cbd5e1; }
+.envio-estado-badge.est-cancelado { background: #7f1d1d; color: #fca5a5; }
 
 /* ── FIN DEL DÍA 5: foto congelada ───────────────────────────── */
 .foto-dia5-bar {
