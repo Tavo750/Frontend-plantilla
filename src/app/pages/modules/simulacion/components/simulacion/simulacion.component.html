@@ -515,11 +515,11 @@
                   [disabled]="!puedeCancelar(item.vuelo)"
                   (click)="$event.stopPropagation(); pedirCancelarVuelo(item.vuelo)" [title]="getCancelTitle(item)">
                   <i class="pi pi-times-circle"></i>
-                  {{ item.estadoVuelo !== 'PENDIENTE' ? 'Cancelar (mañana)' : 'Cancelar' }}
+                  Cancelar
                 </button>
-                <button *ngIf="item.cancelado" class="btn-gestion btn-gestion-reactivar"
-                  (click)="$event.stopPropagation(); reactivarVuelo(item.vuelo)" title="Reactivar este vuelo">
-                  <i class="pi pi-check-circle"></i> Reactivar
+                <button *ngIf="item.cancelado" class="btn-gestion btn-gestion-reactivar" disabled
+                  title="Ocurrencia cancelada">
+                  <i class="pi pi-times-circle"></i> CANCELADO
                 </button>
               </div>
             </div>
@@ -846,25 +846,19 @@
       <i
         [class]="vueloYaEnVuelo ? 'pi pi-info-circle confirm-icon confirm-icon-info' : 'pi pi-exclamation-triangle confirm-icon'"></i>
 
-      <ng-container *ngIf="vueloYaEnVuelo">
-        <p>El vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong> ya despegó o aterrizó.</p>
-        <p class="confirm-sub">{{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
-        <p class="confirm-hint">
-          La cancelación se hará efectiva para el vuelo del <strong>día siguiente</strong>.
-          El algoritmo replanificará las rutas de los envíos afectados excluyendo ese vuelo.
-          Esta cancelación dura únicamente <strong>1 día</strong>.
-        </p>
-      </ng-container>
-
-      <ng-container *ngIf="!vueloYaEnVuelo">
-        <p>¿Cancelar el vuelo <strong>{{ vueloParaCancelar.codigoVuelo }}</strong>?</p>
-        <p class="confirm-sub">{{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
-        <p class="confirm-hint">
-          El vuelo será cancelado para el <strong>día de hoy</strong>.
-          El algoritmo replanificará las rutas de los envíos afectados automáticamente.
-          Esta cancelación dura únicamente <strong>1 día</strong>.
-        </p>
-      </ng-container>
+      <p><strong>Vuelo:</strong> {{ vueloParaCancelar.codigoVuelo }}</p>
+      <p class="confirm-sub"><strong>Ruta:</strong> {{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
+      <p class="confirm-sub"><strong>Hora de salida:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).fechaHora | date:'dd/MM/yyyy HH:mm':'UTC' }}</p>
+      <p class="confirm-sub"><strong>Hora simulada actual:</strong> {{ tiempoActualMs | date:'dd/MM/yyyy HH:mm':'UTC' }}
+      </p>
+      <p class="confirm-sub"><strong>La cancelación afectará:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).aplicaMismoDia ? 'hoy' : 'siguiente día' }}</p>
+      <p class="confirm-sub"><strong>Fecha operacional afectada:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).fechaHora | date:'dd/MM/yyyy':'UTC' }}</p>
+      <p class="confirm-sub"><strong>Maletas observadas:</strong> {{ vueloParaCancelar.totalMaletas }}</p>
+      <p class="confirm-hint">Las maletas asignadas quedarán pendientes y serán replanificadas en los siguientes ciclos.
+      </p>
 
       <div class="confirm-footer">
         <button class="btn-pausar" (click)="cerrarDialogoCancelacion()" [disabled]="cancelando">
@@ -873,7 +867,7 @@
         <button class="btn-detener" (click)="confirmarCancelar()" [disabled]="cancelando">
           <i class="pi pi-spin pi-spinner" *ngIf="cancelando"></i>
           <i class="pi pi-ban" *ngIf="!cancelando"></i>
-          {{ cancelando ? 'Cancelando...' : (vueloYaEnVuelo ? 'Sí, cancelar mañana' : 'Sí, cancelar hoy') }}
+          {{ cancelando ? 'Procesando...' : 'Sí, cancelar' }}
         </button>
       </div>
     </div>
