@@ -1817,6 +1817,12 @@ private getAirportXOffset(codigoOaci: string): number {
     const capLine = cap > 0
       ? `Capacidad: ${cap} maletas · Ocupación: ${pctOcup}%`
       : `Capacidad: s/d`;
+    // El código del vuelo lleva la hora LOCAL del origen; el reloj de la simulación
+    // corre en UTC. Mostramos las horas reales (UTC) para que coincidan con el reloj
+    // y con el momento en que el avión aparece/desaparece del mapa.
+    const fmtUtc = (d: Date) => d.toLocaleString('es-PE', {
+      timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+    });
     this.tooltip = {
       visible: true,
       x: flip ? relX - 250 : relX + 14,
@@ -1824,6 +1830,7 @@ private getAirportXOffset(codigoOaci: string): number {
       lines: [
         `✈ Vuelo ${p.vuelo.codigoVuelo}`,
         `${p.vuelo.origen} → ${p.vuelo.destino}`,
+        `Salida ${fmtUtc(p.vuelo.horaSalida)} · Llegada ${fmtUtc(p.vuelo.horaLlegada)} (UTC)`,
         `Maletas a bordo: ${maletas} · ${p.vuelo.envios.length} envíos`,
         capLine,
         slaLbl,
