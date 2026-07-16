@@ -115,6 +115,7 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   cancelando         = false;
   cancelacionExitosa = false;
   codigoVueloCancelado = '';
+  enviosCancelacionAfectados: number[] = [];
 
   // ── Tooltip flotante ───────────────────────────────────────
   tooltip: { visible: boolean; x: number; y: number; lines: string[] } = {
@@ -692,6 +693,8 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'UPDATE':  this.onWsUpdate(msg); break;
       case 'FIN':     this.onWsFin(msg);    break;
       case 'SYNC':    this.onWsSync(msg);   break;
+      case 'FLIGHT_CANCELLED': this.onWsFlightCancelled(msg); break;
+      case 'CANCEL_FLIGHT_ERROR': this.onWsCancelFlightError(msg); break;
       case 'STOPPED': break;
 
       case 'BUSCANDO_COLAPSO':
@@ -1281,7 +1284,7 @@ private getAirportXOffset(codigoOaci: string): number {
 
     // ── Aviones en el aire ──
     this.planosEnMapa = this.vuelos
-      .filter(v => now >= v.horaSalida.getTime() && now < v.horaLlegada.getTime())
+      .filter(v => !this.estaOcurrenciaCancelada(v) && now >= v.horaSalida.getTime() && now < v.horaLlegada.getTime())
       .map(v => {
         const t = (now - v.horaSalida.getTime()) / (v.horaLlegada.getTime() - v.horaSalida.getTime());
         const o = this.aeropuertoMap.get(v.origen);
@@ -1314,11 +1317,12 @@ private getAirportXOffset(codigoOaci: string): number {
   private actualizarEstadoPesado(): void {
     const now = this.tiempoActualMs;
 
-    // Cancelaciones de 1 día: reactivar vuelos cuyo día simulado ya pasó
-    this.reactivarCanceladosExpirados();
-
     // ── Estado arcos + detección de eventos de transición ──
     this.arcosVuelo.forEach(arco => {
+      if (this.estaOcurrenciaCancelada(arco.vuelo)) {
+        arco.estado = 'PENDIENTE';
+        return;
+      }
       const s = arco.vuelo.horaSalida.getTime();
       const l = arco.vuelo.horaLlegada.getTime();
       const nuevo: 'PENDIENTE' | 'EN_VUELO' | 'ATERRIZADO' =
@@ -1542,34 +1546,47 @@ private getAirportXOffset(codigoOaci: string): number {
 
   limpiarBusquedaGestion(): void { this.busquedaGestion = ''; }
 
-  /** Un vuelo PENDIENTE solo es cancelable hasta 1 h antes del despegue (hora simulada).
-   *  EN_VUELO / ATERRIZADO siempre son "cancelables" pero con efecto al día siguiente. */
+  /** La regla de una hora elige la ocurrencia; no bloquea la cancelación. */
   puedeCancelar(v: VueloSimulacion): boolean {
-    if (this.getEstadoVuelo(v) !== 'PENDIENTE') return true;
-    return v.horaSalida.getTime() - this.tiempoActualMs > 3_600_000;
+    if (!v?.codigoVuelo || !Number.isFinite(v.horaSalida?.getTime())) return false;
+    const previa = this.previsualizarCancelacion(this.tiempoActualMs, v.horaSalida);
+    return previa.fechaHora.getTime() <= this.tiempoFinMs
+      && !this.vuelosCancelados.has(this.claveOcurrencia(v.codigoVuelo, previa.fechaHora.getTime()));
   }
 
   getCancelTitle(item: any): string {
-    if (item.estadoVuelo === 'PENDIENTE') {
-      return this.puedeCancelar(item.vuelo)
-        ? 'Cancelar este vuelo (solo hoy)'
-        : 'No cancelable: falta menos de 1 hora para el despegue';
-    }
-    return 'Cancelar vuelo del día siguiente';
+    if (!this.puedeCancelar(item.vuelo)) return 'No hay una ocurrencia futura cancelable';
+    return this.previsualizarCancelacion(this.tiempoActualMs, item.vuelo.horaSalida).texto;
   }
 
   pedirCancelarVuelo(v: VueloSimulacion): void {
-    const estado = this.getEstadoVuelo(v);
-    if (estado === 'PENDIENTE' && !this.puedeCancelar(v)) {
+    if (!this.puedeCancelar(v)) {
       this.messageService.add({
         severity: 'warn', summary: 'No cancelable',
-        detail: 'Solo se puede cancelar hasta 1 hora antes del despegue (hora simulada).'
+        detail: 'No hay una ocurrencia futura identificable o ya fue cancelada.'
       });
       return;
     }
     this.vueloParaCancelar = v;
-    this.vueloYaEnVuelo = estado !== 'PENDIENTE';
+    this.vueloYaEnVuelo = !this.previsualizarCancelacion(this.tiempoActualMs, v.horaSalida).aplicaMismoDia;
     this.mostrarConfirmCancelar = true;
+  }
+
+  previsualizarCancelacion(fechaHoraSimuladaMs: number, horaSalida: Date):
+    { fechaHora: Date; aplicaMismoDia: boolean; texto: string } {
+    const salidaHoy = new Date(fechaHoraSimuladaMs);
+    salidaHoy.setUTCHours(horaSalida.getUTCHours(), horaSalida.getUTCMinutes(), horaSalida.getUTCSeconds(), horaSalida.getUTCMilliseconds());
+    const aplicaMismoDia = fechaHoraSimuladaMs <= salidaHoy.getTime() - this.HORA_MS;
+    const fechaHora = new Date(salidaHoy.getTime() + (aplicaMismoDia ? 0 : 24 * this.HORA_MS));
+    return { fechaHora, aplicaMismoDia, texto: aplicaMismoDia ? 'Afectará la ocurrencia de hoy' : 'Afectará la siguiente ocurrencia' };
+  }
+
+  private claveOcurrencia(codigoVuelo: string, horaSalidaMs: number): string {
+    return `${codigoVuelo}|${horaSalidaMs}`;
+  }
+
+  estaOcurrenciaCancelada(v: VueloSimulacion): boolean {
+    return this.vuelosCancelados.has(this.claveOcurrencia(v.codigoVuelo, v.horaSalida.getTime()));
   }
 
   seleccionarAeropuerto(codigo: string): void {
@@ -1587,39 +1604,47 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   confirmarCancelar(): void {
-    if (!this.vueloParaCancelar) return;
-    const codigo = this.vueloParaCancelar.codigoVuelo;
+    this.solicitarCancelacionVuelo();
+  }
+
+  solicitarCancelacionVuelo(): void {
+    if (!this.vueloParaCancelar || this.cancelando) return;
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      this.messageService.add({ severity: 'error', summary: 'Sin conexión', detail: 'El WebSocket de la simulación no está disponible.' });
+      return;
+    }
+    const previa = this.previsualizarCancelacion(this.tiempoActualMs, this.vueloParaCancelar.horaSalida);
     this.cancelando = true;
-    this.replanificando = true;
-    this.simulacionService.cancelarVuelo(codigo).subscribe({
-      next: () => {
-        this.replanificando = false;
-        this.vuelosCancelados.add(codigo);
-        const vuelo = this.vueloParaCancelar!;
-        const o = this.aeropuertoMap.get(vuelo.origen);
-        const d = this.aeropuertoMap.get(vuelo.destino);
-        if (o && d) {
-          this.cancelacionesEnMapa.set(codigo, {
-            d: this.calcArco(o.x, o.y, d.x, d.y),
-            ox: o.x, oy: o.y,
-            horaLlegadaMs: vuelo.horaLlegada.getTime()
-          });
-        }
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Vuelo cancelado',
-          detail: `${codigo} cancelado (solo por hoy) · rutas de maletas replanificadas.`
-        });
-        this.cerrarDialogoCancelacion();
-      },
-      error: (err: any) => {
-        this.cancelando = false;
-        this.replanificando = false;
-        const detalle = err.error?.message ?? 'No se pudo cancelar el vuelo.';
-        this.messageService.add({ severity: 'error', summary: 'Error al cancelar', detail: detalle });
-        this.cdr.detectChanges();
-      }
+    this.ws.send(JSON.stringify({
+      type: 'CANCEL_FLIGHT',
+      codigoVuelo: this.vueloParaCancelar.codigoVuelo,
+      horaSalidaSeleccionadaMs: previa.fechaHora.getTime(),
+      fechaHoraSimuladaMs: this.tiempoActualMs
+    }));
+  }
+
+  private onWsFlightCancelled(msg: any): void {
+    this.vuelosCancelados.add(this.claveOcurrencia(msg.codigoVuelo, Number(msg.horaSalidaAfectadaMs)));
+    this.enviosCancelacionAfectados = Array.isArray(msg.enviosAfectados) ? msg.enviosAfectados : [];
+    this.cancelando = false;
+    this.actualizarEstado();
+    const ids = this.enviosCancelacionAfectados.length ? ` Envíos afectados: ${this.enviosCancelacionAfectados.join(', ')}.` : '';
+    this.messageService.add({
+      severity: 'success', summary: 'Vuelo cancelado',
+      detail: `${msg.codigoVuelo} · ocurrencia ${this.formatearFechaHora(Number(msg.horaSalidaAfectadaMs))}.${ids} Las maletas afectadas quedan pendientes de replanificación.`
     });
+    this.cerrarDialogoCancelacion();
+    this.cdr.detectChanges();
+  }
+
+  private onWsCancelFlightError(msg: any): void {
+    this.cancelando = false;
+    this.messageService.add({ severity: 'error', summary: 'Error al cancelar', detail: msg.mensaje ?? 'No se pudo cancelar el vuelo.' });
+    this.cdr.detectChanges();
+  }
+
+  formatearFechaHora(ms: number): string {
+    return new Date(ms).toLocaleString('es-PE', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' });
   }
 
   /** Las cancelaciones duran 1 día: al pasar el día simulado del vuelo, se reactiva solo. */
@@ -1924,7 +1949,7 @@ private getAirportXOffset(codigoOaci: string): number {
 
   private computarPanelVuelos(): any[] {
     let lista = this.vuelos.map(v => {
-      const cancelado = this.vuelosCancelados.has(v.codigoVuelo);
+      const cancelado = this.estaOcurrenciaCancelada(v);
       const estado = cancelado ? 'CANCELADO' : this.getEstadoVuelo(v);
       const fails = v.envios.filter((e: any) => e.cumpleSla === false).length;
       const total = v.envios.length;
