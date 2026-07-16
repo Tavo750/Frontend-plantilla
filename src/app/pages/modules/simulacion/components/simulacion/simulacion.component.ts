@@ -1655,14 +1655,18 @@ private getAirportXOffset(codigoOaci: string): number {
   private reactivarCanceladosExpirados(): void {
     if (this.vuelosCancelados.size === 0) return;
     const now = this.tiempoActualMs;
-    Array.from(this.vuelosCancelados).forEach(codigo => {
-      const v = this.vueloMap.get(codigo);
-      if (!v) return;
-      const finDia = new Date(v.horaSalida.getTime());
+    // Cada elemento es una clave de ocurrencia "CODIGO|horaSalidaMs" (ver claveOcurrencia).
+    Array.from(this.vuelosCancelados).forEach(clave => {
+      const sep = clave.lastIndexOf('|');
+      if (sep < 0) return;
+      const codigoVuelo = clave.slice(0, sep);
+      const horaSalidaMs = Number(clave.slice(sep + 1));
+      if (!Number.isFinite(horaSalidaMs)) return;
+      const finDia = new Date(horaSalidaMs);
       finDia.setUTCHours(23, 59, 59, 999);
       if (now > finDia.getTime()) {
-        this.vuelosCancelados.delete(codigo);
-        this.simulacionService.reactivarVuelo(codigo).subscribe({ next: () => {}, error: () => {} });
+        this.vuelosCancelados.delete(clave);
+        this.simulacionService.reactivarVuelo(codigoVuelo).subscribe({ next: () => {}, error: () => {} });
       }
     });
   }
