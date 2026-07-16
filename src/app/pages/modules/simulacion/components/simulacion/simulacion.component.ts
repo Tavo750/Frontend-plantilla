@@ -19,6 +19,7 @@ export interface AeropuertoPosicion {
   x: number;
   y: number;
   capacidad: number;
+  gmt: number;
 }
 
 export interface VueloSimulacion {
@@ -404,7 +405,8 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
             lat, lon,
             x: this.lonToX(lon) + this.MAP_X_OFFSET + this.getAirportXOffset(a.codigoOaci),
             y: this.latToY(lat) + this.MAP_Y_OFFSET,
-            capacidad: a.capacidad
+            capacidad: a.capacidad,
+            gmt: a.gmt ?? 0
           };
           this.aeropuertos.push(pos);
           this.aeropuertoMap.set(a.codigoOaci, pos);
@@ -1432,6 +1434,28 @@ private getAirportXOffset(codigoOaci: string): number {
     return Math.max(0, Math.min(100, ((now-s)/(l-s))*100));
   }
 
+  /** GMT (offset UTC en horas) de un aeropuerto por código OACI; 0 si no se conoce. */
+  private gmtDe(codigo: string): number {
+    return this.aeropuertoMap.get(codigo)?.gmt ?? 0;
+  }
+
+  /** Formatea una época UTC (ms) en la hora LOCAL de un huso dado (dd/MM HH:mm). */
+  private fmtLocalHora(ms: number, gmt: number): string {
+    return new Date(ms + gmt * this.HORA_MS).toLocaleString('es-PE', {
+      timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  }
+
+  /** Hora local de salida (huso del origen). Coincide con la hora del código del vuelo. */
+  horaLocalSalida(v: VueloSimulacion): string {
+    return this.fmtLocalHora(v.horaSalida.getTime(), this.gmtDe(v.origen));
+  }
+
+  /** Hora local de llegada (huso del destino). */
+  horaLocalLlegada(v: VueloSimulacion): string {
+    return this.fmtLocalHora(v.horaLlegada.getTime(), this.gmtDe(v.destino));
+  }
+
   getBagsEnAeropuerto(codigo: string): number {
     return this.maletasEnAeropuerto.get(codigo) ?? 0;
   }
@@ -1818,8 +1842,8 @@ private getAirportXOffset(codigoOaci: string): number {
       ? `Capacidad: ${cap} maletas · Ocupación: ${pctOcup}%`
       : `Capacidad: s/d`;
     // El código del vuelo lleva la hora LOCAL del origen; el reloj de la simulación
-    // corre en UTC. Mostramos las horas reales (UTC) para que coincidan con el reloj
-    // y con el momento en que el avión aparece/desaparece del mapa.
+    // corre en UTC. Mostramos ambas: local (coincide con el código) y UTC (coincide
+    // con el reloj y con el momento en que el avión aparece/desaparece del mapa).
     const fmtUtc = (d: Date) => d.toLocaleString('es-PE', {
       timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
     });
@@ -1830,7 +1854,8 @@ private getAirportXOffset(codigoOaci: string): number {
       lines: [
         `✈ Vuelo ${p.vuelo.codigoVuelo}`,
         `${p.vuelo.origen} → ${p.vuelo.destino}`,
-        `Salida ${fmtUtc(p.vuelo.horaSalida)} · Llegada ${fmtUtc(p.vuelo.horaLlegada)} (UTC)`,
+        `Salida ${this.horaLocalSalida(p.vuelo)} local · ${fmtUtc(p.vuelo.horaSalida)} UTC`,
+        `Llegada ${this.horaLocalLlegada(p.vuelo)} local · ${fmtUtc(p.vuelo.horaLlegada)} UTC`,
         `Maletas a bordo: ${maletas} · ${p.vuelo.envios.length} envíos`,
         capLine,
         slaLbl,
