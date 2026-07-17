@@ -1610,7 +1610,8 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   private claveOcurrencia(codigoVuelo: string, horaSalidaMs: number): string {
-    return `${codigoVuelo}|${horaSalidaMs}`;
+    const routeOnly = codigoVuelo.replace(/-\d{8}-/, '-');
+    return `${routeOnly}|${horaSalidaMs}`;
   }
 
   estaOcurrenciaCancelada(v: VueloSimulacion): boolean {
