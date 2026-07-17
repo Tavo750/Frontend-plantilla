@@ -517,7 +517,7 @@
                   [disabled]="!puedeCancelar(item.vuelo)"
                   (click)="$event.stopPropagation(); pedirCancelarVuelo(item.vuelo)" [title]="getCancelTitle(item)">
                   <i class="pi pi-times-circle"></i>
-                  Cancelar
+                  {{ !puedeCancelar(item.vuelo) && item.estadoVuelo !== 'PENDIENTE' ? 'CANCELADO DURANTE VUELO' : 'Cancelar' }}
                 </button>
                 <button *ngIf="item.cancelado" class="btn-gestion btn-gestion-reactivar" disabled
                   title="Ocurrencia cancelada">
