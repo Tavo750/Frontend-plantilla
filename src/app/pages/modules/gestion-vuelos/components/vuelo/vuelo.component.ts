@@ -3,7 +3,6 @@ import { forkJoin } from 'rxjs';
 import { MessageService } from 'primeng/api';
 
 import { AeropuertoService, Aeropuerto } from '../../../../../core/services/aeropuerto.service';
-import { AuthService } from '../../../../../core/services/auth.service';
 import { VueloService, Vuelo, VueloCreateDTO, EstadoVuelo } from '../../../../../core/services/vuelo.service';
 
 @Component({
@@ -14,7 +13,7 @@ import { VueloService, Vuelo, VueloCreateDTO, EstadoVuelo } from '../../../../..
 })
 export class VueloComponent implements OnInit {
 
-  idAeropuertoUsuario: number | null = null;
+  idAeropuertoOrigen: number | null = null;
 
   codigoVuelo = '';
   idAeropuertoDestino: number | null = null;
@@ -64,30 +63,14 @@ export class VueloComponent implements OnInit {
   constructor(
     private readonly vueloService: VueloService,
     private readonly aeropuertoService: AeropuertoService,
-    private readonly authService: AuthService,
+  
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
-    this.configurarAeropuertoDesdeUsuario();
     this.cargarReferencias();
     this.cargarVuelos();
-  }
-
-  private configurarAeropuertoDesdeUsuario(): void {
-    const usuario = this.authService.getCurrentUser();
-
-    if (!usuario?.idAeropuerto) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Aeropuerto no asignado',
-        detail: 'El usuario logueado no tiene aeropuerto asignado.'
-      });
-      return;
-    }
-
-    this.idAeropuertoUsuario = Number(usuario.idAeropuerto);
   }
 
   private cargarReferencias(): void {
@@ -116,21 +99,16 @@ export class VueloComponent implements OnInit {
   }
 
   cargarVuelos(): void {
-    if (!this.idAeropuertoUsuario) {
-      this.cargandoLista = false;
-      return;
-    }
-
     this.cargandoLista = true;
 
-    this.vueloService.listarPorOrigen(this.idAeropuertoUsuario).subscribe({
-      next: (resp) => {
-        this.vuelos = this.ordenarVuelos(resp.data || []);
+    this.vueloService.listarVuelos().subscribe({
+      next: resp => {
+        this.vuelos = this.ordenarVuelos(resp.data ?? []);
         this.aplicarFiltros();
         this.cargandoLista = false;
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: err => {
         this.cargandoLista = false;
         this.cdr.detectChanges();
 
@@ -184,11 +162,11 @@ export class VueloComponent implements OnInit {
   }
 
   private validarFormulario(): boolean {
-    if (!this.idAeropuertoUsuario) {
+    if (!this.idAeropuertoOrigen) {
       this.messageService.add({
         severity: 'warn',
-        summary: 'Aeropuerto no asignado',
-        detail: 'Tu usuario no tiene aeropuerto asignado.'
+        summary: 'Campo requerido',
+        detail: 'Seleccione aeropuerto de origen.'
       });
       return false;
     }
@@ -211,7 +189,7 @@ export class VueloComponent implements OnInit {
       return false;
     }
 
-    if (this.idAeropuertoUsuario === this.idAeropuertoDestino) {
+    if (this.idAeropuertoOrigen === this.idAeropuertoDestino) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Ruta inválida',
@@ -262,7 +240,7 @@ export class VueloComponent implements OnInit {
   private construirDTO(): VueloCreateDTO {
     return {
       codigoVuelo: this.codigoVuelo.trim().toUpperCase(),
-      idAeropuertoOrigen: Number(this.idAeropuertoUsuario),
+      idAeropuertoOrigen: Number(this.idAeropuertoOrigen),
       idAeropuertoDestino: Number(this.idAeropuertoDestino),
       horaSalida: this.normalizarLocalDateTime(this.horaSalida),
       horaLlegada: this.normalizarLocalDateTime(this.horaLlegada),
@@ -279,6 +257,7 @@ export class VueloComponent implements OnInit {
     this.mostrarFormulario = true;
 
     this.codigoVuelo = vuelo.codigoVuelo;
+    this.idAeropuertoOrigen = vuelo.aeropuertoOrigen?.idAeropuerto ?? null;
     this.idAeropuertoDestino = vuelo.aeropuertoDestino?.idAeropuerto ?? null;
     this.horaSalida = this.toDatetimeLocal(vuelo.horaSalida);
     this.horaLlegada = this.toDatetimeLocal(vuelo.horaLlegada);
@@ -355,6 +334,7 @@ export class VueloComponent implements OnInit {
 
   limpiarFormulario(): void {
     this.codigoVuelo = '';
+    this.idAeropuertoOrigen = null;
     this.idAeropuertoDestino = null;
     this.horaSalida = '';
     this.horaLlegada = '';
@@ -483,9 +463,6 @@ export class VueloComponent implements OnInit {
     return this.aeropuertos.find(a => a.idAeropuerto === id) ?? null;
   }
 
-  getAeropuertoUsuario(): Aeropuerto | null {
-    return this.getAeropuertoById(this.idAeropuertoUsuario);
-  }
 
   private buscarAeropuertoCompleto(idAeropuerto?: number): Aeropuerto | null {
     if (!idAeropuerto) return null;
@@ -493,16 +470,16 @@ export class VueloComponent implements OnInit {
   }
 
   getRutaPreview(): string {
-    const o = this.getAeropuertoById(this.idAeropuertoUsuario);
+    const o = this.getAeropuertoById(this.idAeropuertoOrigen);
     const d = this.getAeropuertoById(this.idAeropuertoDestino);
 
     return !o || !d
-      ? 'Seleccione destino'
+      ? 'Seleccione origen y destino'
       : `${o.ciudad} (${o.codigoOaci}) → ${d.ciudad} (${d.codigoOaci})`;
   }
 
   getTipoVueloPreview(): string {
-    const o = this.getAeropuertoById(this.idAeropuertoUsuario);
+    const o = this.getAeropuertoById(this.idAeropuertoOrigen);
     const d = this.getAeropuertoById(this.idAeropuertoDestino);
 
     if (!o || !d) return 'Sin ruta';
@@ -589,17 +566,6 @@ export class VueloComponent implements OnInit {
   }
 
   private procesarCSV(texto: string): void {
-    const origenUsuario = this.getAeropuertoById(this.idAeropuertoUsuario);
-
-    if (!origenUsuario) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Aeropuerto no asignado',
-        detail: 'No se encontró el aeropuerto del usuario.'
-      });
-      return;
-    }
-
     const lineas = texto
       .split('\n')
       .map(l => l.trim())
@@ -631,13 +597,16 @@ export class VueloComponent implements OnInit {
         .split(delim)
         .map(c => c.trim().replace(/^"|"$/g, ''));
 
-      if (cols.length < 7) {
-        errores.push(`Fila ${numFila}: formato inválido. Columnas: codigoVuelo, destino, horaSalida, horaLlegada, duracionHoras, capacidadMaxima, esIntercontinental`);
+      if (cols.length < 8) {
+        errores.push(
+          `Fila ${numFila}: formato inválido. Columnas: codigoVuelo, origen, destino, horaSalida, horaLlegada, duracionHoras, capacidadMaxima, esIntercontinental`
+        );
         continue;
       }
 
       const [
         codigoVuelo,
+        origenValor,
         destinoValor,
         horaSalida,
         horaLlegada,
@@ -646,13 +615,20 @@ export class VueloComponent implements OnInit {
         esIntercontinentalStr
       ] = cols;
 
+      const origen = this.resolverAeropuerto(origenValor);
       const destino = this.resolverAeropuerto(destinoValor);
       const duracionHoras = Number(duracionHorasStr);
       const capacidadMaxima = parseInt(capacidadStr, 10);
-      const esInter = ['true', '1', 'si', 'sí', 'yes'].includes((esIntercontinentalStr ?? '').toLowerCase());
+      const esInter = ['true', '1', 'si', 'sí', 'yes']
+        .includes((esIntercontinentalStr ?? '').toLowerCase());
 
       if (!codigoVuelo) {
         errores.push(`Fila ${numFila}: código de vuelo vacío`);
+        continue;
+      }
+
+      if (!origen) {
+        errores.push(`Fila ${numFila}: aeropuerto origen "${origenValor}" no encontrado`);
         continue;
       }
 
@@ -661,8 +637,8 @@ export class VueloComponent implements OnInit {
         continue;
       }
 
-      if (origenUsuario.idAeropuerto === destino.idAeropuerto) {
-        errores.push(`Fila ${numFila}: destino no puede ser igual al aeropuerto del usuario`);
+      if (origen.idAeropuerto === destino.idAeropuerto) {
+        errores.push(`Fila ${numFila}: origen y destino no pueden ser iguales`);
         continue;
       }
 
@@ -683,7 +659,7 @@ export class VueloComponent implements OnInit {
 
       validos.push({
         codigoVuelo: codigoVuelo.trim().toUpperCase(),
-        idAeropuertoOrigen: origenUsuario.idAeropuerto,
+        idAeropuertoOrigen: origen.idAeropuerto,
         idAeropuertoDestino: destino.idAeropuerto,
         horaSalida: this.normalizarLocalDateTime(horaSalida),
         horaLlegada: this.normalizarLocalDateTime(horaLlegada),
@@ -729,7 +705,6 @@ export class VueloComponent implements OnInit {
         };
 
         this.limpiarTodosLosFiltrosSinAplicar();
-
         this.cdr.detectChanges();
 
         this.messageService.add({
@@ -783,8 +758,12 @@ export class VueloComponent implements OnInit {
   }
 
   descargarPlantillaCSV(): void {
-    const origenUsuario = this.getAeropuertoById(this.idAeropuertoUsuario);
-    const destino = this.aeropuertos.find(a => a.idAeropuerto !== this.idAeropuertoUsuario);
+    const origen = this.aeropuertos[0] ?? null;
+    const destino = this.aeropuertos.find(
+      a => a.idAeropuerto !== origen?.idAeropuerto
+    ) ?? null;
+
+    const origenCod = origen?.codigoOaci ?? 'SPIM';
     const destinoCod = destino?.codigoOaci ?? 'SKBO';
 
     const hoy = new Date();
@@ -802,9 +781,9 @@ export class VueloComponent implements OnInit {
     llegada2.setHours(salida2.getHours() + 3);
 
     const csv = [
-      'codigoVuelo,destino,horaSalida,horaLlegada,duracionHoras,capacidadMaxima,esIntercontinental',
-      `${this.generarCodigoCSV(1)},${destinoCod},${this.toCsvDateTime(salida1)},${this.toCsvDateTime(llegada1)},2.00,150,false`,
-      `${this.generarCodigoCSV(2)},${destinoCod},${this.toCsvDateTime(salida2)},${this.toCsvDateTime(llegada2)},3.00,200,false`
+      'codigoVuelo,origen,destino,horaSalida,horaLlegada,duracionHoras,capacidadMaxima,esIntercontinental',
+      `${this.generarCodigoCSV(1)},${origenCod},${destinoCod},${this.toCsvDateTime(salida1)},${this.toCsvDateTime(llegada1)},2.00,150,false`,
+      `${this.generarCodigoCSV(2)},${origenCod},${destinoCod},${this.toCsvDateTime(salida2)},${this.toCsvDateTime(llegada2)},3.00,200,false`
     ].join('\n');
 
     const blob = new Blob(['﻿' + csv], {
@@ -815,7 +794,7 @@ export class VueloComponent implements OnInit {
     const a = document.createElement('a');
 
     a.href = url;
-    a.download = `plantilla-carga-masiva-vuelos-${origenUsuario?.codigoOaci ?? 'origen'}.csv`;
+    a.download = 'plantilla-carga-masiva-vuelos.csv';
     a.click();
 
     URL.revokeObjectURL(url);
