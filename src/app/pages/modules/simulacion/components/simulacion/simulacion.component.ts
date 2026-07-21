@@ -644,7 +644,11 @@ private getAirportXOffset(codigoOaci: string): number {
           fechaInicio: this.formatFecha(this.fechaInicio),
           horaInicio: this.horaInicio || '00:00',
           K: 120,
-          maxMaletasSC: 5000
+          // Tope de maletas procesadas por ventana ALNS. La demanda real ronda las
+          // ~12 000 maletas por ventana de 10 h; con 5 000 se procesaba solo el ~41 %
+          // y el resto se acumulaba en el arrastre hasta descartarse (envíos que
+          // nunca aparecían en el buscador). 25 000 cubre el pico con margen.
+          maxMaletasSC: 25000
         };
         this.ws!.send(JSON.stringify(startMsg));
         this.ngZone.run(() => {
