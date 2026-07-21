@@ -823,6 +823,12 @@ private getAirportXOffset(codigoOaci: string): number {
       }
     });
 
+    // Envíos afectados por una cancelación que NO se pudieron reasignar: se
+    // registran como el tramo cancelado de su vuelo original para que el buscador
+    // los muestre (estado "Vuelo cancelado · pendiente de replanificación") en vez
+    // de hacerlos desaparecer al no quedar en ningún vuelo activo.
+    this.registrarEnviosNoReasignados(msg.enviosNoReasignados);
+
     // El fin de la "foto" es fijo (inicio + 5 días); NO se extiende hasta el
     // último aterrizaje: al llegar al día 5 se congela el estado.
     this.tiempoFinMs = this.tiempoInicioMs + this.duracionFotoMs;
@@ -832,6 +838,45 @@ private getAirportXOffset(codigoOaci: string): number {
     this.computarArcos();
     this.actualizarEstado();
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Registra los envíos afectados por una cancelación que el ALNS no pudo
+   * reasignar. Los agrega al tramo de su vuelo cancelado (creándolo si aún no
+   * existe en el mapa) para que sigan visibles en el buscador con su estado real
+   * (CANCELADO → "Vuelo cancelado · pendiente de replanificación"). El vuelo ya
+   * está marcado como cancelado por el FLIGHT_CANCELLED previo, así que
+   * computarPanelEnvios lo deriva como CANCELADO (tramosActivos === 0).
+   * Si más adelante un ciclo regular lo reasigna a un vuelo real, ese tramo
+   * activo pasa a mandar y el estado se actualiza solo (ENTREGADO/EN_VUELO).
+   */
+  private registrarEnviosNoReasignados(items: any[]): void {
+    if (!Array.isArray(items) || items.length === 0) return;
+    items.forEach(it => {
+      const key = it?.codigoVuelo;
+      if (!key) return;
+      let v = this.vueloMap.get(key);
+      if (!v) {
+        v = {
+          codigoVuelo: key,
+          origen: it.origen, destino: it.destino,
+          horaSalida:  new Date(it.horaSalidaMs),
+          horaLlegada: new Date(it.horaLlegadaMs),
+          totalMaletas: 0, capacidad: 0, envios: []
+        };
+        this.vueloMap.set(key, v);
+        this.vuelos.push(v);
+      }
+      // Evitar duplicar el envío si ya figura en este tramo
+      if (v.envios.some(e => e.idEnvio === it.idEnvio)) return;
+      v.envios.push({
+        idEnvio: it.idEnvio, cantidad: it.cantidad, cumpleSla: it.cumpleSla,
+        fechaRegistroMs: it.fechaRegistroMs, fechaLimiteMs: it.fechaLimiteMs
+      });
+      v.totalMaletas += it.cantidad ?? 0;
+    });
+    this.recomputarDisponibilidadAlmacen();
+    this.actualizarEstado();
   }
 
   private onWsFin(msg: any): void {
