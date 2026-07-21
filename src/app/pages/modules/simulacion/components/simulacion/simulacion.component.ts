@@ -800,10 +800,18 @@ private getAirportXOffset(codigoOaci: string): number {
     (msg.nuevosVuelos ?? []).forEach((v: any) => {
       const key = v.codigoVuelo;
       if (this.vueloMap.has(key)) {
-        // Vuelo ya conocido (ej. en vuelo al inicio): acumular maletas
+        // Vuelo ya conocido: fusionar sus envíos DE-DUPLICANDO por idEnvio. Una
+        // reoptimización posterior (o la replanificación de una cancelación) puede
+        // re-emitir el mismo vuelo con envíos que ya estaban asignados a él; sin
+        // dedup se concatenaban y aparecían duplicados. El más reciente gana.
         const existing = this.vueloMap.get(key)!;
-        existing.totalMaletas += (v.totalMaletas ?? 0);
-        existing.envios = [...existing.envios, ...(v.envios ?? [])];
+        const porId = new Map<number, VueloSimulacion['envios'][number]>();
+        existing.envios.forEach(e => porId.set(e.idEnvio, e));
+        (v.envios ?? []).forEach((e: any) => porId.set(e.idEnvio, e));
+        existing.envios = Array.from(porId.values());
+        // totalMaletas debe reflejar los envíos reales del tramo (no acumular en
+        // cada re-emisión, que inflaba el conteo con los duplicados).
+        existing.totalMaletas = existing.envios.reduce((s, e) => s + (e.cantidad ?? 0), 0);
         if (v.capacidad && !existing.capacidad) existing.capacidad = v.capacidad;
       } else {
         const vuelo: VueloSimulacion = {
