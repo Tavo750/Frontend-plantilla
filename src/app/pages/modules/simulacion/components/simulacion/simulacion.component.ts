@@ -2113,6 +2113,12 @@ private getAirportXOffset(codigoOaci: string): number {
             primeraSalidaMs: v.horaSalida.getTime(),
             ultimaLlegadaMs: v.horaLlegada.getTime(),
             tieneCancelado: vueloCancelado,
+            // Agregados de los tramos ACTIVOS (no cancelados): el estado final del
+            // envío se deriva solo de estos, para que un tramo cancelado ya
+            // reemplazado por una replanificación no lo deje pegado en CANCELADO.
+            tramosActivos: vueloCancelado ? 0 : 1,
+            primeraSalidaActivaMs: vueloCancelado ? Infinity : v.horaSalida.getTime(),
+            ultimaLlegadaActivaMs: vueloCancelado ? -Infinity : v.horaLlegada.getTime(),
             _vuelo: v
           });
         } else {
@@ -2127,18 +2133,26 @@ private getAirportXOffset(codigoOaci: string): number {
             cur.ultimaLlegadaMs = v.horaLlegada.getTime();
             cur.destino = v.destino;
           }
+          if (!vueloCancelado) {
+            cur.tramosActivos++;
+            cur.primeraSalidaActivaMs = Math.min(cur.primeraSalidaActivaMs, v.horaSalida.getTime());
+            cur.ultimaLlegadaActivaMs = Math.max(cur.ultimaLlegadaActivaMs, v.horaLlegada.getTime());
+          }
           if (e.cumpleSla === false) cur.cumpleSla = false;
         }
       });
     });
     let lista = Array.from(porEnvio.values());
     // Estado de cada envío según el tiempo simulado (para el filtro y el badge).
-    // Si alguno de sus tramos fue cancelado, el envío queda CANCELADO (pendiente de
-    // replanificación) en vez de EN_VUELO/ENTREGADO derivado de horas de un vuelo que no salió.
+    // El estado se deriva SOLO de los tramos activos (no cancelados): un vuelo
+    // cancelado que ya fue reemplazado por una replanificación no debe pinar el
+    // envío en CANCELADO — su estado final es el del itinerario vigente
+    // (p. ej. ENTREGADO). Solo queda CANCELADO (pendiente de replanificación)
+    // si TODOS sus tramos están cancelados, es decir, aún no tiene ruta activa.
     lista.forEach(e => {
-      e.estado = e.tieneCancelado
+      e.estado = e.tramosActivos === 0
         ? 'CANCELADO'
-        : this.estadoEnvio(e.regMs, e.primeraSalidaMs, e.ultimaLlegadaMs);
+        : this.estadoEnvio(e.regMs, e.primeraSalidaActivaMs, e.ultimaLlegadaActivaMs);
     });
     // Filtro por estado: por defecto ('') muestra los ya registrados (no pendientes);
     // con un estado seleccionado, muestra solo ese grupo (incluye entregados y pendientes).
@@ -2288,20 +2302,29 @@ private getAirportXOffset(codigoOaci: string): number {
     });
     tramos.sort((a, b) => a.salida.getTime() - b.salida.getTime());
 
-    // Estado actual según hora simulada. Un tramo cancelado corta la ruta: la maleta
-    // no viaja en ese vuelo y queda pendiente de replanificación (no "entregada").
+    // Estado actual según hora simulada. Se deriva del itinerario VIGENTE, es decir,
+    // solo de los tramos activos (no cancelados): un vuelo cancelado que ya fue
+    // reemplazado por una replanificación no debe cortar la ruta. El envío solo
+    // queda "pendiente de replanificación" si NO le queda ningún tramo activo.
     const now = this.tiempoActualMs;
-    let estado = tramos.length > 0 ? `En espera en ${tramos[0].origen}` : 'Sin ruta asignada';
-    let completados = 0;
-    let cancelado = false;
-    for (const t of tramos) {
-      if (t.cancelado) { estado = `Vuelo ${t.vuelo} CANCELADO · pendiente de replanificación`; cancelado = true; break; }
-      if (now >= t.llegada.getTime()) { estado = `En ${t.destino}`; completados++; }
-      else if (now >= t.salida.getTime()) { estado = `En vuelo ${t.vuelo} (${t.origen} → ${t.destino})`; break; }
-      else break;
-    }
-    if (!cancelado && tramos.length > 0 && completados >= tramos.length) {
-      estado = `Entregado en ${tramos[tramos.length - 1].destino}`;
+    const activos = tramos.filter(t => !t.cancelado);
+    let estado: string;
+    if (activos.length === 0) {
+      const primerCancelado = tramos[0];
+      estado = primerCancelado
+        ? `Vuelo ${primerCancelado.vuelo} CANCELADO · pendiente de replanificación`
+        : 'Sin ruta asignada';
+    } else {
+      estado = `En espera en ${activos[0].origen}`;
+      let completados = 0;
+      for (const t of activos) {
+        if (now >= t.llegada.getTime()) { estado = `En ${t.destino}`; completados++; }
+        else if (now >= t.salida.getTime()) { estado = `En vuelo ${t.vuelo} (${t.origen} → ${t.destino})`; break; }
+        else break;
+      }
+      if (completados >= activos.length) {
+        estado = `Entregado en ${activos[activos.length - 1].destino}`;
+      }
     }
 
     const inicioMs = fechaRegistroMs ?? (tramos.length ? tramos[0].salida.getTime() : 0);
