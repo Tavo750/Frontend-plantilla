@@ -196,8 +196,8 @@ export class MaletaComponent implements OnInit {
     if (!this.idOrigen) {
       this.messageService.add({
         severity: 'warn',
-        summary: 'Origen no asignado',
-        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
+        summary: 'Origen requerido',
+        detail: 'Selecciona el aeropuerto de origen desde donde envías las maletas.'
       });
       return;
     }
@@ -448,60 +448,54 @@ export class MaletaComponent implements OnInit {
 
 
     // ── 1. Validación local de todas las filas ──
+    // Formato esperado: origen,destino,cantidad (OACI, OACI, entero).
+    // Compatibilidad: si una fila trae solo 2 columnas se asume "destino,cantidad" y el
+    // origen es el aeropuerto seleccionado en el formulario.
     const errores: string[] = [];
     const validos: { idAeropuertoOrigen: number; idAeropuertoDestino: number; cantidad: number }[] = [];
-
-    if (!this.idOrigen) {
-      this.cargandoCSV = false;
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Origen no asignado',
-        detail: 'Tu usuario no tiene aeropuerto de origen asignado.'
-      });
-      this.cdr.detectChanges();
-      return;
-    }
-
-    const origen = this.getAeropuertoById(this.idOrigen);
-
-    if (!origen) {
-      this.cargandoCSV = false;
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Origen inválido',
-        detail: 'No se encontró el aeropuerto de origen del usuario.'
-      });
-      this.cdr.detectChanges();
-      return;
-    }
+    const origenPorDefecto = this.getAeropuertoById(this.idOrigen);
 
     for (let idx = 0; idx < filas.length; idx++) {
       const numFila = idx + 2; // +1 por encabezado, +1 por índice 0-based
       const cols = filas[idx].split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
 
-      if (cols.length < 2) {
-        errores.push(`Fila ${numFila}: formato inválido (2 columnas requeridas: destino, cantidad)`);
+      let codigoOrigen: string | undefined;
+      let codigoDestino: string;
+      let cantidadStr: string;
+
+      if (cols.length >= 3) {
+        [codigoOrigen, codigoDestino, cantidadStr] = cols;
+      } else if (cols.length === 2) {
+        [codigoDestino, cantidadStr] = cols;
+        codigoOrigen = origenPorDefecto?.codigoOaci;
+      } else {
+        errores.push(`Fila ${numFila}: formato inválido (columnas requeridas: origen, destino, cantidad)`);
         continue;
       }
 
-      const [codigoDestino, cantidadStr] = cols;
-      const cantidad = parseInt(cantidadStr, 10);
+      const origen = codigoOrigen
+        ? this.aeropuertos.find(a => a.codigoOaci.toLowerCase() === codigoOrigen!.toLowerCase())
+        : undefined;
+      if (!origen) {
+        errores.push(`Fila ${numFila}: aeropuerto origen "${codigoOrigen ?? ''}" no encontrado`);
+        continue;
+      }
 
       const destino = this.aeropuertos.find(a =>
         a.codigoOaci.toLowerCase() === codigoDestino.toLowerCase());
-
       if (!destino) {
         errores.push(`Fila ${numFila}: aeropuerto destino "${codigoDestino}" no encontrado`);
         continue;
       }
 
+      const cantidad = parseInt(cantidadStr, 10);
       if (isNaN(cantidad) || cantidad < 1 || cantidad > 400) {
         errores.push(`Fila ${numFila}: cantidad "${cantidadStr}" inválida (debe ser 1–400)`);
         continue;
       }
 
       if (origen.idAeropuerto === destino.idAeropuerto) {
-        errores.push(`Fila ${numFila}: el destino no puede ser igual al aeropuerto de origen del usuario`);
+        errores.push(`Fila ${numFila}: el origen y el destino no pueden ser iguales`);
         continue;
       }
 
@@ -575,10 +569,11 @@ export class MaletaComponent implements OnInit {
     const destinoEj1 = destinos[0]?.codigoOaci ?? 'DEST';
     const destinoEj2 = destinos[1]?.codigoOaci ?? 'DEST2';
 
+    const origenEj = origenUsuario?.codigoOaci ?? this.aeropuertos[0]?.codigoOaci ?? 'ORIG';
     const csv = [
-      'destino,cantidad',
-      `${destinoEj1},10`,
-      `${destinoEj2},15`
+      'origen,destino,cantidad',
+      `${origenEj},${destinoEj1},10`,
+      `${origenEj},${destinoEj2},15`
     ].join('\n');
 
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
