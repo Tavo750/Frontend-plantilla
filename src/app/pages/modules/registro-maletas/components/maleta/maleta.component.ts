@@ -133,53 +133,54 @@ export class MaletaComponent implements OnInit {
   cargarEnvios(): void {
   this.cargandoLista = true;
 
-  console.log('[Maleta] Iniciando carga de envíos...');
-  console.log('[Maleta] Usuario actual antes de cargar envíos:', this.authService.getCurrentUser());
-  console.log('[Maleta] idOrigen actual:', this.idOrigen);
+  console.log('[Maleta] Iniciando carga de todos los envíos...');
 
-  if (!this.idOrigen) {
-    console.warn('[Maleta] No se cargan envíos porque idOrigen no está configurado.');
-    this.envios = [];
-    this.enviosFiltrados = [];
-    this.cargandoLista = false;
-    this.cdr.detectChanges();
-    return;
-  }
-
-  this.envioDiarioService.listarEnviosPorAeropuerto(this.idOrigen).subscribe({
+  this.envioDiarioService.listarEnvios().subscribe({
     next: resp => {
       const data = resp.data ?? [];
-      const idAeropuertoUsuario = Number(this.idOrigen);
 
-      console.log('[Maleta] Total envíos recibidos del backend:', data.length);
-      console.log('[Maleta] ID aeropuerto usuario para filtrar:', idAeropuertoUsuario);
-      console.log('[Maleta] Primer envío recibido:', data[0]);
-      console.log('[Maleta] Aeropuerto origen primer envío:', data[0]?.aeropuertoOrigen);
-      console.log('[Maleta] Aeropuerto destino primer envío:', data[0]?.aeropuertoDestino);
+      console.log(
+        '[Maleta] Total de envíos recibidos del backend:',
+        data.length
+      );
 
       console.table(
         data.map((envio: any) => ({
           idEnvio: this.obtenerIdEnvio(envio),
-          idOrigenDetectado: this.obtenerIdAeropuertoOrigenEnvio(envio),
-          codigoOrigen: envio.aeropuertoOrigen?.codigoOaci,
-          ciudadOrigen: envio.aeropuertoOrigen?.ciudad,
-          idDestinoDetectado: this.obtenerIdAeropuertoDestinoEnvio(envio),
-          codigoDestino: envio.aeropuertoDestino?.codigoOaci,
-          ciudadDestino: envio.aeropuertoDestino?.ciudad
+          idOrigenDetectado:
+            this.obtenerIdAeropuertoOrigenEnvio(envio),
+          codigoOrigen:
+            envio.aeropuertoOrigen?.codigoOaci,
+          ciudadOrigen:
+            envio.aeropuertoOrigen?.ciudad,
+          idDestinoDetectado:
+            this.obtenerIdAeropuertoDestinoEnvio(envio),
+          codigoDestino:
+            envio.aeropuertoDestino?.codigoOaci,
+          ciudadDestino:
+            envio.aeropuertoDestino?.ciudad
         }))
       );
 
-      this.envios = this.ordenarEnvios(data as EnvioMaletas[]);
+      this.envios = this.ordenarEnvios(
+        data as EnvioMaletas[]
+      );
 
-      console.log('[Maleta] Total envíos filtrados por aeropuerto:', this.envios.length);
-      console.log('[Maleta] Primer envío filtrado:', this.envios[0]);
+      console.log(
+        '[Maleta] Total de envíos cargados:',
+        this.envios.length
+      );
 
       this.aplicarFiltros();
+
       this.cargandoLista = false;
       this.cdr.detectChanges();
     },
     error: err => {
-      console.error('[Maleta] Error al cargar envíos:', err);
+      console.error(
+        '[Maleta] Error al cargar todos los envíos:',
+        err
+      );
 
       this.cargandoLista = false;
       this.cdr.detectChanges();
@@ -192,6 +193,7 @@ export class MaletaComponent implements OnInit {
     }
   });
 }
+
   registrarEnvio(): void {
     if (!this.idOrigen) {
       this.messageService.add({
