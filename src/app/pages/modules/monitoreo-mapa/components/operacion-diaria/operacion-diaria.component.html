@@ -1,0 +1,925 @@
+<div class="sim-wrap">
+
+  <!-- ── BARRA DE TIEMPO (independiente y movible; real vs simulado) ── -->
+  <div class="sim-tiempo-bar"
+    *ngIf="mostrarBarraTiempo && (estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0"
+    [class.sim-tiempo-dragged]="barraTiempoX !== null" [style.left.px]="barraTiempoX" [style.top.px]="barraTiempoY">
+    <i class="pi pi-arrows-alt drag-handle" (mousedown)="onTiempoDragStart($event)"
+      title="Arrastrar barra de tiempo"></i>
+
+    <!-- Operación diaria: hora del aeropuerto (según huso) + hora real (no hay tiempo simulado) -->
+    <ng-container *ngIf="modoOperacion">
+      <div class="tiempo-block">
+        <div class="tb-title">Hora del aeropuerto ({{ refAeropuertoCodigo }})</div>
+        <div class="tb-fecha tb-sim"><i class="pi pi-clock"></i> {{ horaAeropuertoDisplay }}</div>
+        <div class="tb-sub">Huso local del aeropuerto</div>
+      </div>
+      <div class="tiempo-block">
+        <div class="tb-title">Hora real</div>
+        <div class="tb-fecha tb-real"><i class="pi pi-clock"></i> {{ horaRealDisplay }}</div>
+        <div class="tb-sub">Tu hora local</div>
+      </div>
+    </ng-container>
+
+    <!-- Simulación: tiempo simulado + tiempo real con transcurrido -->
+    <ng-container *ngIf="!modoOperacion">
+      <div class="tiempo-block">
+        <div class="tb-title">Tiempo simulado</div>
+        <div class="tb-fecha tb-sim"><i class="pi pi-clock"></i> {{ fechaSimDisplay }}</div>
+        <div class="tb-sub">Tiempo transcurrido</div>
+        <div class="tb-transcurrido">{{ transcurridoSimDisplay }}</div>
+      </div>
+      <div class="tiempo-block">
+        <div class="tb-title">Tiempo real</div>
+        <div class="tb-fecha tb-real"><i class="pi pi-clock"></i> {{ fechaRealDisplay }}</div>
+        <div class="tb-sub">Tiempo transcurrido</div>
+        <div class="tb-transcurrido">{{ transcurridoRealDisplay }}</div>
+      </div>
+    </ng-container>
+    <div class="sync-chip" *ngIf="esperandoDatos && estado === 'streaming'"
+      title="El reloj espera la siguiente ventana de datos planificados">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Sincronizando…</span>
+    </div>
+    <button class="btn-hide-tiempo" (click)="mostrarBarraTiempo = false" title="Ocultar barra de tiempo">
+      <i class="pi pi-times"></i>
+    </button>
+  </div>
+
+  <!-- ── HEADER (flotante y movible: indicadores + acciones + filtros) ── -->
+  <div class="sim-header" [class.sim-header-oculto]="simHeaderOculto" [class.sim-header-comprimido]="barraComprimida"
+    [class.sim-header-dragged]="headerX !== null" [style.left.px]="headerX" [style.top.px]="headerY">
+
+    <div class="sim-header-row">
+      <i class="pi pi-arrows-alt drag-handle" (mousedown)="onHeaderDragStart($event)" title="Arrastrar barra"></i>
+
+      <div class="sim-indicadores"
+        *ngIf="!barraComprimida && (estado === 'streaming' || estado === 'listo') && tiempoInicioMs > 0">
+        <div class="si-item">
+          <span class="si-label">Flota</span>
+          <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semFlota)"></span>
+          <span class="si-val">{{ simIndicadores.enVuelo }}/{{ simIndicadores.total }}</span>
+        </div>
+        <div class="si-sep"></div>
+        <div class="si-item">
+          <span class="si-label">Almacenes</span>
+          <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semAlmacenes)"></span>
+          <span class="si-val">{{ simIndicadores.pctAlmacenes | number:'1.0-0' }}%</span>
+        </div>
+        <div class="si-sep"></div>
+        <div class="si-item"
+          [title]="'Maletas asignadas ' + simIndicadores.cargaMaletas + ' / capacidad total de la flota activa ' + simIndicadores.cargaCapacidad">
+          <span class="si-label">Carga flota</span>
+          <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semCarga)"></span>
+          <span class="si-val">{{ simIndicadores.pctCarga | number:'1.0-1' }}%</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Operación diaria: estadía en destino (parámetro configurable, en minutos) -->
+        <div class="od-estancia" *ngIf="modoOperacion && !barraComprimida"
+          title="Minutos que una maleta permanece en el almacén de destino antes de desaparecer">
+          <i class="pi pi-inbox"></i>
+          <label>Estadía destino</label>
+          <input type="number" min="0" max="1440" [(ngModel)]="estanciaDestinoMin" />
+          <span>min</span>
+        </div>
+        <button class="btn-cfg btn-stop-sim" [class.btn-stop-pausado]="simulacionPausada"
+          *ngIf="!esEspectador && (estado === 'streaming' || estado === 'listo')" (click)="toggleStop()"
+          [title]="simulacionPausada ? 'Reanudar simulación' : 'Pausar simulación'">
+          <i [class]="simulacionPausada ? 'pi pi-play' : 'pi pi-pause'"></i>
+          <span>{{ simulacionPausada ? 'Reanudar' : 'Stop' }}</span>
+        </button>
+        <button class="btn-cfg btn-cancel-sim"
+          *ngIf="!modoOperacion && (estado === 'streaming' || estado === 'listo' || estado === 'cargando')" (click)="detenerTodo()"
+          [title]="esEspectador ? 'Salir de la simulación' : 'Cancelar la simulación por completo'">
+          <i class="pi pi-times"></i>
+          <span>{{ esEspectador ? 'Salir' : 'Cancelar' }}</span>
+        </button>
+        <button class="btn-cfg" *ngIf="!barraComprimida" (click)="mostrarBarraFiltros = !mostrarBarraFiltros"
+          [class.btn-cfg-active]="hayFiltrosBarra" title="Filtros de mapa">
+          <i class="pi pi-filter"></i>
+        </button>
+        <button class="btn-cfg" (click)="mostrarBarraTiempo = !mostrarBarraTiempo"
+          [class.btn-cfg-active]="mostrarBarraTiempo" title="Mostrar/ocultar barra de tiempo">
+          <i class="pi pi-clock"></i>
+        </button>
+        <button class="btn-cfg" (click)="barraComprimida = !barraComprimida"
+          [title]="barraComprimida ? 'Expandir barra' : 'Comprimir barra'">
+          <i [class]="barraComprimida ? 'pi pi-window-maximize' : 'pi pi-window-minimize'"></i>
+        </button>
+        <button class="btn-cfg" *ngIf="!barraComprimida && !modoOperacion" (click)="mostrarConfig = !mostrarConfig" title="Configuración">
+          <i class="pi pi-sliders-h"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Fila de filtros (dentro de la barra movible) -->
+    <!-- El botón de filtros debe funcionar en cualquier estado (antes exigía
+         simulación corriendo, por lo que en 'idle' el clic no mostraba nada) -->
+    <div class="sim-header-row filtros-row" *ngIf="mostrarBarraFiltros && !barraComprimida">
+      <i class="pi pi-filter filtros-icon"></i>
+      <div class="fb-field">
+        <label class="fb-label">Código</label>
+        <input class="fb-input" type="text" [(ngModel)]="filtroBarraCodigo" (ngModelChange)="bumpUi()"
+          placeholder="LA2501…" />
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">Origen</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraOrigen" (ngModelChange)="bumpUi()">
+          <option value="">Todos</option>
+          <option *ngFor="let o of uniqueOrigenes" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">Destino</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraDestino" (ngModelChange)="bumpUi()">
+          <option value="">Todos</option>
+          <option *ngFor="let d of uniqueDestinos" [value]="d">{{ d }}</option>
+        </select>
+      </div>
+      <div class="fb-sep"></div>
+      <div class="fb-field">
+        <label class="fb-label">Continente</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraContinente" (ngModelChange)="bumpUi()">
+          <option value="">Todos</option>
+          <option *ngFor="let c of uniqueContinentes" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="fb-field">
+        <label class="fb-label">País</label>
+        <select class="fb-select" [(ngModel)]="filtroBarraPais" (ngModelChange)="bumpUi()">
+          <option value="">Todos</option>
+          <option *ngFor="let p of uniquePaises" [value]="p">{{ p }}</option>
+        </select>
+      </div>
+      <button class="fb-clear" *ngIf="hayFiltrosBarra" (click)="limpiarBarraFiltros()" title="Limpiar filtros">
+        <i class="pi pi-times"></i> Limpiar
+      </button>
+      <span class="fb-result" *ngIf="hayFiltrosBarra">
+        {{ planosVisibles.length }} ✈ · {{ panelVuelosFiltrados.length }} vuelos
+      </span>
+    </div>
+  </div>
+
+  <!-- ── CONFIG BAR ────────────────────────────────────────── -->
+  <div class="config-bar" *ngIf="mostrarConfig && mostrarBarsSuperiores">
+    <div class="config-inner">
+      <div class="cfg-field">
+        <label>Fecha de inicio</label>
+        <p-datepicker [(ngModel)]="fechaInicio" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="fechaMinima"
+          [maxDate]="fechaMaxima" [defaultDate]="fechaMinima"></p-datepicker>
+      </div>
+      <div class="cfg-field">
+        <label>Hora de inicio</label>
+        <input type="time" [(ngModel)]="horaInicio" class="cfg-time-input" />
+      </div>
+      <div class="cfg-field">
+        <label>Período</label>
+        <span class="cfg-readonly">5 días</span>
+      </div>
+      <button pButton type="button" label="Simular Colapso" icon="pi pi-exclamation-circle" class="p-button-danger"
+        [disabled]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
+        (click)="simularColapso()"></button>
+      <button pButton type="button" label="Ejecutar Simulación" icon="pi pi-play"
+        [disabled]="estado === 'importando' || estado === 'cargando' || estado === 'streaming'"
+        (click)="ejecutarSimulacion()"></button>
+    </div>
+  </div>
+
+
+
+  <!-- ── VEREDICTO COLAPSO ─────────────────────────────────── -->
+  <div class="colapso-verdict-bar" *ngIf="modoColapso && colapsoDetectado">
+    <div class="cvb-icon">⚠️</div>
+    <div class="cvb-content">
+      <div class="cvb-title">COLAPSO LOGÍSTICO DETECTADO</div>
+      <div class="cvb-detail">
+        El sistema colapsó el
+        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm':'UTC' }}</strong>
+        · Operó
+        <strong>{{ (duracionHastaColapsoMin / 60 / 24) | number:'1.1-1' }} días simulados</strong>
+        antes del colapso
+        · <strong class="cvb-pct">{{ colapsoMotivo || (pctNoAsignados + '% de maletas sin asignar') }}</strong>
+      </div>
+    </div>
+    <div class="cvb-estimada" *ngIf="fechaColapsoEstimadaMs > 0">
+      <span class="cvb-estimada-label">Colapso estimado</span>
+      <span class="cvb-estimada-fecha">{{ fechaColapsoEstimadaMs | date:'dd/MM/yyyy':'UTC' }}</span>
+    </div>
+  </div>
+
+  <!-- Buscando colapso: indicador mientras el backend escanea los datos -->
+  <div class="colapso-buscando"
+    *ngIf="modoColapso && !colapsoDetectado && (estado === 'cargando' || estado === 'streaming') && fechaColapsoEstimadaMs === 0">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>{{ mensajeProgreso || 'Analizando datos para estimar fecha de colapso...' }}</span>
+  </div>
+
+  <!-- ── EMPTY STATE ────────────────────────────────────────── -->
+  <div class="empty-state" *ngIf="estado === 'idle'">
+    <i class="pi pi-globe"></i>
+    <p>Configura los parámetros y presiona <strong>Ejecutar Simulación</strong> para comenzar</p>
+  </div>
+
+  <!-- Simulaciones compartidas en curso: overlay SIEMPRE visible mientras no estemos
+       ya viendo una simulación. Se muestra aunque la lista esté vacía. -->
+  <div class="sims-activas" *ngIf="estado !== 'streaming' && estado !== 'listo'">
+    <div class="sa-head">
+      <span><i class="pi pi-users"></i> Simulaciones en ejecución</span>
+      <button class="sa-refresh" (click)="cargarSimulacionesActivas()" title="Actualizar lista">
+        <i class="pi pi-refresh"></i>
+      </button>
+    </div>
+    <div class="sa-item" *ngFor="let s of simulacionesActivas">
+      <div class="sa-info">
+        <div class="sa-fecha"><i class="pi pi-calendar"></i> {{ s.fechaInicio }} · {{ s.horaInicio }}</div>
+        <div class="sa-meta">
+          <span [class.sa-fin]="s.finalizada">{{ s.finalizada ? 'Finalizada' : 'Ciclo ' + s.cicloActual + '/' +
+            s.maxCiclos }}</span>
+          <span class="sa-esp"><i class="pi pi-eye"></i> {{ s.espectadores }}</span>
+        </div>
+      </div>
+      <button class="sa-join" (click)="unirseASimulacion(s)">
+        <i class="pi pi-sign-in"></i> Unirse
+      </button>
+    </div>
+    <div class="sa-empty" *ngIf="simulacionesActivas.length === 0">
+      <i class="pi pi-inbox"></i>
+      <span>No hay simulaciones activas en este momento.</span>
+    </div>
+  </div>
+
+  <!-- ── MAPA + SIDEBAR ─────────────────────────────────────── -->
+  <ng-container *ngIf="estado === 'cargando' || estado === 'streaming' || estado === 'listo'">
+
+    <div class="main-content">
+
+      <!-- ── MAPA ──────────────────────────────────────────── -->
+      <!-- mousemove y wheel se manejan fuera de NgZone (ver ngAfterViewInit):
+           evita un ciclo de change detection por cada pixel de movimiento -->
+      <div class="map-container" #mapContainerEl [style.cursor]="cursorStyle" (mousedown)="onMapMouseDown($event)"
+        (mouseup)="onMapMouseUp()">
+
+        <div class="map-transform-layer" [style.transform]="transformStyle">
+
+          <!-- Imagen base world.svg (equirectangular Simplemaps) -->
+          <img src="/world.svg" class="world-map" alt="Mapa mundial" />
+
+          <!-- SVG overlay sincronizado con el viewBox del SVG -->
+          <svg class="svg-overlay" [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H" preserveAspectRatio="xMidYMid meet">
+            <!-- Arcos de vuelo: solo tramo restante (origen → posición actual borrado) -->
+            <path *ngFor="let arco of arcosVisibles; trackBy: trackArco" [attr.d]="arco.dRemaining"
+              [class]="'arco arco-' + arco.estado" fill="none" (click)="seleccionarVuelo(arco.vuelo)"
+              style="cursor:pointer" />
+
+            <!-- Rutas de envíos seleccionados (filtro acumulativo desde la pestaña Envíos) -->
+            <g *ngFor="let r of rutasEnviosMapa; trackBy: trackRutaEnvio">
+              <path *ngFor="let d of r.paths" [attr.d]="d" class="ruta-envio" [attr.stroke]="r.color" fill="none" />
+            </g>
+
+            <!-- Aeropuertos (icono de torre de control, coloreado por semáforo) -->
+            <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+              <g [attr.transform]="'translate(' + a.x + ',' + a.y + ')'"
+                [class]="'aero-nodo ' + getAeroColorClass(a.codigoOaci) + (aeropuertoFiltroMapa === a.codigoOaci ? ' aero-selected' : esAeropuertoDimmed(a.codigoOaci) ? ' aero-dimmed' : '')"
+                style="pointer-events:all; cursor:pointer" (mouseenter)="onAirportHover($event, a)"
+                (mouseleave)="onHoverEnd()" (click)="seleccionarAeropuerto(a.codigoOaci)">
+                <circle class="aero-hit" r="9" />
+                <path class="aero-ico" d="M -3,-5 L 3,-5 L 4,-2 L 1.3,-2 L 1,5 L -1,5 L -1.3,-2 L -4,-2 Z" />
+                <rect class="aero-ico" x="-3.6" y="5" width="7.2" height="1.7" rx="0.5" />
+              </g>
+              <text [attr.x]="a.x" [attr.y]="a.y - 14"
+                [class]="'aero-label' + (esAeropuertoDimmed(a.codigoOaci) ? ' aero-label-dim' : '')"
+                text-anchor="middle">
+                {{ a.codigoOaci }}
+              </text>
+            </g>
+
+            <!-- Aviones en vuelo -->
+            <g *ngFor="let plano of planosVisibles; trackBy: trackPlano"
+              [attr.transform]="'translate(' + plano.x + ',' + plano.y + ') rotate(' + plano.angulo + ') scale(1.25)'"
+              [class]="'avion ' + getAvionColorClass(plano) + (vueloSeleccionado?.codigoVuelo === plano.vuelo.codigoVuelo ? ' avion-sel' : '')"
+              (click)="abrirVueloDesdeMapa(plano.vuelo)" (mouseenter)="onPlaneHover($event, plano)"
+              (mouseleave)="onHoverEnd()" style="cursor:pointer">
+              <polygon points="0,-4 1,-1 1,2 0,3 -1,2 -1,-1" class="avion-body" />
+              <polygon points="-5,-1 5,-1 4,1 -4,1" class="avion-wings" />
+              <polygon points="-2,2 2,2 1,4 -1,4" class="avion-tail" />
+            </g>
+
+            <!-- Cancelaciones en mapa (arco punteado rojo + X en origen) -->
+            <g *ngFor="let c of cancelacionesArray; trackBy: trackCancelacion">
+              <path [attr.d]="c.d" class="arco arco-cancelado" fill="none" />
+              <text [attr.x]="c.ox" [attr.y]="c.oy - 4" class="cancelado-marker" text-anchor="middle">✕</text>
+            </g>
+
+            <!-- Badges de maletas (encima de aviones para siempre ser visibles) -->
+            <g *ngFor="let a of aeropuertos; trackBy: trackAero">
+              <g *ngIf="getBagsEnAeropuerto(a.codigoOaci) > 0" style="pointer-events:none">
+                <circle [attr.cx]="a.x + 14" [attr.cy]="a.y - 14" r="10" class="badge-bg" />
+                <text [attr.x]="a.x + 14" [attr.y]="a.y - 10" class="badge-txt" text-anchor="middle">
+                  {{ getBagsEnAeropuerto(a.codigoOaci) }}
+                </text>
+              </g>
+            </g>
+          </svg>
+
+        </div><!-- /map-transform-layer -->
+
+        <!-- Filtro activo de aeropuerto -->
+        <div class="mapa-filtro-activo" *ngIf="aeropuertoFiltroMapa">
+          <i class="pi pi-filter-fill"></i>
+          <span>{{ aeropuertoFiltroMapa }}</span>
+          <button class="mfa-clear" (click)="limpiarFiltroMapa()" title="Quitar filtro">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <!-- Filtro activo de vuelo -->
+        <div class="mapa-filtro-activo mapa-filtro-vuelo" *ngIf="filtroVueloMapa" style="top:56px">
+          <i class="pi pi-send"></i>
+          <span>{{ filtroVueloMapa }}</span>
+          <button class="mfa-clear" (click)="filtroVueloMapa = null; vueloSeleccionado = null"
+            title="Quitar filtro vuelo">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <!-- Botón de fullscreen -->
+        <button class="btn-fullscreen" title="Pantalla completa" (click)="toggleFullscreen()">
+          <i class="pi pi-window-maximize"></i>
+        </button>
+
+        <!-- Tooltip flotante -->
+        <div class="map-tooltip" *ngIf="tooltip.visible" [style.left.px]="tooltip.x" [style.top.px]="tooltip.y">
+          <div class="tooltip-title">{{ tooltip.lines[0] }}</div>
+          <div class="tooltip-line" *ngFor="let line of tooltip.lines | slice:1">{{ line }}</div>
+        </div>
+
+        <!-- Chip persistente: simulación en pausa eterna al finalizar el día 5 -->
+        <div class="fin-chip" *ngIf="simFinalizada && !mostrarMetricasFinales" (click)="mostrarMetricasFinales = true">
+          <i class="pi pi-pause-circle"></i>
+          <span>Simulación finalizada</span>
+          <span class="fin-chip-link">Ver métricas</span>
+        </div>
+
+        <!-- Overlay central: mensaje "Simulación finalizada" + métricas + descarga -->
+        <div class="fin-overlay" *ngIf="simFinalizada && mostrarMetricasFinales && metricasFinales">
+          <div class="fin-card">
+            <button class="fin-card-x" (click)="cerrarMetricasFinales()" title="Ver el mapa">
+              <i class="pi pi-times"></i>
+            </button>
+            <div class="fin-card-head">
+              <i class="pi pi-flag-fill"></i>
+              <div>
+                <div class="fin-card-title">Simulación finalizada</div>
+                <div class="fin-card-sub">Estado del sistema al corte del día 5 (pausa eterna)</div>
+              </div>
+            </div>
+
+            <div class="fin-metrics">
+              <div class="fin-metric-group">
+                <div class="fmg-title">Aviones / Vuelos</div>
+                <div class="fm-row"><span>Aún en vuelo</span><b>{{ metricasFinales.avionesVolando }}</b></div>
+                <div class="fm-row"><span>Ya aterrizados</span><b>{{ metricasFinales.avionesAterrizados }}</b></div>
+                <div class="fm-row"><span>Sin despegar</span><b>{{ metricasFinales.avionesSinDespegar }}</b></div>
+                <div class="fm-row fm-total"><span>Vuelos totales</span><b>{{ metricasFinales.vuelosTotal }}</b></div>
+              </div>
+              <div class="fin-metric-group">
+                <div class="fmg-title">Pedidos</div>
+                <div class="fm-row"><span>Entregados</span><b>{{ metricasFinales.pedidosEntregados }}</b></div>
+                <div class="fm-row"><span>En vuelo</span><b>{{ metricasFinales.pedidosEnVuelo }}</b></div>
+                <div class="fm-row"><span>Esperando avión</span><b>{{ metricasFinales.pedidosEsperando }}</b></div>
+                <div class="fm-row"><span>Sin planificar</span><b>{{ metricasFinales.pedidosSinPlanificar }}</b></div>
+                <div class="fm-row"><span>Fuera de SLA</span><b>{{ metricasFinales.pedidosFueraSla }}</b></div>
+                <div class="fm-row fm-total"><span>Pedidos totales</span><b>{{ metricasFinales.pedidosTotal }}</b></div>
+              </div>
+              <div class="fin-metric-group">
+                <div class="fmg-title">Maletas</div>
+                <div class="fm-row"><span>Entregadas</span><b>{{ metricasFinales.maletasEntregadas }}</b></div>
+                <div class="fm-row"><span>En almacenes</span><b>{{ metricasFinales.maletasEnAlmacen }}</b></div>
+                <div class="fm-row fm-total"><span>Maletas totales</span><b>{{ metricasFinales.maletasTotal }}</b></div>
+                <div class="fmg-title" style="margin-top:.5rem">Planificación</div>
+                <div class="fm-row"><span>Ciclos ALNS</span><b>{{ metricasFinales.ciclos }}</b></div>
+              </div>
+            </div>
+
+            <div class="fin-card-actions">
+              <button class="fin-btn-download" (click)="descargarReporte()">
+                <i class="pi pi-download"></i> Descargar reporte
+              </button>
+              <button class="fin-btn-ver" (click)="cerrarMetricasFinales()">
+                <i class="pi pi-map"></i> Ver el mapa
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leyenda de Semáforo -->
+        <div class="leyenda leyenda-sem">
+          <div class="ley-title">Capacidad:</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #475569;"></span>Vacío</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #22c55e;"></span>Libre</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #eab308;"></span>Medio</div>
+          <div class="ley-item"><span class="ley-dot" style="background: #ef4444;"></span>Crítico</div>
+        </div>
+
+        <!-- Botón para ocultar/mostrar sidebar -->
+        <button class="btn-toggle-sidebar" (click)="mostrarSidebar = !mostrarSidebar" title="Mostrar/Ocultar panel">
+          <i [class]="mostrarSidebar ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"></i>
+        </button>
+
+        <!-- Zoom controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" (click)="zoomIn()" title="Acercar">+</button>
+          <button class="zoom-btn zoom-reset" (click)="resetZoom()" title="Restablecer">&#x2299;</button>
+          <button class="zoom-btn" (click)="zoomOut()" title="Alejar">&minus;</button>
+        </div>
+
+      </div><!-- /map-container -->
+
+      <!-- ── RIGHT PANEL (tabbed, estilo monitoreo-mapa) ─────────── -->
+      <div class="right-panel" *ngIf="mostrarSidebar">
+
+        <!-- Filtro contextual por semáforo / estado -->
+        <div class="panel-sem-filter">
+          <ng-container *ngIf="activeTab === 'almacenes'">
+            <span class="psf-label">Filtrar:</span>
+            <button class="sem-chip" [class.active]="semaforoAlmacenFiltro === null"
+              (click)="filtrarPorSemaforoAlmacen(null)">Todos</button>
+            <button class="sem-chip chip-verde" [class.active]="semaforoAlmacenFiltro === 'VERDE'"
+              (click)="filtrarPorSemaforoAlmacen('VERDE')">Libre</button>
+            <button class="sem-chip chip-amarillo" [class.active]="semaforoAlmacenFiltro === 'AMARILLO'"
+              (click)="filtrarPorSemaforoAlmacen('AMARILLO')">Medio</button>
+            <button class="sem-chip chip-rojo" [class.active]="semaforoAlmacenFiltro === 'ROJO'"
+              (click)="filtrarPorSemaforoAlmacen('ROJO')">Crítico</button>
+          </ng-container>
+          <ng-container *ngIf="activeTab === 'vuelos'">
+            <span class="psf-label">Sem:</span>
+            <button class="sem-chip" [class.active]="filtroSemVuelo === ''"
+              (click)="filtroSemVuelo = ''; bumpUi()">Todos</button>
+            <button class="sem-chip chip-gris" [class.active]="filtroSemVuelo === 'VACIO'"
+              (click)="filtroSemVuelo = 'VACIO'; bumpUi()">Vacío</button>
+            <button class="sem-chip chip-verde" [class.active]="filtroSemVuelo === 'LIBRE'"
+              (click)="filtroSemVuelo = 'LIBRE'; bumpUi()">Libre</button>
+            <button class="sem-chip chip-amarillo" [class.active]="filtroSemVuelo === 'MEDIO'"
+              (click)="filtroSemVuelo = 'MEDIO'; bumpUi()">Medio</button>
+            <button class="sem-chip chip-rojo" [class.active]="filtroSemVuelo === 'CRITICO'"
+              (click)="filtroSemVuelo = 'CRITICO'; bumpUi()">Crítico</button>
+          </ng-container>
+        </div>
+
+        <!-- Tabs -->
+        <div class="panel-tabs">
+          <button class="ptab" [class.ptab-active]="activeTab === 'vuelos'" (click)="activeTab = 'vuelos'">
+            Vuelos/UT <span class="ptab-count">{{ vuelos.length }}</span>
+          </button>
+          <button class="ptab" [class.ptab-active]="activeTab === 'almacenes'" (click)="activeTab = 'almacenes'">
+            Almacenes <span class="ptab-count">{{ aeropuertos.length }}</span>
+          </button>
+          <button class="ptab" [class.ptab-active]="activeTab === 'envios'" (click)="activeTab = 'envios'">
+            Envíos
+          </button>
+        </div>
+
+        <!-- TAB: VUELOS / UT -->
+        <ng-container *ngIf="activeTab === 'vuelos'">
+
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="filtroVueloCodigo" (ngModelChange)="bumpUi()"
+              placeholder="Código, origen o destino…" class="pf-input" />
+            <span class="gestion-badge" *ngIf="vuelosCancelados.size > 0">{{ vuelosCancelados.size }} ✕</span>
+          </div>
+
+          <div class="panel-sort">
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'todos'" (click)="setVistaVuelo('todos')"
+              title="Todos los vuelos (lista estable)">Todos</button>
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'salida'" (click)="setVistaVuelo('salida')"
+              title="Vuelos por despegar">↑ Salida</button>
+            <button class="sort-btn" [class.sort-active]="vistaVuelo === 'llegada'" (click)="setVistaVuelo('llegada')"
+              title="Vuelos por aterrizar">↓ Llegada</button>
+          </div>
+          <div class="panel-sort" *ngIf="vistaVuelo === 'todos'">
+            <span class="ps-label">Ord:</span>
+            <button class="sort-btn" [class.sort-active]="ordenVuelo === 'codigo'" (click)="setOrdenVuelo('codigo')"
+              title="Ordenar por código">Código</button>
+            <button class="sort-btn" [class.sort-active]="ordenVuelo === 'origen'" (click)="setOrdenVuelo('origen')"
+              title="Ordenar por origen">Origen</button>
+            <button class="sort-btn" [class.sort-active]="ordenVuelo === 'destino'" (click)="setOrdenVuelo('destino')"
+              title="Ordenar por destino">Destino</button>
+          </div>
+
+          <div class="sem-summary-row">
+            <span class="sem-dot-sm sem-verde"></span><span>{{ getVuelosAtiempo() }}</span>
+            <span class="sem-dot-sm sem-amarillo"></span><span>{{ getVuelosRetrasadoLeve() }}</span>
+            <span class="sem-dot-sm sem-rojo"></span><span>{{ getVuelosRetrasadoCritico() }}</span>
+            <span class="sem-sep">|</span>
+            <i class="pi pi-send" style="font-size:.7rem;color:#94a3b8"></i>
+            <span>{{ getVuelosAterrizando() }}</span>
+          </div>
+
+          <div class="panel-list">
+            <div *ngFor="let item of panelVuelosFiltrados; trackBy: trackPanelVuelo" class="pitem"
+              [class.pitem-cancelado]="item.cancelado" [id]="'vuelo-' + item.vuelo.codigoVuelo"
+              [class.pitem-selected]="vueloSeleccionado?.codigoVuelo === item.vuelo.codigoVuelo"
+              (click)="seleccionarVueloConFiltro(item.vuelo)">
+              <div class="pitem-top">
+                <span class="sem-dot-sm" [class]="getSemaforoClass(item.semaforo)"></span>
+                <span class="pitem-code">{{ item.vuelo.codigoVuelo }}</span>
+                <span class="pitem-route">{{ item.vuelo.origen }} → {{ item.vuelo.destino }}</span>
+              </div>
+              <div class="pitem-bar">
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(item.semaforo)" [style.width.%]="item.slaFailPct">
+                </div>
+              </div>
+              <div class="pitem-meta">
+                <span [title]="'Salida ' + horaLocalSalida(item.vuelo) + ' local · ' + (item.vuelo.horaSalida | date:'dd/MM HH:mm':'UTC') + ' UTC'">
+                  {{ horaLocalSalida(item.vuelo) }} loc · {{ item.vuelo.horaSalida | date:'HH:mm':'UTC' }}Z
+                </span>
+                <span>{{ item.vuelo.totalMaletas }} mal. · {{ item.vuelo.envios.length }} env.</span>
+              </div>
+              <div class="pitem-actions" *ngIf="vueloSeleccionado?.codigoVuelo === item.vuelo.codigoVuelo">
+                <button *ngIf="!item.cancelado" class="btn-gestion btn-gestion-cancelar"
+                  [class.btn-gestion-cancelar-mañana]="item.estadoVuelo !== 'PENDIENTE'"
+                  [disabled]="!puedeCancelar(item.vuelo)"
+                  (click)="$event.stopPropagation(); pedirCancelarVuelo(item.vuelo)" [title]="getCancelTitle(item)">
+                  <i class="pi pi-times-circle"></i>
+                  {{ !puedeCancelar(item.vuelo) && item.estadoVuelo !== 'PENDIENTE' ? 'CANCELADO DURANTE VUELO' : 'Cancelar' }}
+                </button>
+                <button *ngIf="item.cancelado" class="btn-gestion btn-gestion-reactivar" disabled
+                  title="Ocurrencia cancelada">
+                  <i class="pi pi-times-circle"></i> CANCELADO
+                </button>
+              </div>
+            </div>
+            <div *ngIf="panelVuelosFiltrados.length === 0" class="panel-empty">Sin resultados</div>
+          </div>
+
+          <div class="detail-pitem" *ngIf="vueloSeleccionado">
+            <div class="panel-head">
+              <span class="flight-badge">{{ vueloSeleccionado.codigoVuelo }}</span>
+              <button class="btn-close" (click)="vueloSeleccionado = null">✕</button>
+            </div>
+            <div class="route-row">
+              <div class="route-node">
+                <div class="route-code">{{ vueloSeleccionado.origen }}</div>
+                <div class="route-time">{{ horaLocalSalida(vueloSeleccionado) }} local</div>
+                <div class="route-time" style="opacity:.6">{{ vueloSeleccionado.horaSalida | date:'HH:mm':'UTC' }} UTC</div>
+              </div>
+              <div class="route-arrow">
+                <div class="arr-line"></div><i class="pi pi-angle-right arr-icon"></i>
+              </div>
+              <div class="route-node">
+                <div class="route-code">{{ vueloSeleccionado.destino }}</div>
+                <div class="route-time">{{ horaLocalLlegada(vueloSeleccionado) }} local</div>
+                <div class="route-time" style="opacity:.6">{{ vueloSeleccionado.horaLlegada | date:'HH:mm':'UTC' }} UTC</div>
+              </div>
+            </div>
+            <div class="prog-section prog-cancelado" *ngIf="estaOcurrenciaCancelada(vueloSeleccionado)">
+              <div class="prog-labels"><span>Estado</span><span class="prog-cancelado-txt">✕ CANCELADO</span></div>
+              <div class="prog-cancelado-hint">Este vuelo fue cancelado; sus maletas quedan pendientes de replanificación.</div>
+            </div>
+            <div class="prog-section"
+              *ngIf="!estaOcurrenciaCancelada(vueloSeleccionado) && getEstadoVuelo(vueloSeleccionado) !== 'PENDIENTE'">
+              <div class="prog-labels"><span>Recorrido</span><span>{{ getProgresoVuelo(vueloSeleccionado) |
+                  number:'1.0-0' }}%</span></div>
+              <div class="prog-track">
+                <div class="prog-fill" [style.width.%]="getProgresoVuelo(vueloSeleccionado)"></div>
+              </div>
+            </div>
+            <button class="btn-ver-envios" (click)="verEnviosDelVuelo(vueloSeleccionado)">
+              <i class="pi pi-box"></i> Ver envíos a detalle
+              <i class="pi pi-arrow-right"></i>
+            </button>
+            <div class="bags-section">
+              <div class="bags-header"><i class="pi pi-box"></i><span>{{ vueloSeleccionado.totalMaletas }} maletas · {{
+                  vueloSeleccionado.envios.length }} envíos</span></div>
+              <div class="bags-list">
+                <div *ngFor="let e of vueloSeleccionado.envios" class="bag-item">
+                  <span class="bag-id">#{{ e.idEnvio }}</span>
+                  <span class="bag-qty">{{ e.cantidad }}✈</span>
+                  <span class="bag-sla" [class.sla-ok]="e.cumpleSla !== false" [class.sla-fail]="e.cumpleSla === false">
+                    {{ e.cumpleSla !== false ? '✓ SLA' : '⚠ SLA' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="events-panel">
+            <div class="events-panel-title events-toggle" (click)="toggleEventos()">
+              <span><i class="pi pi-history"></i> Eventos Recientes
+                <span class="ptab-count" *ngIf="eventosRecientes.length > 0">{{ eventosRecientes.length }}</span>
+              </span>
+              <i [class]="eventosExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" style="font-size:.7rem"></i>
+            </div>
+            <ng-container *ngIf="eventosExpanded">
+              <div class="events-list" *ngIf="eventosRecientes.length > 0">
+                <div class="event-item" *ngFor="let ev of eventosRecientes | slice:0:20">
+                  <i [class]="ev.tipo === 'despegue' ? 'pi pi-send ev-dep' : 'pi pi-map-marker ev-arr'"></i>
+                  <div class="event-body">
+                    <div class="event-msg">{{ ev.mensaje }}</div>
+                    <div class="event-time">{{ ev.hora | date:'dd/MM HH:mm':'UTC' }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="events-empty" *ngIf="eventosRecientes.length === 0">Los eventos aparecerán al iniciar</div>
+            </ng-container>
+          </div>
+        </ng-container>
+
+        <!-- TAB: ALMACENES -->
+        <ng-container *ngIf="activeTab === 'almacenes'">
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="filtroAlmacenCodigo" (ngModelChange)="bumpUi()"
+              placeholder="Código / Ciudad…" class="pf-input" />
+          </div>
+          <!-- Filtro por semáforo (se refleja también en el mapa) -->
+          <div class="sem-row">
+            <button class="sem-chip" [class.active]="semaforoAlmacenFiltro === null"
+              (click)="filtrarPorSemaforoAlmacen(null)">Todos</button>
+            <button class="sem-chip chip-gris" [class.active]="semaforoAlmacenFiltro === 'VACIO'"
+              (click)="filtrarPorSemaforoAlmacen('VACIO')">Vacío</button>
+            <button class="sem-chip chip-verde" [class.active]="semaforoAlmacenFiltro === 'VERDE'"
+              (click)="filtrarPorSemaforoAlmacen('VERDE')">Libre</button>
+            <button class="sem-chip chip-amarillo" [class.active]="semaforoAlmacenFiltro === 'AMARILLO'"
+              (click)="filtrarPorSemaforoAlmacen('AMARILLO')">Medio</button>
+            <button class="sem-chip chip-rojo" [class.active]="semaforoAlmacenFiltro === 'ROJO'"
+              (click)="filtrarPorSemaforoAlmacen('ROJO')">Crítico</button>
+          </div>
+          <div class="panel-sort">
+            <span class="ps-label">Ord:</span>
+            <button class="sort-btn" [class.sort-active]="sortAlmacen === 'ocupacion'"
+              (click)="setSortAlmacen('ocupacion')">Ocupación</button>
+            <button class="sort-btn" [class.sort-active]="sortAlmacen === 'codigo'"
+              (click)="setSortAlmacen('codigo')">Código</button>
+          </div>
+          <div class="ley-info">
+            <span class="ley-dot" style="background:#22c55e"></span>&lt;{{ UMBRAL_AMBAR }}%
+            <span class="ley-dot" style="background:#eab308;margin-left:.5rem"></span>{{ UMBRAL_AMBAR }}–{{ UMBRAL_ROJO
+            }}%
+            <span class="ley-dot" style="background:#ef4444;margin-left:.5rem"></span>>={{ UMBRAL_ROJO }}%
+          </div>
+          <div class="panel-list">
+            <div *ngFor="let a of panelAlmacenesFiltrados; trackBy: trackPanelAlmacen" class="pitem"
+              [class.pitem-selected]="aeropuertoFiltroMapa === a.codigo" (click)="seleccionarAeropuerto(a.codigo)"
+              (mouseenter)="aeropuertoMap.get(a.codigo) && onAirportHover($event, aeropuertoMap.get(a.codigo)!)"
+              (mouseleave)="onHoverEnd()">
+              <div class="pitem-top">
+                <span class="sem-dot-sm" [class]="getSemaforoClass(a.semaforo)"></span>
+                <span class="pitem-code">{{ a.codigo }}</span>
+                <span class="pitem-city">{{ a.ciudad }}</span>
+                <span class="pitem-pct">{{ a.pct | number:'1.0-0' }}%</span>
+              </div>
+              <div class="pitem-bar">
+                <div class="pitem-bar-fill" [class]="getSemaforoClass(a.semaforo)"
+                  [style.width.%]="a.pct > 100 ? 100 : a.pct"></div>
+              </div>
+              <div class="pitem-meta">
+                <span>Cap: {{ a.capacidad }}</span>
+                <span>Uso: {{ a.ocupacion }}</span>
+                <span>{{ a.salen }} salen · {{ a.entran }} entran</span>
+              </div>
+            </div>
+            <div *ngIf="panelAlmacenesFiltrados.length === 0" class="panel-empty">Sin resultados</div>
+          </div>
+
+          <!-- Envíos planificados del almacén seleccionado (entrando / saliendo) -->
+          <div class="detail-pitem almacen-flujo" *ngIf="aeropuertoFiltroMapa">
+            <div class="panel-head">
+              <span class="flight-badge">{{ aeropuertoFiltroMapa }}</span>
+              <span class="flujo-title">Envíos planificados</span>
+              <button class="btn-close" (click)="limpiarFiltroMapa()">✕</button>
+            </div>
+            <div class="panel-sort">
+              <button class="sort-btn" [class.sort-active]="filtroFlujoAlmacen === 'todos'"
+                (click)="setFiltroFlujoAlmacen('todos')">Todos</button>
+              <button class="sort-btn" [class.sort-active]="filtroFlujoAlmacen === 'entrando'"
+                (click)="setFiltroFlujoAlmacen('entrando')">⬇ Entrando</button>
+              <button class="sort-btn" [class.sort-active]="filtroFlujoAlmacen === 'saliendo'"
+                (click)="setFiltroFlujoAlmacen('saliendo')">⬆ Saliendo</button>
+            </div>
+            <div class="flujo-list">
+              <div *ngFor="let f of flujoAlmacen" class="pitem pitem-flujo">
+                <div class="pitem-top">
+                  <span [class]="'flujo-tag ' + (f.tipo === 'ENTRA' ? 'flujo-in' : 'flujo-out')">
+                    {{ f.tipo === 'ENTRA' ? '⬇ Entra' : '⬆ Sale' }}
+                  </span>
+                  <span class="pitem-code">#{{ f.id }}</span>
+                  <span class="pitem-route">{{ f.tipo === 'ENTRA' ? ('desde ' + f.contraparte) : ('hacia ' +
+                    f.contraparte) }}</span>
+                </div>
+                <div class="pitem-meta">
+                  <span>{{ f.cantidad }} maletas</span>
+                  <span>{{ f.vuelo }}</span>
+                  <span>{{ f.horaMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                </div>
+              </div>
+              <div *ngIf="flujoAlmacen.length === 0" class="panel-empty">
+                Sin envíos planificados {{ filtroFlujoAlmacen === 'entrando' ? 'entrando' : filtroFlujoAlmacen ===
+                'saliendo' ? 'saliendo' : '' }} en este almacén
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- TAB: ENVÍOS -->
+        <ng-container *ngIf="activeTab === 'envios'">
+          <!-- Contexto: vuelo seleccionado -->
+          <div class="envios-vuelo-ctx" *ngIf="vueloSeleccionado">
+            <i class="pi pi-send" style="color:#60a5fa"></i>
+            <span>Vuelo <strong>{{ vueloSeleccionado.codigoVuelo }}</strong>
+              · {{ vueloSeleccionado.origen }} → {{ vueloSeleccionado.destino }}</span>
+            <button class="pf-clear" (click)="vueloSeleccionado = null" title="Ver todos">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <!-- Búsqueda de envío/maleta por ID -->
+          <div class="panel-filters">
+            <input type="text" [(ngModel)]="busquedaEnvio" (ngModelChange)="bumpUi()" placeholder="Buscar envío por ID…"
+              class="pf-input" />
+            <button class="pf-clear" *ngIf="busquedaEnvio" (click)="busquedaEnvio = ''; bumpUi()"
+              title="Limpiar búsqueda"><i class="pi pi-times"></i></button>
+          </div>
+
+          <!-- Filtro por estado del envío -->
+          <div class="sem-row envio-estado-row">
+            <button class="sem-chip" [class.active]="estadoFiltroEnvio === ''"
+              (click)="setEstadoFiltroEnvio('')">Todos</button>
+            <button class="sem-chip est-esperando" [class.active]="estadoFiltroEnvio === 'ESPERANDO'"
+              (click)="setEstadoFiltroEnvio('ESPERANDO')">Esperando avión</button>
+            <button class="sem-chip est-envuelo" [class.active]="estadoFiltroEnvio === 'EN_VUELO'"
+              (click)="setEstadoFiltroEnvio('EN_VUELO')">En vuelo</button>
+            <button class="sem-chip est-entregado" [class.active]="estadoFiltroEnvio === 'ENTREGADO'"
+              (click)="setEstadoFiltroEnvio('ENTREGADO')">Entregado</button>
+            <button class="sem-chip est-pendiente" [class.active]="estadoFiltroEnvio === 'PENDIENTE'"
+              (click)="setEstadoFiltroEnvio('PENDIENTE')">Por planificar</button>
+          </div>
+
+          <!-- Rutas en el mapa (selección acumulativa) -->
+          <div class="rutas-sel-row" *ngIf="rutasEnviosMapa.length > 0">
+            <span class="rutas-sel-label"><i class="pi pi-map"></i> Rutas:</span>
+            <span class="ruta-chip" *ngFor="let r of rutasEnviosMapa; trackBy: trackRutaEnvio">
+              <span class="ruta-dot" [style.background]="r.color"></span>
+              #{{ r.id }}
+              <button class="ruta-chip-x" (click)="quitarRutaEnvio(r.id)" title="Quitar del mapa"><i
+                  class="pi pi-times"></i></button>
+            </span>
+            <button class="fb-clear" (click)="limpiarRutasEnvios()"
+              title="Quitar todas las rutas del mapa">Limpiar</button>
+          </div>
+          <!-- Filtros solo si no hay vuelo seleccionado -->
+          <div class="panel-filters" *ngIf="!vueloSeleccionado">
+            <input type="text" [(ngModel)]="filtroEnvioOrigen" (ngModelChange)="bumpUi()" placeholder="Origen…"
+              class="pf-input pf-input-sm" />
+            <input type="text" [(ngModel)]="filtroEnvioDestino" (ngModelChange)="bumpUi()" placeholder="Destino…"
+              class="pf-input pf-input-sm" />
+            <button class="pf-clear" (click)="limpiarFiltrosEnvios()" title="Limpiar filtros"><i
+                class="pi pi-times"></i></button>
+          </div>
+          <!-- Ordenamiento -->
+          <div class="panel-sort" *ngIf="!vueloSeleccionado">
+            <span class="ps-label">Ord:</span>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'recientes'" (click)="sortEnvio = 'recientes'"
+              title="Registros más recientes primero">↓ Recientes</button>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'antiguos'" (click)="sortEnvio = 'antiguos'"
+              title="Registros más antiguos primero">↑ Antiguos</button>
+            <button class="sort-btn" [class.sort-active]="sortEnvio === 'carga'" (click)="sortEnvio = 'carga'"
+              title="Mayor carga primero">Carga</button>
+          </div>
+          <div class="panel-list">
+            <div *ngFor="let e of panelEnviosFiltrados; trackBy: trackPanelEnvio" class="pitem pitem-envio"
+              [class.pitem-selected]="envioSeleccionadoId === e.id"
+              [class.pitem-en-mapa]="enviosRutaSeleccionados.has(e.id)" (click)="toggleEnvioTracking(e.id)">
+              <div class="pitem-top">
+                <span class="pitem-code">#{{ e.id }}</span>
+                <span class="pitem-route">{{ e.origen }} → {{ e.destino }}</span>
+                <span class="envio-estado-badge" [class]="getEstadoEnvioClass(e.estado)" *ngIf="e.estado">
+                  {{ getEstadoEnvioLabel(e.estado) }}
+                </span>
+                <span class="bag-sla" [class.sla-ok]="e.cumpleSla !== false" [class.sla-fail]="e.cumpleSla === false">
+                  {{ e.cumpleSla !== false ? '✓' : '⚠' }}
+                </span>
+              </div>
+              <div class="pitem-meta">
+                <span>{{ e.cantidad }} maletas</span>
+                <span *ngIf="e.regMs">Reg. {{ e.regMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                <span *ngIf="e.tramos > 1">{{ e.tramos }} tramos</span>
+                <span *ngIf="!vueloSeleccionado">{{ e.vuelo }}</span>
+              </div>
+
+              <!-- Tracking completo del envío -->
+              <div class="envio-tracking" *ngIf="envioSeleccionadoId === e.id && trackingSel"
+                (click)="$event.stopPropagation()">
+                <div class="trk-row trk-estado">
+                  <i class="pi pi-map-marker"></i>
+                  <span>{{ trackingSel.estado }}</span>
+                </div>
+                <div class="trk-row" *ngIf="trackingSel.fechaRegistroMs">
+                  <i class="pi pi-clock"></i>
+                  <span>Registrado: {{ trackingSel.fechaRegistroMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                </div>
+                <div class="trk-row" *ngIf="trackingSel.fechaLimiteMs">
+                  <i class="pi pi-flag"></i>
+                  <span>Límite entrega: {{ trackingSel.fechaLimiteMs | date:'dd/MM HH:mm':'UTC' }}</span>
+                </div>
+                <div class="trk-tramos">
+                  <div class="trk-tramo" *ngFor="let t of trackingSel.tramos; let i = index"
+                    [class.trk-tramo-cancelado]="t.cancelado">
+                    <span class="trk-num">{{ i + 1 }}</span>
+                    <div class="trk-tramo-body">
+                      <div class="trk-tramo-vuelo">{{ t.vuelo }} · {{ t.origen }} → {{ t.destino }}
+                        <span *ngIf="t.cancelado" class="trk-tramo-badge-cancelado">✕ CANCELADO</span>
+                      </div>
+                      <div class="trk-tramo-horas">{{ t.salida | date:'dd/MM HH:mm':'UTC' }} → {{ t.llegada |
+                        date:'dd/MM HH:mm':'UTC' }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="trk-row trk-resumen">
+                  <span>{{ trackingSel.escalas }} escala(s)</span>
+                  <span>Duración: {{ formatDuracion(trackingSel.duracionMin) }}</span>
+                  <span [class.sla-ok]="trackingSel.cumpleSla !== false"
+                    [class.sla-fail]="trackingSel.cumpleSla === false">
+                    {{ trackingSel.cumpleSla !== false ? '✓ SLA' : '⚠ SLA' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="panelEnviosFiltrados.length === 0" class="panel-empty">
+              {{ vueloSeleccionado ? 'Este vuelo no tiene envíos asignados' : 'Sin envíos asignados aún' }}
+            </div>
+          </div>
+        </ng-container>
+
+      </div><!-- /right-panel -->
+
+    </div><!-- /main-content -->
+
+    <!-- ── TIMELINE ──────────────────────────────────────────── -->
+    <div class="timeline" *ngIf="estado === 'listo'">
+      <div class="tl-controls">
+        <button class="btn-play" (click)="togglePlay()">
+          <i [class]="reproduciendo ? 'pi pi-pause' : 'pi pi-play'"></i>
+        </button>
+      </div>
+      <div class="tl-slider-area">
+        <div class="tl-time-label">
+          <i class="pi pi-clock"></i> {{ tiempoLabel }}
+        </div>
+        <input type="range" class="tl-range" [min]="tiempoInicioMs" [max]="tiempoFinMs" [value]="tiempoActualMs"
+          (input)="onSliderChange($event)" />
+        <div class="tl-pct">{{ progresoSlider }}%</div>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- ── DIALOG: Cancelar vuelo / Reprogramar envíos ──────────── -->
+  <p-dialog [(visible)]="mostrarConfirmCancelar" [modal]="true" [closable]="true"
+    [header]="cancelacionExitosa ? 'Vuelo cancelado' : 'Cancelar vuelo'" [style]="{'width':'360px'}" [draggable]="false"
+    [resizable]="false" (onHide)="cerrarDialogoCancelacion()">
+
+    <!-- Fase 1: Confirmación de cancelación -->
+    <div class="confirm-body" *ngIf="!cancelacionExitosa && vueloParaCancelar">
+      <i
+        [class]="vueloYaEnVuelo ? 'pi pi-info-circle confirm-icon confirm-icon-info' : 'pi pi-exclamation-triangle confirm-icon'"></i>
+
+      <p><strong>Vuelo:</strong> {{ vueloParaCancelar.codigoVuelo }}</p>
+      <p class="confirm-sub"><strong>Ruta:</strong> {{ vueloParaCancelar.origen }} → {{ vueloParaCancelar.destino }}</p>
+      <p class="confirm-sub"><strong>Hora de salida:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).fechaHora | date:'dd/MM/yyyy HH:mm':'UTC' }}</p>
+      <p class="confirm-sub"><strong>Hora simulada actual:</strong> {{ tiempoActualMs | date:'dd/MM/yyyy HH:mm':'UTC' }}
+      </p>
+      <p class="confirm-sub"><strong>La cancelación afectará:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).aplicaMismoDia ? 'hoy' : 'siguiente día' }}</p>
+      <p class="confirm-sub"><strong>Fecha operacional afectada:</strong> {{ previsualizarCancelacion(tiempoActualMs,
+        vueloParaCancelar.horaSalida).fechaHora | date:'dd/MM/yyyy':'UTC' }}</p>
+      <p class="confirm-sub"><strong>Maletas observadas:</strong> {{ vueloParaCancelar.totalMaletas }}</p>
+      <p class="confirm-hint">Las maletas asignadas quedarán pendientes y serán replanificadas en los siguientes ciclos.
+      </p>
+
+      <div class="confirm-footer">
+        <button class="btn-pausar" (click)="cerrarDialogoCancelacion()" [disabled]="cancelando">
+          No, mantener
+        </button>
+        <button class="btn-detener" (click)="confirmarCancelar()" [disabled]="cancelando">
+          <i class="pi pi-spin pi-spinner" *ngIf="cancelando"></i>
+          <i class="pi pi-ban" *ngIf="!cancelando"></i>
+          {{ cancelando ? 'Procesando...' : 'Sí, cancelar' }}
+        </button>
+      </div>
+    </div>
+
+
+  </p-dialog>
+
+  <!-- Overlay: replanificación de rutas tras cancelar vuelo -->
+  <div class="replan-overlay" *ngIf="replanificando">
+    <div class="replan-box">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Replanificando rutas de las maletas…</span>
+    </div>
+  </div>
+
+  <p-toast></p-toast>
+</div>
