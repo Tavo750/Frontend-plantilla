@@ -294,6 +294,9 @@ export class OperacionDiariaComponent implements OnInit, OnDestroy, AfterViewIni
   estanciaDestinoMin = 15;
   /** Arribo final de cada envío: almacén destino, hora de llegada y cantidad. */
   private arriboDestino = new Map<number, { destino: string; llegadaMs: number; cantidad: number }>();
+  /** Pedidos registrados (aparecen en su almacén de origen APENAS se registran,
+   *  sin esperar a que se planifiquen). idEnvio → origen, cantidad, hora de registro. */
+  private pedidosRegistrados = new Map<number, { origen: string; cantidad: number; regMs: number }>();
 
   // ── Header auto-ocultar al usar el mapa ──────────────────
   simHeaderOculto = false;
@@ -482,6 +485,7 @@ private getAirportXOffset(codigoOaci: string): number {
     this.maletasEnAeropuerto.clear();
     this.disponibleDesde.clear();
     this.arriboDestino.clear();
+    this.pedidosRegistrados.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = this.dias;
     this.ciclosCompletados = 0;
@@ -759,6 +763,7 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'UPDATE':  this.onWsUpdate(msg); break;
       case 'FIN':     this.onWsFin(msg);    break;
       case 'SYNC':    this.onWsSync(msg);   break;
+      case 'PEDIDOS_REGISTRADOS': this.onWsPedidosRegistrados(msg); break;
       case 'FLIGHT_CANCELLED': this.onWsFlightCancelled(msg); break;
       case 'CANCEL_FLIGHT_ERROR': this.onWsCancelFlightError(msg); break;
       case 'STOPPED': break;
@@ -1467,6 +1472,19 @@ private getAirportXOffset(codigoOaci: string): number {
       });
     }
 
+    // Operación diaria: un pedido registrado se refleja en su almacén de ORIGEN apenas
+    // se registra, SIN esperar a que se planifique. Los que ya tienen vuelo se cuentan
+    // vía ese vuelo (arriba); aquí se suman solo los aún NO planificados.
+    if (this.modoOperacion && this.pedidosRegistrados.size > 0) {
+      const planificados = new Set<number>();
+      this.vuelos.forEach(v => v.envios.forEach(e => planificados.add(e.idEnvio)));
+      this.pedidosRegistrados.forEach((p, id) => {
+        if (planificados.has(id)) return;   // ya asignado a un vuelo: no duplicar
+        if (p.regMs > now) return;
+        this.maletasEnAeropuerto.set(p.origen, (this.maletasEnAeropuerto.get(p.origen) ?? 0) + p.cantidad);
+      });
+    }
+
     // Un almacén NO puede exceder su capacidad física: se topa la ocupación a
     // la capacidad del aeropuerto (nunca se muestra >100%).
     this.maletasEnAeropuerto.forEach((bags, code) => {
@@ -1752,6 +1770,21 @@ private getAirportXOffset(codigoOaci: string): number {
       horaSalidaSeleccionadaMs: previa.fechaHora.getTime(),
       fechaHoraSimuladaMs: this.tiempoActualMs
     }));
+  }
+
+  /** Pedidos registrados: se reflejan en su almacén de ORIGEN de inmediato. */
+  private onWsPedidosRegistrados(msg: any): void {
+    (msg.pedidos ?? []).forEach((p: any) => {
+      if (p.idEnvio == null || !p.origen) return;
+      this.pedidosRegistrados.set(p.idEnvio, {
+        origen: p.origen,
+        cantidad: p.cantidad ?? 0,
+        regMs: p.fechaRegistroMs ?? Date.now()
+      });
+    });
+    if (this.modoOperacion) this.tiempoActualMs = Date.now();
+    this.actualizarEstadoPesado();
+    this.cdr.detectChanges();
   }
 
   private onWsFlightCancelled(msg: any): void {
