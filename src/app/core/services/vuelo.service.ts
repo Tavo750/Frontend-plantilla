@@ -16,6 +16,7 @@ export interface AeropuertoVuelo {
   continente?: string;
   capacidad?: number;
   activo?: boolean;
+  gmt?: number;
 }
 
 export interface Vuelo {
@@ -79,6 +80,38 @@ export class VueloService {
   eliminarVuelo(id: number): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(
       `${this.apiUrl}/${id}`
+    );
+  }
+
+  /** Elimina en un solo request todos los vuelos indicados (y su fila del plan diario). */
+  eliminarVuelosMasivo(ids: number[]): Observable<ApiResponse<{ eliminados: number; noEncontrados: number[] }>> {
+    return this.http.post<ApiResponse<{ eliminados: number; noEncontrados: number[] }>>(
+      `${this.apiUrl}/eliminar-masivo`,
+      ids
+    );
+  }
+
+  /** Carga masiva: crea cada vuelo igual que la creación individual, etiquetando la tanda. */
+  cargaMasiva(vuelos: VueloCreateDTO[])
+    : Observable<ApiResponse<{ creados: number; omitidos: number; fechaCarga: string }>> {
+    return this.http.post<ApiResponse<{ creados: number; omitidos: number; fechaCarga: string }>>(
+      `${this.apiUrl}/carga-masiva`,
+      { vuelos }
+    );
+  }
+
+  /** Lista las tandas de carga masiva (fecha_carga), la más reciente primero. */
+  listarCargas(): Observable<ApiResponse<{ fechaCarga: string; total: number; desde: string; hasta: string }[]>> {
+    return this.http.get<ApiResponse<{ fechaCarga: string; total: number; desde: string; hasta: string }[]>>(
+      `${this.apiUrl}/cargas`
+    );
+  }
+
+  /** Elimina una tanda completa por su fecha_carga. */
+  eliminarCarga(fechaCarga: string): Observable<ApiResponse<{ eliminados: number }>> {
+    return this.http.delete<ApiResponse<{ eliminados: number }>>(
+      `${this.apiUrl}/carga`,
+      { params: { fechaCarga } }
     );
   }
 

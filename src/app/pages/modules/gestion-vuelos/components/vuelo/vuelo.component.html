@@ -28,6 +28,14 @@
         />
       </label>
 
+      <button class="btn-secondary btn-eliminacion-masiva"
+        [class.btn-danger-active]="modoSeleccion"
+        (click)="toggleModoSeleccion()"
+        title="Seleccionar varios vuelos para eliminarlos de una vez">
+        <i class="pi pi-trash"></i>
+        {{ modoSeleccion ? 'Salir de selección' : 'Eliminación masiva' }}
+      </button>
+
       <button
         *ngIf="!mostrarFormulario"
         class="btn-primary"
@@ -420,6 +428,51 @@
       </div>
     </div>
 
+    <!-- ── PANEL DE ELIMINACIÓN MASIVA (lotes por fecha de salida) ── -->
+    <div class="masivo-panel" *ngIf="modoSeleccion">
+      <div class="masivo-head">
+        <span><i class="pi pi-trash"></i> Eliminación masiva — marca vuelos en la tabla o selecciona lotes por fecha</span>
+        <div class="masivo-actions">
+          <label class="masivo-check-all">
+            <input type="checkbox" [checked]="todosFiltradosSeleccionados" (change)="toggleSeleccionTodos()" />
+            Todos los filtrados ({{ vuelosFiltrados.length }})
+          </label>
+          <button class="btn-danger" [disabled]="seleccionados.size === 0 || eliminandoMasivo"
+            (click)="pedirEliminarSeleccionados()">
+            <i class="pi pi-trash"></i>
+            Eliminar seleccionados ({{ seleccionados.size }})
+          </button>
+        </div>
+      </div>
+      <!-- Tandas de carga masiva: identifica cada subida para borrarla completa -->
+      <div class="tandas-box" *ngIf="tandas.length > 0">
+        <div class="tandas-title"><i class="pi pi-box"></i> Tandas de carga (cada subida = una tanda):</div>
+        <div class="tanda-row" *ngFor="let t of tandas; let i = index" [class.tanda-ultima]="i === 0">
+          <span class="tanda-badge" *ngIf="i === 0">Última carga</span>
+          <span class="tanda-fecha"><i class="pi pi-clock"></i> {{ formatearFechaCarga(t.fechaCarga) }}</span>
+          <span class="tanda-info">{{ t.total }} vuelos · {{ t.desde }} → {{ t.hasta }}</span>
+          <button class="btn-danger btn-tanda" [disabled]="eliminandoTanda === t.fechaCarga"
+            (click)="eliminarTanda(t)">
+            <i [class]="eliminandoTanda === t.fechaCarga ? 'pi pi-spin pi-spinner' : 'pi pi-trash'"></i>
+            Eliminar esta carga
+          </button>
+        </div>
+      </div>
+
+      <div class="masivo-lotes-title" *ngIf="lotesVuelos.length > 0">O elimina por fecha de salida:</div>
+      <div class="masivo-lotes">
+        <div class="lote-chip" *ngFor="let lote of lotesVuelos"
+          [class.lote-full]="lote.seleccionados === lote.total"
+          [class.lote-partial]="lote.seleccionados > 0 && lote.seleccionados < lote.total"
+          (click)="toggleLote(lote)"
+          [title]="'Marcar/desmarcar los ' + lote.total + ' vuelo(s) con salida el ' + lote.fecha">
+          <i class="pi pi-calendar"></i>
+          {{ lote.fecha }}
+          <span class="lote-count">{{ lote.seleccionados }}/{{ lote.total }}</span>
+        </div>
+      </div>
+    </div>
+
     <p-table
       [value]="vuelosFiltrados"
       [paginator]="true"
@@ -431,6 +484,9 @@
     >
       <ng-template #header>
         <tr>
+          <th *ngIf="modoSeleccion" style="width:2.4rem;text-align:center;">
+            <input type="checkbox" [checked]="todosFiltradosSeleccionados" (change)="toggleSeleccionTodos()" />
+          </th>
           <th pSortableColumn="codigoVuelo">
             Código <p-sortIcon field="codigoVuelo"></p-sortIcon>
           </th>
@@ -449,7 +505,13 @@
       </ng-template>
 
       <ng-template #body let-v>
-        <tr>
+        <tr [class.fila-seleccionada]="modoSeleccion && seleccionados.has(v.idVuelo)"
+          (click)="modoSeleccion ? toggleSeleccion(v) : null"
+          [style.cursor]="modoSeleccion ? 'pointer' : 'default'">
+          <td *ngIf="modoSeleccion" style="text-align:center;" (click)="$event.stopPropagation(); toggleSeleccion(v)">
+            <input type="checkbox" [checked]="seleccionados.has(v.idVuelo)" (change)="toggleSeleccion(v)"
+              (click)="$event.stopPropagation()" />
+          </td>
           <td>
             <span class="id-cell">{{ v.codigoVuelo }}</span>
           </td>
@@ -464,8 +526,8 @@
             <span class="city">{{ v.aeropuertoDestino?.ciudad }}</span>
           </td>
 
-          <td>{{ formatearHora(v.horaSalida) }}</td>
-          <td>{{ formatearHora(v.horaLlegada) }}</td>
+          <td>{{ formatearHora(v.horaSalida, v.aeropuertoOrigen?.gmt) }}</td>
+          <td>{{ formatearHora(v.horaLlegada, v.aeropuertoDestino?.gmt) }}</td>
 
           <td style="text-align: center;">
             {{ v.duracionHoras }}
@@ -525,11 +587,32 @@
 
       <ng-template #emptymessage>
         <tr>
-          <td colspan="10" class="empty-row">
+          <td [attr.colspan]="modoSeleccion ? 11 : 10" class="empty-row">
             No hay vuelos disponibles con los filtros seleccionados.
           </td>
         </tr>
       </ng-template>
     </p-table>
+  </div>
+
+  <!-- ── CONFIRMACIÓN: eliminación masiva ─────────────────────── -->
+  <div class="masivo-overlay" *ngIf="mostrarConfirmMasivo">
+    <div class="masivo-dialog">
+      <i class="pi pi-exclamation-triangle masivo-warn"></i>
+      <h3>Eliminar {{ seleccionados.size }} vuelo(s)</h3>
+      <p>
+        Se eliminarán permanentemente los vuelos seleccionados y su fila equivalente
+        del plan diario. Esta acción no se puede deshacer.
+      </p>
+      <div class="masivo-dialog-btns">
+        <button class="btn-secondary" (click)="mostrarConfirmMasivo = false" [disabled]="eliminandoMasivo">
+          Cancelar
+        </button>
+        <button class="btn-danger" (click)="confirmarEliminarMasivo()" [disabled]="eliminandoMasivo">
+          <i [class]="eliminandoMasivo ? 'pi pi-spin pi-spinner' : 'pi pi-trash'"></i>
+          {{ eliminandoMasivo ? 'Eliminando...' : 'Sí, eliminar' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

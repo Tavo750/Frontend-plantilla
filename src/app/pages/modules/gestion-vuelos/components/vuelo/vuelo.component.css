@@ -482,3 +482,159 @@
   color: #94a3b8;
   font-size: 0.78rem;
 }
+/* ── ELIMINACIÓN MASIVA ─────────────────────────────────────── */
+.btn-eliminacion-masiva.btn-danger-active {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fecaca;
+}
+.masivo-panel {
+  background: #1e293b;
+  border: 1px solid #ef4444;
+  border-radius: 10px;
+  padding: .7rem .9rem;
+  margin-bottom: .8rem;
+}
+.masivo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+  font-size: .82rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.masivo-head i { color: #f87171; margin-right: .3rem; }
+.masivo-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.masivo-check-all {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .78rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: #dc2626;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+  padding: .5rem .9rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-danger:hover:not(:disabled) { background: #b91c1c; }
+.btn-danger:disabled { opacity: .5; cursor: not-allowed; }
+.masivo-lotes {
+  display: flex;
+  gap: .45rem;
+  flex-wrap: wrap;
+  margin-top: .6rem;
+}
+.lote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .6rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  font-size: .74rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  user-select: none;
+}
+.lote-chip:hover { border-color: #64748b; }
+.lote-chip.lote-partial { border-color: #f59e0b; color: #fbbf24; }
+.lote-chip.lote-full { border-color: #ef4444; background: #7f1d1d40; color: #fca5a5; }
+.lote-count { font-weight: 700; font-variant-numeric: tabular-nums; }
+.fila-seleccionada { background: #7f1d1d33 !important; }
+
+.masivo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.masivo-dialog {
+  width: min(420px, 92%);
+  background: #1e293b;
+  border: 1px solid #ef4444;
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.masivo-warn { font-size: 2rem; color: #f59e0b; }
+.masivo-dialog h3 { color: #f8fafc; margin: .6rem 0 .3rem; }
+.masivo-dialog p { color: #94a3b8; font-size: .82rem; line-height: 1.4; }
+.masivo-dialog-btns {
+  display: flex;
+  justify-content: center;
+  gap: .7rem;
+  margin-top: 1rem;
+}
+
+/* ── Días a duplicar (carga masiva) ─────────────────────────── */
+.dias-carga {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .6rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: .78rem;
+  color: #cbd5e1;
+}
+.dias-carga i { color: #60a5fa; }
+.dias-carga input {
+  width: 56px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #f8fafc;
+  font-size: .78rem;
+  padding: .18rem .3rem;
+  text-align: center;
+}
+
+/* ── Tandas de carga ────────────────────────────────────────── */
+.tandas-box {
+  margin: .5rem 0 .7rem;
+  padding: .5rem .6rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+.tandas-title { font-size: .78rem; font-weight: 700; color: #cbd5e1; margin-bottom: .45rem; }
+.tandas-title i { color: #60a5fa; margin-right: .3rem; }
+.tanda-row {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex-wrap: wrap;
+  padding: .4rem .55rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  margin-top: .35rem;
+  background: #1e293b;
+}
+.tanda-row.tanda-ultima { border-color: #3b82f6; background: #1e3a8a33; }
+.tanda-badge {
+  background: #2563eb; color: #fff; font-size: .64rem; font-weight: 800;
+  padding: .12rem .45rem; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em;
+}
+.tanda-fecha { font-family: monospace; font-size: .8rem; color: #e2e8f0; font-weight: 600; }
+.tanda-fecha i { color: #60a5fa; margin-right: .25rem; }
+.tanda-info { font-size: .74rem; color: #94a3b8; }
+.btn-tanda { margin-left: auto; font-size: .74rem; padding: .35rem .7rem; }
+.masivo-lotes-title { font-size: .74rem; color: #94a3b8; margin: .3rem 0 .2rem; }
