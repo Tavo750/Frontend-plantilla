@@ -5,6 +5,8 @@ import {
 import { MessageService } from 'primeng/api';
 import { SimulacionService, EventoSimulacion, ResumenSimulacion, SimulacionActiva } from '../../../../../core/services/simulacion.service';
 import { AeropuertoService } from '../../../../../core/services/aeropuerto.service';
+import { EnvioDiarioService } from '../../../../../core/services/envio-diario.service';
+import { EnvioMaletas } from '../../../../../core/services/envio.service';
 import { SimulacionSesionService } from '../../../simulacion/services/simulacion-sesion.service';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────
@@ -30,7 +32,8 @@ export interface VueloSimulacion {
   horaLlegada: Date;
   totalMaletas: number;
   capacidad?: number;
-  envios: { idEnvio: number; cantidad: number; cumpleSla?: boolean; fechaRegistroMs?: number; fechaLimiteMs?: number }[];
+  envios: { idEnvio: number; cantidad: number; cumpleSla?: boolean; fechaRegistroMs?: number; fechaLimiteMs?: number;
+            estado?: string; salidaAsignadaMs?: number; llegadaAsignadaMs?: number }[];
 }
 
 export interface ArcoVuelo {
@@ -259,6 +262,11 @@ export class OperacionDiariaComponent implements OnInit, OnDestroy, AfterViewIni
   private simIdUnido: string | null = null;
   simulacionesActivas: SimulacionActiva[] = [];
   private pollActivasId: any = null;
+  /** Poll de capacidades de aeropuertos (operación diaria) para reflejar cambios de la BD */
+  private pollCapacidadesId: any = null;
+  /** Envíos leídos de envio_diario — MISMA fuente que Registro de Maletas (panel de Envíos). */
+  enviosDiario: EnvioMaletas[] = [];
+  private pollEnviosId: any = null;
 
   // ── Stop / pausa de simulación ────────────────────────────
   simulacionPausada = false;
@@ -332,6 +340,7 @@ export class OperacionDiariaComponent implements OnInit, OnDestroy, AfterViewIni
   constructor(
     private readonly simulacionService: SimulacionService,
     private readonly aeropuertoService: AeropuertoService,
+    private readonly envioDiarioService: EnvioDiarioService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
@@ -343,12 +352,26 @@ export class OperacionDiariaComponent implements OnInit, OnDestroy, AfterViewIni
   ngOnInit(): void  {
     this.renderer.addClass(document.body, 'sim-fullscreen');
     this.cargarAeropuertos();
+    // Panel de Envíos: leer de envio_diario (MISMA fuente que Registro de Maletas) y
+    // refrescar en vivo, para que ambos módulos muestren SIEMPRE los mismos pedidos/estados.
+    this.cargarEnviosDiario();
+    this.pollEnviosId = setInterval(() => this.cargarEnviosDiario(), 3000);
     // Operación diaria: se conecta automáticamente a la operación en vivo (continua).
     this.iniciarOperacionDiaria();
+  }
+
+  /** Carga la lista de envíos desde envio_diario (fuente única compartida con Registro). */
+  private cargarEnviosDiario(): void {
+    this.envioDiarioService.listarEnvios().subscribe({
+      next: resp => { this.enviosDiario = resp.data ?? []; this.bumpUi(); this.cdr.detectChanges(); },
+      error: () => { /* silencioso: reintenta en el siguiente poll */ }
+    });
   }
   ngOnDestroy(): void {
     this.renderer.removeClass(document.body, 'sim-fullscreen');
     if (this.pollActivasId) { clearInterval(this.pollActivasId); this.pollActivasId = null; }
+    if (this.pollCapacidadesId) { clearInterval(this.pollCapacidadesId); this.pollCapacidadesId = null; }
+    if (this.pollEnviosId) { clearInterval(this.pollEnviosId); this.pollEnviosId = null; }
     document.removeEventListener('mousemove', this.docMouseMove);
     document.removeEventListener('mouseup', this.docMouseUp);
     this.hostEl.nativeElement.removeEventListener('wheel', this.hostWheel);
@@ -422,8 +445,35 @@ export class OperacionDiariaComponent implements OnInit, OnDestroy, AfterViewIni
           this.aeropuertos.push(pos);
           this.aeropuertoMap.set(a.codigoOaci, pos);
         });
+        // Si los vuelos (INIT del WS) ya llegaron pero se dibujaron sin coordenadas porque
+        // los aeropuertos aún no estaban cargados, recomputar arcos y posiciones AHORA.
+        // (Antes esto no pasaba porque los aeropuertos venían del caché de localStorage,
+        // de forma síncrona; ahora se leen de la BD y pueden llegar después del INIT.)
+        if (this.vuelos.length > 0) {
+          this.computarArcos();
+          this.actualizarPosiciones();
+        }
         this.cdr.detectChanges();
         if (!this.modoOperacion && this.sesion.tieneSesion) { this.restaurarSesion(); }
+      }
+    });
+  }
+
+  /** Recarga SOLO las capacidades (y datos) de los aeropuertos desde la BD, sin rehacer
+   *  posiciones. Así un cambio en Gestión de Aeropuertos se refleja en operación diaria. */
+  private refrescarCapacidades(): void {
+    this.aeropuertoService.listarAeropuertos().subscribe({
+      next: resp => {
+        let cambio = false;
+        (resp.data ?? []).forEach(a => {
+          const pos = this.aeropuertoMap.get(a.codigoOaci);
+          if (pos && pos.capacidad !== a.capacidad) { pos.capacidad = a.capacidad; cambio = true; }
+        });
+        if (cambio) {
+          this.bumpUi();
+          this.actualizarEstado();
+          this.cdr.detectChanges();
+        }
       }
     });
   }
@@ -716,6 +766,10 @@ private getAirportXOffset(codigoOaci: string): number {
     this.mensajeProgreso = 'Conectando con la operación diaria...';
     this.cdr.detectChanges();
     this.conectarOperacionDiaria();
+    // Refrescar capacidades de aeropuertos desde la BD (Gestión de Aeropuertos) en vivo
+    if (!this.pollCapacidadesId) {
+      this.pollCapacidadesId = setInterval(() => this.refrescarCapacidades(), 8000);
+    }
   }
 
   private conectarOperacionDiaria(): void {
@@ -764,6 +818,7 @@ private getAirportXOffset(codigoOaci: string): number {
       case 'FIN':     this.onWsFin(msg);    break;
       case 'SYNC':    this.onWsSync(msg);   break;
       case 'PEDIDOS_REGISTRADOS': this.onWsPedidosRegistrados(msg); break;
+      case 'PEDIDOS_ELIMINADOS':  this.onWsPedidosEliminados(msg); break;
       case 'FLIGHT_CANCELLED': this.onWsFlightCancelled(msg); break;
       case 'CANCEL_FLIGHT_ERROR': this.onWsCancelFlightError(msg); break;
       case 'STOPPED': break;
@@ -1442,48 +1497,36 @@ private getAirportXOffset(codigoOaci: string): number {
       arco.estado = nuevo;
     });
 
-    // ── Maletas en aeropuerto ──
-    // Una maleta ocupa el almacén de origen solo desde que EXISTE ahí a la hora
-    // simulada: desde su registro (tramo 1) o desde que aterrizó su tramo anterior
-    // (escalas), y hasta que su vuelo despega. Así los almacenes empiezan vacíos
-    // y se llenan progresivamente, aunque el planificador trabaje por bloques.
+    // ── Maletas en aeropuerto (ocupación de almacenes) ──
+    // Se deriva del ESTADO/tiempos REALES de los pedidos (envio_diario, la misma fuente
+    // que Registro de Maletas). Una maleta ocupa:
+    //  · el almacén de ORIGEN mientras espera su avión (aún no despega);
+    //  · el almacén de DESTINO solo durante `estanciaDestinoMin` min tras aterrizar, y
+    //    luego desaparece (entregada);
+    //  · nada mientras va en el aire.
+    // Así, al despegar un avión su carga se descuenta del origen, y al aterrizar se suma
+    // temporalmente al destino.
     this.maletasEnAeropuerto.clear();
-    this.vuelos.forEach(v => {
-      if (now >= v.horaSalida.getTime()) return;
-      let enAlmacen = 0;
-      v.envios.forEach(e => {
-        const desde = this.disponibleDesde.get(`${e.idEnvio}|${v.codigoVuelo}`)
-          ?? e.fechaRegistroMs
-          ?? v.horaSalida.getTime() - 3 * this.HORA_MS; // sin dato: aparece 3 h antes del despegue
-        if (desde <= now) enAlmacen += e.cantidad;
-      });
-      if (enAlmacen > 0) {
-        this.maletasEnAeropuerto.set(v.origen, (this.maletasEnAeropuerto.get(v.origen) ?? 0) + enAlmacen);
-      }
-    });
-    // Operación diaria: al llegar a su destino final, la maleta permanece en el
-    // almacén destino `estanciaDestinoMin` minutos (entregada) y luego desaparece.
-    if (this.modoOperacion) {
-      const estanciaMs = Math.max(0, this.estanciaDestinoMin) * 60 * 1000;
-      this.arriboDestino.forEach(a => {
-        if (now >= a.llegadaMs && now < a.llegadaMs + estanciaMs) {
-          this.maletasEnAeropuerto.set(a.destino, (this.maletasEnAeropuerto.get(a.destino) ?? 0) + a.cantidad);
-        }
-      });
-    }
+    const estanciaMs = Math.max(0, this.estanciaDestinoMin) * 60 * 1000;
+    (this.enviosDiario ?? []).forEach(e => {
+      const origen  = e.aeropuertoOrigen?.codigoOaci;
+      const destino = e.aeropuertoDestino?.codigoOaci;
+      const cant = e.cantidad ?? 0;
+      if (cant <= 0) return;
+      const salidaMs  = e.fechaHoraSalidaAsignada  ? new Date(e.fechaHoraSalidaAsignada + 'Z').getTime()  : null;
+      const llegadaMs = e.fechaHoraLlegadaAsignada ? new Date(e.fechaHoraLlegadaAsignada + 'Z').getTime() : null;
 
-    // Operación diaria: un pedido registrado se refleja en su almacén de ORIGEN apenas
-    // se registra, SIN esperar a que se planifique. Los que ya tienen vuelo se cuentan
-    // vía ese vuelo (arriba); aquí se suman solo los aún NO planificados.
-    if (this.modoOperacion && this.pedidosRegistrados.size > 0) {
-      const planificados = new Set<number>();
-      this.vuelos.forEach(v => v.envios.forEach(e => planificados.add(e.idEnvio)));
-      this.pedidosRegistrados.forEach((p, id) => {
-        if (planificados.has(id)) return;   // ya asignado a un vuelo: no duplicar
-        if (p.regMs > now) return;
-        this.maletasEnAeropuerto.set(p.origen, (this.maletasEnAeropuerto.get(p.origen) ?? 0) + p.cantidad);
-      });
-    }
+      if (salidaMs == null || now < salidaMs) {
+        // Registrado / esperando avión → en el almacén de ORIGEN.
+        if (origen) this.maletasEnAeropuerto.set(origen, (this.maletasEnAeropuerto.get(origen) ?? 0) + cant);
+      } else if (llegadaMs != null && now >= llegadaMs) {
+        // Ya aterrizó → permanece en DESTINO `estanciaMs` y luego desaparece.
+        if (destino && now < llegadaMs + estanciaMs) {
+          this.maletasEnAeropuerto.set(destino, (this.maletasEnAeropuerto.get(destino) ?? 0) + cant);
+        }
+      }
+      // else: en el aire (salidaMs ≤ now < llegadaMs) → no ocupa ningún almacén.
+    });
 
     // Un almacén NO puede exceder su capacidad física: se topa la ocupación a
     // la capacidad del aeropuerto (nunca se muestra >100%).
@@ -1574,6 +1617,28 @@ private getAirportXOffset(codigoOaci: string): number {
   /** Hora local de llegada (huso del destino). */
   horaLocalLlegada(v: VueloSimulacion): string {
     return this.fmtLocalHora(v.horaLlegada.getTime(), this.gmtDe(v.destino));
+  }
+
+  /** Hora local (dd/MM HH:mm) de un instante en el huso de un aeropuerto dado. */
+  horaLocalDe(ms: number, codigo: string): string {
+    return this.fmtLocalHora(ms, this.gmtDe(codigo));
+  }
+
+  /** dd/MM/yyyy HH:mm en el huso LOCAL del origen del vuelo a cancelar (coincide con el código). */
+  cancelHoraLocal(ms: number): string {
+    const gmt = this.gmtDe(this.vueloParaCancelar?.origen ?? '');
+    return new Date(ms + gmt * this.HORA_MS).toLocaleString('es-PE', {
+      timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  }
+
+  /** dd/MM/yyyy en el huso LOCAL del origen del vuelo a cancelar. */
+  cancelFechaLocal(ms: number): string {
+    const gmt = this.gmtDe(this.vueloParaCancelar?.origen ?? '');
+    return new Date(ms + gmt * this.HORA_MS).toLocaleString('es-PE', {
+      timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric'
+    });
   }
 
   getBagsEnAeropuerto(codigo: string): number {
@@ -1782,6 +1847,25 @@ private getAirportXOffset(codigoOaci: string): number {
         regMs: p.fechaRegistroMs ?? Date.now()
       });
     });
+    if (this.modoOperacion) this.tiempoActualMs = Date.now();
+    this.actualizarEstadoPesado();
+    this.cdr.detectChanges();
+  }
+
+  /** Pedidos borrados en la BD: se quitan del mapa (almacenes de origen y sus vuelos). */
+  private onWsPedidosEliminados(msg: any): void {
+    const ids: number[] = Array.isArray(msg.ids) ? msg.ids : [];
+    if (ids.length === 0) return;
+    const set = new Set<number>(ids);
+    // Quitar de los pedidos registrados (aún sin planificar)
+    ids.forEach(id => this.pedidosRegistrados.delete(id));
+    // Quitar de los vuelos que ya tenían el envío asignado y recalcular sus maletas
+    this.vuelos.forEach(v => {
+      if (v.envios.length === 0) return;
+      v.envios = v.envios.filter(e => !set.has(e.idEnvio));
+      v.totalMaletas = v.envios.reduce((s, e) => s + (e.cantidad ?? 0), 0);
+    });
+    this.recomputarDisponibilidadAlmacen();
     if (this.modoOperacion) this.tiempoActualMs = Date.now();
     this.actualizarEstadoPesado();
     this.cdr.detectChanges();
@@ -2081,20 +2165,33 @@ private getAirportXOffset(codigoOaci: string): number {
     if (!c) return [];
     const now = this.tiempoActualMs;
     const items: any[] = [];
-    this.vuelos.forEach(v => {
-      const sale  = v.origen === c  && now < v.horaSalida.getTime();
-      const entra = v.destino === c && now < v.horaLlegada.getTime();
-      if (!sale && !entra) return;
-      v.envios.forEach(e => {
-        if (sale)  items.push({ tipo: 'SALE',  id: e.idEnvio, cantidad: e.cantidad, vuelo: v.codigoVuelo, contraparte: v.destino, horaMs: v.horaSalida.getTime() });
-        if (entra) items.push({ tipo: 'ENTRA', id: e.idEnvio, cantidad: e.cantidad, vuelo: v.codigoVuelo, contraparte: v.origen,  horaMs: v.horaLlegada.getTime() });
-      });
+    // Misma fuente que la ocupación del almacén (envio_diario): así la suma de los envíos
+    // que SALEN coincide EXACTAMENTE con la carga del almacén de origen, y sin recortes.
+    (this.enviosDiario ?? []).forEach(e => {
+      const origen  = e.aeropuertoOrigen?.codigoOaci;
+      const destino = e.aeropuertoDestino?.codigoOaci;
+      const cant = e.cantidad ?? 0;
+      if (cant <= 0) return;
+      const salidaMs  = e.fechaHoraSalidaAsignada  ? new Date(e.fechaHoraSalidaAsignada + 'Z').getTime()  : null;
+      const llegadaMs = e.fechaHoraLlegadaAsignada ? new Date(e.fechaHoraLlegadaAsignada + 'Z').getTime() : null;
+      // SALE: sigue en el almacén de ORIGEN esperando su avión (aún no despega).
+      if (origen === c && (salidaMs == null || now < salidaMs)) {
+        items.push({ tipo: 'SALE', id: e.idEnvio, cantidad: cant,
+          vuelo: this.codigoVueloEnvio(e, origen, destino ?? '', this.gmtDe(origen)),
+          contraparte: destino, horaMs: salidaMs ?? Number.MAX_SAFE_INTEGER });
+      }
+      // ENTRA: va en el aire rumbo al almacén de DESTINO (aún no aterriza).
+      if (destino === c && salidaMs != null && llegadaMs != null && now >= salidaMs && now < llegadaMs) {
+        items.push({ tipo: 'ENTRA', id: e.idEnvio, cantidad: cant,
+          vuelo: this.codigoVueloEnvio(e, origen ?? '', destino, this.gmtDe(origen ?? '')),
+          contraparte: origen, horaMs: llegadaMs });
+      }
     });
     let lista = items;
     if (this.filtroFlujoAlmacen === 'entrando')      lista = lista.filter(i => i.tipo === 'ENTRA');
     else if (this.filtroFlujoAlmacen === 'saliendo') lista = lista.filter(i => i.tipo === 'SALE');
     lista.sort((a, b) => a.horaMs - b.horaMs);
-    return lista.slice(0, 50);
+    return lista;
   }
 
   setFiltroFlujoAlmacen(f: 'todos' | 'entrando' | 'saliendo'): void {
@@ -2208,106 +2305,72 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   private computarPanelEnvios(): any[] {
-    // Si hay vuelo seleccionado, mostrar solo sus envíos
+    // FUENTE ÚNICA = envio_diario (la MISMA que Registro de Maletas). Así el panel de
+    // Envíos de Operación Diaria muestra EXACTAMENTE los mismos pedidos y estados que
+    // Registro (mismos #, misma ruta, mismo estado), porque leen el mismo dato.
+    let lista = (this.enviosDiario ?? []).map(e => {
+      const origen  = e.aeropuertoOrigen?.codigoOaci ?? '';
+      const destino = e.aeropuertoDestino?.codigoOaci ?? '';
+      const g = this.gmtDe(origen);
+      const regMs = e.fechaRegistro
+        ? new Date(e.fechaRegistro + 'Z').getTime() - g * this.HORA_MS   // fecha_registro está en hora LOCAL del origen
+        : 0;
+      return {
+        id: e.idEnvio, cantidad: e.cantidad, origen, destino,
+        vuelo: this.codigoVueloEnvio(e, origen, destino, g),
+        cumpleSla: true, regMs,
+        estado: this.mapEstadoDiario(e.estado),   // → PENDIENTE/ESPERANDO/EN_VUELO/ENTREGADO
+        _envio: e
+      };
+    });
+
+    // Si hay un vuelo seleccionado en el mapa, mostrar solo los envíos de esa ruta.
     if (this.vueloSeleccionado) {
       const vs = this.vueloSeleccionado;
-      const vueloCancelado = this.estaOcurrenciaCancelada(vs);
-      return vs.envios.map(e => {
-        const reg = e.fechaRegistroMs ?? vs.horaSalida.getTime();
-        return {
-          id: e.idEnvio, cantidad: e.cantidad,
-          origen: vs.origen,
-          destino: vs.destino,
-          vuelo: vs.codigoVuelo,
-          cumpleSla: e.cumpleSla,
-          fechaRegistroMs: e.fechaRegistroMs, regMs: reg,
-          // Si el vuelo de esta maleta fue cancelado, no puede estar EN_VUELO ni ENTREGADO.
-          estado: vueloCancelado
-            ? 'CANCELADO'
-            : this.estadoEnvio(reg, vs.horaSalida.getTime(), vs.horaLlegada.getTime())
-        };
-      });
+      lista = lista.filter(e => e.origen === vs.origen && e.destino === vs.destino);
     }
-    // Envíos que van llegando al sistema conforme se REGISTRAN (hora simulada).
-    // Un envío con escalas viaja en varios vuelos: se agrupa en una sola fila
-    // con la ruta punta a punta y el conteo de tramos.
-    const now = this.tiempoActualMs;
-    const porEnvio = new Map<number, any>();
-    this.vuelos.forEach(v => {
-      const vueloCancelado = this.estaOcurrenciaCancelada(v);
-      v.envios.forEach(e => {
-        // Sin fechaRegistroMs (backend antiguo): usar la salida del vuelo como aproximación
-        const regMs = e.fechaRegistroMs ?? v.horaSalida.getTime();
-        const cur = porEnvio.get(e.idEnvio);
-        if (!cur) {
-          porEnvio.set(e.idEnvio, {
-            id: e.idEnvio, cantidad: e.cantidad,
-            origen: v.origen, destino: v.destino,
-            vuelo: v.codigoVuelo, tramos: 1,
-            cumpleSla: e.cumpleSla, fechaRegistroMs: e.fechaRegistroMs, regMs,
-            primeraSalidaMs: v.horaSalida.getTime(),
-            ultimaLlegadaMs: v.horaLlegada.getTime(),
-            tieneCancelado: vueloCancelado,
-            _vuelo: v
-          });
-        } else {
-          if (vueloCancelado) cur.tieneCancelado = true;
-          cur.tramos++;
-          cur.regMs = Math.min(cur.regMs, regMs);
-          if (v.horaSalida.getTime() < cur.primeraSalidaMs) {
-            cur.primeraSalidaMs = v.horaSalida.getTime();
-            cur.origen = v.origen; cur.vuelo = v.codigoVuelo; cur._vuelo = v;
-          }
-          if (v.horaLlegada.getTime() > cur.ultimaLlegadaMs) {
-            cur.ultimaLlegadaMs = v.horaLlegada.getTime();
-            cur.destino = v.destino;
-          }
-          if (e.cumpleSla === false) cur.cumpleSla = false;
-        }
-      });
-    });
-    let lista = Array.from(porEnvio.values());
-    // Estado de cada envío según el tiempo simulado (para el filtro y el badge).
-    // Si alguno de sus tramos fue cancelado, el envío queda CANCELADO (pendiente de
-    // replanificación) en vez de EN_VUELO/ENTREGADO derivado de horas de un vuelo que no salió.
-    lista.forEach(e => {
-      e.estado = e.tieneCancelado
-        ? 'CANCELADO'
-        : this.estadoEnvio(e.regMs, e.primeraSalidaMs, e.ultimaLlegadaMs);
-    });
-    // Filtro por estado: por defecto ('') muestra los ya registrados (no pendientes);
-    // con un estado seleccionado, muestra solo ese grupo (incluye entregados y pendientes).
     if (this.estadoFiltroEnvio) {
       lista = lista.filter(e => e.estado === this.estadoFiltroEnvio);
-    } else {
-      lista = lista.filter(e => e.regMs <= now);
     }
-    // Búsqueda por ID de envío/maleta
     if (this.busquedaEnvio) {
       const q = this.busquedaEnvio.trim();
       lista = lista.filter(e => String(e.id).includes(q));
     }
-    // Aplicar filtro de aeropuerto del mapa
     if (this.aeropuertoFiltroMapa) {
       const c = this.aeropuertoFiltroMapa;
       lista = lista.filter(e => e.origen === c || e.destino === c);
     }
-    // Aplicar filtros de barra superior
-    if (this.hayFiltrosBarra) {
-      lista = lista.filter(e => this.vueloPassaFiltrosBarra(e._vuelo));
-    }
-    // Aplicar filtro de código del panel de vuelos
     if (this.filtroVueloCodigo) {
       const q = this.filtroVueloCodigo.toLowerCase();
-      lista = lista.filter(e => e.vuelo.toLowerCase().includes(q) || e.origen.toLowerCase().includes(q) || e.destino.toLowerCase().includes(q));
+      lista = lista.filter(e => (e.vuelo || '').toLowerCase().includes(q) || e.origen.toLowerCase().includes(q) || e.destino.toLowerCase().includes(q));
     }
     if (this.filtroEnvioOrigen)  { const q = this.filtroEnvioOrigen.toLowerCase();  lista = lista.filter(e => e.origen.toLowerCase().includes(q)); }
     if (this.filtroEnvioDestino) { const q = this.filtroEnvioDestino.toLowerCase(); lista = lista.filter(e => e.destino.toLowerCase().includes(q)); }
-    // Ordenamiento: por defecto registros más recientes primero (se ven "insertándose" arriba)
     if (this.sortEnvio === 'carga')         lista.sort((a, b) => b.cantidad - a.cantidad);
     else if (this.sortEnvio === 'antiguos') lista.sort((a, b) => a.regMs - b.regMs);
     else                                     lista.sort((a, b) => b.regMs - a.regMs);
-    return lista.slice(0, 80);
+    return lista.slice(0, 300);
+  }
+
+  /** Mapea el estado de envio_diario (igual que Registro) al estado del panel. */
+  private mapEstadoDiario(estado: string | undefined): 'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO' {
+    switch (estado) {
+      case 'ENTREGADA':   return 'ENTREGADO';
+      case 'EN_TRANSITO': return 'EN_VUELO';
+      case 'RETRASADA':   return 'EN_VUELO';
+      case 'EN_ESPERA':   return 'ESPERANDO';
+      case 'REGISTRADA':
+      default:            return 'PENDIENTE';
+    }
+  }
+
+  /** Reconstruye el código del vuelo asignado en hora LOCAL del origen (o '' si no tiene). */
+  private codigoVueloEnvio(e: EnvioMaletas, origen: string, destino: string, gmt: number): string {
+    if (!e.fechaHoraSalidaAsignada) return '';
+    const loc = new Date(new Date(e.fechaHoraSalidaAsignada + 'Z').getTime() + gmt * this.HORA_MS);
+    const ymd = `${loc.getUTCFullYear()}${String(loc.getUTCMonth() + 1).padStart(2, '0')}${String(loc.getUTCDate()).padStart(2, '0')}`;
+    const hm  = `${String(loc.getUTCHours()).padStart(2, '0')}${String(loc.getUTCMinutes()).padStart(2, '0')}`;
+    return `${origen}-${destino}-${ymd}-${hm}`;
   }
 
   /** Estado de un envío en el tiempo simulado actual. */
@@ -2318,6 +2381,24 @@ private getAirportXOffset(codigoOaci: string): number {
     if (now >= ultimaLlegadaMs) return 'ENTREGADO';
     if (now >= primeraSalidaMs) return 'EN_VUELO';
     return 'ESPERANDO';                            // registrado, esperando su avión
+  }
+
+  /**
+   * Estado del envío para el panel. Prioriza el estado REAL persistido en la BD
+   * (misma fuente que Registro de Maletas), para que ambos módulos coincidan; solo
+   * si no llega ese dato se re-deriva por tiempo.
+   */
+  private estadoEnvioReal(persistido: string | undefined,
+                          regMs: number, primeraSalidaMs: number, ultimaLlegadaMs: number):
+      'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO' {
+    switch (persistido) {
+      case 'ENTREGADA':    return 'ENTREGADO';
+      case 'EN_TRANSITO':  return 'EN_VUELO';
+      case 'RETRASADA':    return this.tiempoActualMs >= primeraSalidaMs ? 'EN_VUELO' : 'ESPERANDO';
+      case 'EN_ESPERA':    return 'ESPERANDO';
+      case 'REGISTRADA':   return regMs > this.tiempoActualMs ? 'PENDIENTE' : 'ESPERANDO';
+      default:             return this.estadoEnvio(regMs, primeraSalidaMs, ultimaLlegadaMs);
+    }
   }
 
   setEstadoFiltroEnvio(f: '' | 'PENDIENTE' | 'ESPERANDO' | 'EN_VUELO' | 'ENTREGADO'): void {
@@ -2403,50 +2484,44 @@ private getAirportXOffset(codigoOaci: string): number {
 
   trackRutaEnvio(_: number, r: any): number { return r.id; }
 
-  /** Reconstruye la ruta completa de un envío a partir de los vuelos que lo transportan. */
+  /** Detalle de un envío a partir de envio_diario (MISMA fuente que Registro de Maletas). */
   private buildTrackingEnvio(id: number): any {
+    const e = (this.enviosDiario ?? []).find(x => x.idEnvio === id);
+    if (!e) return { id, cantidad: 0, tramos: [], escalas: 0, duracionMin: 0, estado: 'Sin ruta asignada' };
+    const origen  = e.aeropuertoOrigen?.codigoOaci ?? '';
+    const destino = e.aeropuertoDestino?.codigoOaci ?? '';
+    const g = this.gmtDe(origen);
+
     const tramos: any[] = [];
-    let fechaRegistroMs: number | undefined;
-    let fechaLimiteMs: number | undefined;
-    let cantidad = 0;
-    let cumpleSla: boolean | undefined;
-    this.vuelos.forEach(v => {
-      const e = v.envios.find(en => en.idEnvio === id);
-      if (e) {
-        tramos.push({ vuelo: v.codigoVuelo, origen: v.origen, destino: v.destino,
-          salida: v.horaSalida, llegada: v.horaLlegada, cancelado: this.estaOcurrenciaCancelada(v) });
-        if (e.fechaRegistroMs) fechaRegistroMs = e.fechaRegistroMs;
-        if (e.fechaLimiteMs)   fechaLimiteMs   = e.fechaLimiteMs;
-        cantidad = e.cantidad;
-        if (e.cumpleSla !== undefined) cumpleSla = e.cumpleSla;
-      }
-    });
-    tramos.sort((a, b) => a.salida.getTime() - b.salida.getTime());
-
-    // Estado actual según hora simulada. Un tramo cancelado corta la ruta: la maleta
-    // no viaja en ese vuelo y queda pendiente de replanificación (no "entregada").
-    const now = this.tiempoActualMs;
-    let estado = tramos.length > 0 ? `En espera en ${tramos[0].origen}` : 'Sin ruta asignada';
-    let completados = 0;
-    let cancelado = false;
-    for (const t of tramos) {
-      if (t.cancelado) { estado = `Vuelo ${t.vuelo} CANCELADO · pendiente de replanificación`; cancelado = true; break; }
-      if (now >= t.llegada.getTime()) { estado = `En ${t.destino}`; completados++; }
-      else if (now >= t.salida.getTime()) { estado = `En vuelo ${t.vuelo} (${t.origen} → ${t.destino})`; break; }
-      else break;
-    }
-    if (!cancelado && tramos.length > 0 && completados >= tramos.length) {
-      estado = `Entregado en ${tramos[tramos.length - 1].destino}`;
+    if (e.fechaHoraSalidaAsignada && e.fechaHoraLlegadaAsignada) {
+      tramos.push({
+        vuelo: this.codigoVueloEnvio(e, origen, destino, g),
+        origen, destino,
+        salida:  new Date(e.fechaHoraSalidaAsignada + 'Z'),
+        llegada: new Date(e.fechaHoraLlegadaAsignada + 'Z'),
+        cancelado: false
+      });
     }
 
+    // Estado en el mismo lenguaje del detalle, derivado del estado persistido.
+    let estado: string;
+    switch (e.estado) {
+      case 'ENTREGADA':   estado = `Entregado en ${destino}`; break;
+      case 'EN_TRANSITO':
+      case 'RETRASADA':   estado = tramos.length ? `En vuelo ${tramos[0].vuelo} (${origen} → ${destino})` : `En vuelo (${origen} → ${destino})`; break;
+      case 'EN_ESPERA':   estado = `En espera en ${origen}`; break;
+      default:            estado = `Registrado en ${origen}`; break;
+    }
+
+    const fechaRegistroMs = e.fechaRegistro ? new Date(e.fechaRegistro + 'Z').getTime() - g * this.HORA_MS : undefined;
+    const fechaLimiteMs   = e.fechaLimiteEntrega ? new Date(e.fechaLimiteEntrega + 'Z').getTime() - g * this.HORA_MS : undefined;
     const inicioMs = fechaRegistroMs ?? (tramos.length ? tramos[0].salida.getTime() : 0);
     const finMs    = tramos.length ? tramos[tramos.length - 1].llegada.getTime() : 0;
     const duracionMin = finMs > inicioMs ? Math.round((finMs - inicioMs) / 60000) : 0;
 
     return {
-      id, cantidad, cumpleSla, fechaRegistroMs, fechaLimiteMs, tramos,
-      escalas: Math.max(0, tramos.length - 1),
-      duracionMin, estado
+      id, cantidad: e.cantidad, cumpleSla: true, fechaRegistroMs, fechaLimiteMs, tramos,
+      escalas: Math.max(0, tramos.length - 1), duracionMin, estado
     };
   }
 

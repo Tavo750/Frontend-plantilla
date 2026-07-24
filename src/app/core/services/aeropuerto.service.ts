@@ -1,10 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from '../interfaces/api-response.interface';
-import { CacheService } from './cache.service';
 
 export interface Aeropuerto {
   idAeropuerto: number;
@@ -24,26 +22,17 @@ export interface Aeropuerto {
 export class AeropuertoService {
 
   private readonly apiUrl = `${environment.apiUrl}maestro/aeropuertos`;
-  private readonly CACHE_KEY = 'dp1_cache_aeropuertos';
 
-  constructor(
-    private readonly http: HttpClient,
-    private readonly cache: CacheService
-  ) {}
+  constructor(private readonly http: HttpClient) {}
 
+  /** Siempre lee de la BD (sin caché en localStorage): así cualquier cambio de capacidad
+   *  en Gestión de Aeropuertos se refleja al instante en los módulos que lo consumen. */
   listarAeropuertos(): Observable<ApiResponse<Aeropuerto[]>> {
-    const cached = this.cache.get<ApiResponse<Aeropuerto[]>>(this.CACHE_KEY);
-    if (cached) return of(cached);
-    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl).pipe(
-      tap(resp => { if (resp?.data?.length) this.cache.set(this.CACHE_KEY, resp); })
-    );
+    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl);
   }
 
-  /** Fuerza recarga desde la BD e invalida el caché. */
+  /** Alias de listarAeropuertos (se mantiene por compatibilidad con quien lo llame). */
   refrescar(): Observable<ApiResponse<Aeropuerto[]>> {
-    this.cache.invalidate(this.CACHE_KEY);
-    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl).pipe(
-      tap(resp => { if (resp?.data?.length) this.cache.set(this.CACHE_KEY, resp); })
-    );
+    return this.http.get<ApiResponse<Aeropuerto[]>>(this.apiUrl);
   }
 }

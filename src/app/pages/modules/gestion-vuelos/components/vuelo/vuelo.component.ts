@@ -49,6 +49,18 @@ export class VueloComponent implements OnInit {
   csvProgreso = 0;
   csvResultado: { exitosos: number; fallidos: number; errores: string[] } | null = null;
 
+  // ── Eliminación masiva ─────────────────────────────────────
+  /** Modo selección: muestra checkboxes en la tabla y el panel de lotes */
+  modoSeleccion = false;
+  seleccionados = new Set<number>();
+  eliminandoMasivo = false;
+  mostrarConfirmMasivo = false;
+
+  // ── Carga masiva por tandas ────────────────────────────────
+  /** Tandas de carga registradas (fecha_carga), la más reciente primero. */
+  tandas: { fechaCarga: string; total: number; desde: string; hasta: string }[] = [];
+  eliminandoTanda: string | null = null;
+
   readonly ESTADOS: { label: string; value: EstadoVuelo | null }[] = [
     { label: 'Todos', value: null },
     { label: 'Programado', value: 'PROGRAMADO' },
@@ -71,6 +83,43 @@ export class VueloComponent implements OnInit {
   ngOnInit(): void {
     this.cargarReferencias();
     this.cargarVuelos();
+    this.cargarTandas();
+  }
+
+  cargarTandas(): void {
+    this.vueloService.listarCargas().subscribe({
+      next: resp => { this.tandas = resp.data ?? []; this.cdr.detectChanges(); }
+    });
+  }
+
+  /** Elimina una tanda de carga completa (todos sus vuelos de todos los días). */
+  eliminarTanda(t: { fechaCarga: string; total: number }): void {
+    this.eliminandoTanda = t.fechaCarga;
+    this.vueloService.eliminarCarga(t.fechaCarga).subscribe({
+      next: resp => {
+        this.eliminandoTanda = null;
+        this.messageService.add({
+          severity: 'success', summary: 'Tanda eliminada',
+          detail: `${resp.data?.eliminados ?? t.total} vuelo(s) eliminados`
+        });
+        this.cargarTandas();
+        this.cargarVuelos();
+      },
+      error: err => {
+        this.eliminandoTanda = null;
+        this.messageService.add({
+          severity: 'error', summary: 'Error',
+          detail: err?.error?.message ?? 'No se pudo eliminar la tanda.'
+        });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  formatearFechaCarga(iso: string): string {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso
+      : d.toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
   private cargarReferencias(): void {
@@ -501,20 +550,111 @@ export class VueloComponent implements OnInit {
     return this.vuelosFiltrados.filter(v => v.estado === 'CANCELADO').length;
   }
 
-  formatearHora(valor?: string): string {
+  // ── ELIMINACIÓN MASIVA ─────────────────────────────────────
+
+  toggleModoSeleccion(): void {
+    this.modoSeleccion = !this.modoSeleccion;
+    if (!this.modoSeleccion) this.seleccionados.clear();
+  }
+
+  toggleSeleccion(v: Vuelo): void {
+    if (this.seleccionados.has(v.idVuelo)) this.seleccionados.delete(v.idVuelo);
+    else this.seleccionados.add(v.idVuelo);
+  }
+
+  /** Selecciona / deselecciona todos los vuelos actualmente FILTRADOS. */
+  toggleSeleccionTodos(): void {
+    const todos = this.vuelosFiltrados.every(v => this.seleccionados.has(v.idVuelo));
+    if (todos) this.vuelosFiltrados.forEach(v => this.seleccionados.delete(v.idVuelo));
+    else this.vuelosFiltrados.forEach(v => this.seleccionados.add(v.idVuelo));
+  }
+
+  get todosFiltradosSeleccionados(): boolean {
+    return this.vuelosFiltrados.length > 0
+      && this.vuelosFiltrados.every(v => this.seleccionados.has(v.idVuelo));
+  }
+
+  /** Lotes de carga: vuelos agrupados por fecha (día) de salida, para mapear una
+   *  carga masiva y eliminarla completa de un clic. */
+  get lotesVuelos(): { fecha: string; total: number; seleccionados: number; ids: number[] }[] {
+    const grupos = new Map<string, number[]>();
+    this.vuelos.forEach(v => {
+      const fecha = (v.horaSalida ?? '').substring(0, 10) || 'sin fecha';
+      if (!grupos.has(fecha)) grupos.set(fecha, []);
+      grupos.get(fecha)!.push(v.idVuelo);
+    });
+    return Array.from(grupos.entries())
+      .map(([fecha, ids]) => ({
+        fecha, total: ids.length,
+        seleccionados: ids.filter(id => this.seleccionados.has(id)).length,
+        ids
+      }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }
+
+  /** Marca/desmarca todos los vuelos de un lote (por fecha de salida). */
+  toggleLote(lote: { ids: number[]; seleccionados: number; total: number }): void {
+    if (lote.seleccionados === lote.total) lote.ids.forEach(id => this.seleccionados.delete(id));
+    else lote.ids.forEach(id => this.seleccionados.add(id));
+  }
+
+  pedirEliminarSeleccionados(): void {
+    if (this.seleccionados.size === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Sin selección', detail: 'Marca al menos un vuelo para eliminar.' });
+      return;
+    }
+    this.mostrarConfirmMasivo = true;
+  }
+
+  confirmarEliminarMasivo(): void {
+    if (this.eliminandoMasivo) return;
+    this.eliminandoMasivo = true;
+    const ids = Array.from(this.seleccionados);
+    this.vueloService.eliminarVuelosMasivo(ids).subscribe({
+      next: resp => {
+        this.eliminandoMasivo = false;
+        this.mostrarConfirmMasivo = false;
+        this.seleccionados.clear();
+        this.modoSeleccion = false;
+        this.messageService.add({
+          severity: 'success', summary: 'Eliminación masiva',
+          detail: `${resp.data?.eliminados ?? ids.length} vuelo(s) eliminado(s)`
+        });
+        this.cargarVuelos();
+      },
+      error: err => {
+        this.eliminandoMasivo = false;
+        this.messageService.add({
+          severity: 'error', summary: 'Error',
+          detail: err?.error?.message ?? 'No se pudieron eliminar los vuelos.'
+        });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Muestra una hora en el huso LOCAL del aeropuerto (gmt). El valor viene en UTC
+   * (sin zona) desde la BD; se interpreta como UTC y se lleva al huso local del
+   * origen/destino para que coincida con la hora del código del vuelo.
+   */
+  formatearHora(valor?: string, gmt?: number | null): string {
     if (!valor) return '-';
 
-    const f = new Date(valor);
+    const limpio = valor.replace(/\.\d+$/, '').substring(0, 19);
+    const iso = limpio.length === 16 ? `${limpio}:00Z` : `${limpio}Z`;
+    const base = new Date(iso);
+    if (Number.isNaN(base.getTime())) return valor;
 
-    return !Number.isNaN(f.getTime())
-      ? f.toLocaleString('es-PE', {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      : valor;
+    const local = new Date(base.getTime() + (gmt ?? 0) * 3_600_000);
+    return local.toLocaleString('es-PE', {
+      timeZone: 'UTC',
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   private toDatetimeLocal(valor: string): string {
@@ -523,6 +663,20 @@ export class VueloComponent implements OnInit {
 
   private normalizarLocalDateTime(valor: string): string {
     return valor && valor.length === 16 ? `${valor}:00` : valor;
+  }
+
+  /**
+   * Convierte una fecha/hora LOCAL de un aeropuerto a UTC (restando su GMT).
+   * El CSV de carga trae las horas en el huso local del origen/destino (como pide el
+   * enunciado), pero todo el sistema (BD, planificador, mapa) trabaja en UTC: sin esta
+   * conversión los vuelos quedan corridos y no se toman en operación diaria.
+   */
+  private localAUtc(valor: string, gmt: number | undefined | null): string {
+    const v = this.normalizarLocalDateTime(valor);
+    const d = new Date(v.length === 19 ? `${v}Z` : v); // interpretar como "reloj puro"
+    if (Number.isNaN(d.getTime())) return v;
+    d.setUTCHours(d.getUTCHours() - (gmt ?? 0));
+    return d.toISOString().substring(0, 19);
   }
 
   private toCsvDateTime(fecha: Date): string {
@@ -642,8 +796,13 @@ export class VueloComponent implements OnInit {
         continue;
       }
 
-      if (!horaSalida || !horaLlegada || new Date(horaLlegada) <= new Date(horaSalida)) {
-        errores.push(`Fila ${numFila}: fechas inválidas`);
+      // Husos: el CSV trae horas LOCALES (salida en huso del origen, llegada en huso
+      // del destino). Convertir a UTC antes de validar y guardar.
+      const salidaUtc  = this.localAUtc(horaSalida,  (origen as any).gmt);
+      const llegadaUtc = this.localAUtc(horaLlegada, (destino as any).gmt);
+
+      if (!horaSalida || !horaLlegada || new Date(llegadaUtc) <= new Date(salidaUtc)) {
+        errores.push(`Fila ${numFila}: fechas inválidas (llegada UTC debe ser posterior a salida UTC)`);
         continue;
       }
 
@@ -661,8 +820,8 @@ export class VueloComponent implements OnInit {
         codigoVuelo: codigoVuelo.trim().toUpperCase(),
         idAeropuertoOrigen: origen.idAeropuerto,
         idAeropuertoDestino: destino.idAeropuerto,
-        horaSalida: this.normalizarLocalDateTime(horaSalida),
-        horaLlegada: this.normalizarLocalDateTime(horaLlegada),
+        horaSalida: salidaUtc,
+        horaLlegada: llegadaUtc,
         duracionHoras,
         capacidadMaxima,
         estado: 'PROGRAMADO',
@@ -692,10 +851,11 @@ export class VueloComponent implements OnInit {
     this.csvProgreso = 60;
     this.cdr.detectChanges();
 
-    forkJoin(validos.map(vuelo => this.vueloService.crearVuelo(vuelo))).subscribe({
-      next: respuestas => {
-        const creados = respuestas.length;
-
+    // Carga masiva: cada vuelo se crea igual que la creación individual, y toda la tanda
+    // comparte una etiqueta para poder eliminarla completa después.
+    this.vueloService.cargaMasiva(validos).subscribe({
+      next: resp => {
+        const creados = resp.data?.creados ?? validos.length;
         this.cargandoCSV = false;
         this.csvProgreso = 100;
         this.csvResultado = {
@@ -703,33 +863,26 @@ export class VueloComponent implements OnInit {
           fallidos: errores.length,
           errores
         };
-
         this.limpiarTodosLosFiltrosSinAplicar();
         this.cdr.detectChanges();
 
         this.messageService.add({
           severity: errores.length === 0 ? 'success' : 'warn',
-          summary: `${creados} vuelo(s) registrado(s)`,
-          detail: errores.length > 0
-            ? `${errores.length} fila(s) con error`
-            : 'Todos los vuelos fueron creados correctamente'
+          summary: `${creados} vuelos creados`,
+          detail: errores.length > 0 ? `${errores.length} fila(s) con error` : 'Todos los vuelos fueron creados correctamente'
         });
 
         this.cargarVuelos();
+        this.cargarTandas();
       },
       error: err => {
         this.cargandoCSV = false;
         this.csvResultado = {
           exitosos: 0,
           fallidos: errores.length + validos.length,
-          errores: [
-            ...errores,
-            `Servidor: ${err?.error?.message ?? 'error al crear vuelos'}`
-          ]
+          errores: [...errores, `Servidor: ${err?.error?.message ?? 'error al crear vuelos'}`]
         };
-
         this.cdr.detectChanges();
-
         this.messageService.add({
           severity: 'error',
           summary: 'Error del servidor',
