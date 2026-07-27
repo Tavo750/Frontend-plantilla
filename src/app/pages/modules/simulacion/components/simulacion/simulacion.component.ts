@@ -6,6 +6,11 @@ import { MessageService } from 'primeng/api';
 import { SimulacionService, EventoSimulacion, ResumenSimulacion, SimulacionActiva } from '../../../../../core/services/simulacion.service';
 import { AeropuertoService } from '../../../../../core/services/aeropuerto.service';
 import { SimulacionSesionService } from '../../services/simulacion-sesion.service';
+import {
+  aplicarColapsoOcupacion,
+  aplicarUpdateOcupaciones,
+  OcupacionAeropuertoSnapshot
+} from './ocupacion-aeropuertos-state';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────
 
@@ -94,6 +99,8 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   arcosVuelo: ArcoVuelo[] = [];
   planosEnMapa: PlanoEnMapa[] = [];
   maletasEnAeropuerto = new Map<string, number>();
+  ocupacionesAeropuertos = new Map<string, OcupacionAeropuertoSnapshot>();
+  private ultimoTiempoOcupacionesMs = 0;
 
   // ── Eventos recientes ──────────────────────────────────────
   eventosRecientes: EventoReciente[] = [];
@@ -297,6 +304,10 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
   // ── Colapso ────────────────────────────────────────────────
   modoColapso             = false;
   colapsoDetectado        = false;
+  simulacionColapsada     = false;
+  tipoColapso: string | null = null;
+  mensajeColapso: string | null = null;
+  datosColapso: any = null;
   fechaColapsoMs          = 0;
   fechaColapsoEstimadaMs  = 0;
   duracionHastaColapsoMin = 0;
@@ -349,12 +360,19 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
         tiempoInicioMs: this.tiempoInicioMs,
         tiempoFinMs: this.tiempoFinMs,
         tiempoActualMs: this.tiempoActualMs,
+        maletasEnAeropuerto: new Map(this.maletasEnAeropuerto),
+        ocupacionesAeropuertos: new Map(this.ocupacionesAeropuertos),
+        ultimoTiempoOcupacionesMs: this.ultimoTiempoOcupacionesMs,
         resumen: this.resumen,
         resumenesAeropuerto: this.resumenesAeropuerto,
         cancelacionesEnMapa: this.cancelacionesEnMapa,
         vuelosCancelados: this.vuelosCancelados,
         modoColapso: this.modoColapso,
         colapsoDetectado: this.colapsoDetectado,
+        simulacionColapsada: this.simulacionColapsada,
+        tipoColapso: this.tipoColapso,
+        mensajeColapso: this.mensajeColapso,
+        datosColapso: this.datosColapso,
         fechaColapsoMs: this.fechaColapsoMs,
         fechaColapsoEstimadaMs: this.fechaColapsoEstimadaMs,
         colapsoMotivo: this.colapsoMotivo,
@@ -442,12 +460,19 @@ private getAirportXOffset(codigoOaci: string): number {
     this.tiempoInicioMs = snap.tiempoInicioMs ?? 0;
     this.tiempoFinMs = snap.tiempoFinMs ?? 0;
     this.tiempoActualMs = snap.tiempoActualMs ?? 0;
+    this.maletasEnAeropuerto = new Map(snap.maletasEnAeropuerto ?? []);
+    this.ocupacionesAeropuertos = new Map(snap.ocupacionesAeropuertos ?? []);
+    this.ultimoTiempoOcupacionesMs = snap.ultimoTiempoOcupacionesMs ?? 0;
     this.resumen = snap.resumen ?? null;
     this.resumenesAeropuerto = snap.resumenesAeropuerto ?? new Map();
     this.cancelacionesEnMapa = snap.cancelacionesEnMapa ?? new Map();
     this.vuelosCancelados = snap.vuelosCancelados ?? new Set();
     this.modoColapso = snap.modoColapso ?? false;
     this.colapsoDetectado = snap.colapsoDetectado ?? false;
+    this.simulacionColapsada = snap.simulacionColapsada ?? this.colapsoDetectado;
+    this.tipoColapso = snap.tipoColapso ?? null;
+    this.mensajeColapso = snap.mensajeColapso ?? null;
+    this.datosColapso = snap.datosColapso ?? null;
     this.fechaColapsoMs = snap.fechaColapsoMs ?? 0;
     this.fechaColapsoEstimadaMs = snap.fechaColapsoEstimadaMs ?? 0;
     this.colapsoMotivo = snap.colapsoMotivo ?? '';
@@ -472,6 +497,8 @@ private getAirportXOffset(codigoOaci: string): number {
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
+    this.ocupacionesAeropuertos.clear();
+    this.ultimoTiempoOcupacionesMs = 0;
     this.disponibleDesde.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = this.dias;
@@ -493,6 +520,10 @@ private getAirportXOffset(codigoOaci: string): number {
     // Reset colapso
     this.modoColapso = false;
     this.colapsoDetectado = false;
+    this.simulacionColapsada = false;
+    this.tipoColapso = null;
+    this.mensajeColapso = null;
+    this.datosColapso = null;
     this.fechaColapsoMs = 0;
     this.fechaColapsoEstimadaMs = 0;
     this.duracionHastaColapsoMin = 0;
@@ -620,6 +651,22 @@ private getAirportXOffset(codigoOaci: string): number {
     this.computarArcos();
     this.actualizarEstado();
 
+    if (msg.colapsada === true && msg.estadoColapso) {
+      const c = msg.estadoColapso;
+      this.aplicarColapso({
+        tipoColapso: c.tipo,
+        mensaje: c.mensaje,
+        aeropuerto: c.codigoAeropuerto,
+        ocupacionActual: c.ocupacionActual,
+        capacidadMaxima: c.capacidadMaxima,
+        idEnvio: c.idEnvio,
+        fechaLimiteEntrega: c.fechaLimiteEntrega,
+        fechaSimulada: c.fechaColapso,
+        tiempoColapsoMs: c.fechaColapso ? new Date(`${c.fechaColapso}Z`).getTime() : 0
+      });
+      return;
+    }
+
     if (finalizada) {
       // La simulación ya terminó: mostrar la foto congelada con métricas, sin reproducir.
       this.estado = 'listo';
@@ -716,17 +763,14 @@ private getAirportXOffset(codigoOaci: string): number {
       }
 
       case 'COLAPSO_DETECTADO':
-        this.colapsoDetectado        = true;
-        this.fechaColapsoMs          = msg.tiempoColapsoMs as number;
-        this.duracionHastaColapsoMin = msg.duracionSimMinutos as number;
-        this.pctNoAsignados          = msg.pctNoAsignados as number;
-        this.colapsoMotivo           = msg.motivo ?? `${this.pctNoAsignados}% de maletas sin asignar`;
-        this.messageService.add({
-          severity: 'error', sticky: true,
-          summary:  '⚠️ Colapso logístico confirmado',
-          detail:   `Sistema colapsó el ${new Date(this.fechaColapsoMs).toLocaleDateString('es-PE', { timeZone: 'UTC' })} — ${this.colapsoMotivo}`
-        });
-        this.cdr.detectChanges();
+        this.actualizarOcupacionAeropuerto(
+          msg.aeropuerto,
+          msg.ocupacionActual,
+          msg.capacidadMaxima,
+          Number(msg.tiempoSimulacionMs ?? msg.tiempoColapsoMs),
+          true
+        );
+        this.aplicarColapso(msg);
         break;
 
       case 'ERROR':
@@ -737,10 +781,51 @@ private getAirportXOffset(codigoOaci: string): number {
     }
   }
 
+  private aplicarColapso(msg: any): void {
+    this.actualizarOcupacionAeropuerto(
+      msg.aeropuerto,
+      msg.ocupacionActual,
+      msg.capacidadMaxima,
+      Number(msg.tiempoSimulacionMs ?? msg.tiempoColapsoMs),
+      true
+    );
+    if (this.simulacionColapsada) return;
+    this.simulacionColapsada = true;
+    this.colapsoDetectado = true;
+    this.tipoColapso = msg.tipoColapso ?? null;
+    this.mensajeColapso = msg.mensaje ?? msg.motivo
+      ?? 'La simulación alcanzó una condición de colapso.';
+    this.datosColapso = msg;
+    this.fechaColapsoMs = Number(msg.tiempoColapsoMs)
+      || (msg.fechaSimulada ? new Date(`${msg.fechaSimulada}Z`).getTime() : this.tiempoActualMs);
+    this.duracionHastaColapsoMin = Number(msg.duracionSimMinutos) || 0;
+    this.pctNoAsignados = Number(msg.pctNoAsignados) || 0;
+    this.colapsoMotivo = this.mensajeColapso ?? '';
+
+    // Congela reloj, animaciones y movimientos sin borrar el mapa alcanzado.
+    this.detener();
+    this.tiempoActualMs = this.fechaColapsoMs || this.tiempoActualMs;
+    this.estado = 'listo';
+    this.reproduciendo = false;
+    this.esperandoDatos = false;
+    this.simFinalizada = true;
+    this.actualizarEstado();
+
+    this.messageService.add({
+      severity: 'error',
+      sticky: true,
+      summary: 'Colapso logístico detectado',
+      detail: `${this.mensajeColapso} La simulación fue detenida.`
+    });
+    this.cdr.detectChanges();
+  }
+
   private onWsInit(msg: any): void {
     const tiempoInicioMs = msg.tiempoSimulacionMs as number;
     this.tiempoInicioMs = tiempoInicioMs;
     this.tiempoActualMs = tiempoInicioMs;
+    this.actualizarOcupacionesAeropuertos(
+      msg.ocupacionesAeropuertos, tiempoInicioMs);
     // La "foto" dura exactamente 5 días desde el inicio elegido: el reloj se
     // detendrá aquí (no al aterrizar el último avión).
     this.tiempoFinMs    = tiempoInicioMs + this.duracionFotoMs;
@@ -779,11 +864,16 @@ private getAirportXOffset(codigoOaci: string): number {
   }
 
   private onWsUpdate(msg: any): void {
+    if (this.simulacionColapsada) return;
+
+    const finVentana = Number(msg.tiempoSimulacionMs) || 0;
+    this.actualizarOcupacionesAeropuertos(
+      msg.ocupacionesAeropuertos, finVentana);
+
     this.ciclosCompletados = msg.ciclo ?? this.ciclosCompletados + 1;
     this.diasRecibidos = this.ciclosCompletados;
 
     // Extender el búfer de datos planificados hasta el fin de esta ventana
-    const finVentana = msg.tiempoSimulacionMs as number;
     if (finVentana && finVentana > this.ventanaFinMs) {
       this.ventanaFinMs = finVentana;
       this.esperandoDatos = false;
@@ -832,6 +922,57 @@ private getAirportXOffset(codigoOaci: string): number {
     this.computarArcos();
     this.actualizarEstado();
     this.cdr.detectChanges();
+  }
+
+  private actualizarOcupacionesAeropuertos(
+    payload: Record<string, unknown> | null | undefined,
+    tiempoSimulacionMs: number
+  ): void {
+    const resultado = aplicarUpdateOcupaciones(
+      this.ocupacionesAeropuertos,
+      payload,
+      tiempoSimulacionMs,
+      this.ultimoTiempoOcupacionesMs,
+      this.simulacionColapsada
+    );
+    if (!resultado.aplicado) return;
+
+    this.ocupacionesAeropuertos = resultado.ocupaciones;
+    this.maletasEnAeropuerto.clear();
+    resultado.ocupaciones.forEach((ocupacion, codigo) => {
+      this.maletasEnAeropuerto.set(codigo, ocupacion.ocupacionActual);
+      const aeropuerto = this.aeropuertoMap.get(codigo);
+      if (aeropuerto && ocupacion.capacidadMaxima > 0) {
+        aeropuerto.capacidad = ocupacion.capacidadMaxima;
+      }
+    });
+    this.ultimoTiempoOcupacionesMs = resultado.tiempoSimulacionMs;
+    this.bumpUi();
+  }
+
+  private actualizarOcupacionAeropuerto(
+    codigo: unknown,
+    ocupacionRaw: unknown,
+    capacidadRaw: unknown,
+    tiempoSimulacionMs: number,
+    forzar = false
+  ): void {
+    if (typeof codigo !== 'string' || !codigo) return;
+    const ocupacionActual = Number(ocupacionRaw);
+    const capacidadMaxima = Number(capacidadRaw);
+    if (!Number.isFinite(ocupacionActual) || !Number.isFinite(capacidadMaxima)) return;
+    if (!forzar && this.simulacionColapsada) return;
+
+    this.ocupacionesAeropuertos = aplicarColapsoOcupacion(
+      this.ocupacionesAeropuertos, codigo, ocupacionActual, capacidadMaxima);
+    this.maletasEnAeropuerto.set(codigo, ocupacionActual);
+    const aeropuerto = this.aeropuertoMap.get(codigo);
+    if (aeropuerto && capacidadMaxima > 0) aeropuerto.capacidad = capacidadMaxima;
+    if (tiempoSimulacionMs) {
+      this.ultimoTiempoOcupacionesMs =
+        Math.max(this.ultimoTiempoOcupacionesMs, tiempoSimulacionMs);
+    }
+    this.bumpUi();
   }
 
   private onWsFin(msg: any): void {
@@ -1016,6 +1157,8 @@ private getAirportXOffset(codigoOaci: string): number {
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
+    this.ocupacionesAeropuertos.clear();
+    this.ultimoTiempoOcupacionesMs = 0;
     this.resumen = null; this.vueloSeleccionado = null;
     this.eventosRecientes = []; this.estadosAnteriores.clear();
     this.vuelosCancelados.clear();
@@ -1346,31 +1489,8 @@ private getAirportXOffset(codigoOaci: string): number {
       arco.estado = nuevo;
     });
 
-    // ── Maletas en aeropuerto ──
-    // Una maleta ocupa el almacén de origen solo desde que EXISTE ahí a la hora
-    // simulada: desde su registro (tramo 1) o desde que aterrizó su tramo anterior
-    // (escalas), y hasta que su vuelo despega. Así los almacenes empiezan vacíos
-    // y se llenan progresivamente, aunque el planificador trabaje por bloques.
-    this.maletasEnAeropuerto.clear();
-    this.vuelos.forEach(v => {
-      if (now >= v.horaSalida.getTime()) return;
-      let enAlmacen = 0;
-      v.envios.forEach(e => {
-        const desde = this.disponibleDesde.get(`${e.idEnvio}|${v.codigoVuelo}`)
-          ?? e.fechaRegistroMs
-          ?? v.horaSalida.getTime() - 3 * this.HORA_MS; // sin dato: aparece 3 h antes del despegue
-        if (desde <= now) enAlmacen += e.cantidad;
-      });
-      if (enAlmacen > 0) {
-        this.maletasEnAeropuerto.set(v.origen, (this.maletasEnAeropuerto.get(v.origen) ?? 0) + enAlmacen);
-      }
-    });
-    // Un almacén NO puede exceder su capacidad física: se topa la ocupación a
-    // la capacidad del aeropuerto (nunca se muestra >100%).
-    this.maletasEnAeropuerto.forEach((bags, code) => {
-      const cap = this.aeropuertoMap.get(code)?.capacidad ?? 0;
-      if (cap > 0 && bags > cap) this.maletasEnAeropuerto.set(code, cap);
-    });
+    // La ocupacion logistica llega en UPDATE desde el backend. Las rutas locales
+    // solo gobiernan posiciones y animaciones, nunca el valor del almacen.
 
     // Limpiar marcadores de cancelación expirados (vuelo ya habría aterrizado)
     this.cancelacionesEnMapa.forEach((data, key) => {
@@ -1712,6 +1832,8 @@ private getAirportXOffset(codigoOaci: string): number {
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
+    this.ocupacionesAeropuertos.clear();
+    this.ultimoTiempoOcupacionesMs = 0;
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = this.dias;
     this.ciclosCompletados = 0;
@@ -1804,7 +1926,12 @@ private getAirportXOffset(codigoOaci: string): number {
 
   onAirportHover(event: MouseEvent, a: AeropuertoPosicion): void {
     const bags = this.getBagsEnAeropuerto(a.codigoOaci);
-    const pct  = a.capacidad > 0 ? Math.round(bags / a.capacidad * 100) : 0;
+    const snapshot = this.ocupacionesAeropuertos.get(a.codigoOaci);
+    const pct = snapshot?.porcentaje
+      ?? (a.capacidad > 0 ? bags / a.capacidad * 100 : 0);
+    const pctLabel = pct.toLocaleString('es-PE', {
+      minimumFractionDigits: 0, maximumFractionDigits: 2
+    });
     const sem  = pct >= 85 ? '🔴 Almacén crítico (>85%)'
                : pct >= 60 ? '🟡 Capacidad media (>60%)'
                : '🟢 Espacio disponible';
@@ -1819,7 +1946,7 @@ private getAirportXOffset(codigoOaci: string): number {
       lines: [
         `${a.codigoOaci} – ${a.ciudad}`,
         `Capacidad total: ${a.capacidad} maletas`,
-        `En almacén: ${bags} maletas (${pct}%)`,
+        `En almacén: ${bags} maletas (${pctLabel}%)`,
         sem
       ]
     };
@@ -2045,21 +2172,17 @@ private getAirportXOffset(codigoOaci: string): number {
   setOrdenVuelo(o: 'codigo' | 'origen' | 'destino'): void { this.ordenVuelo = o; this.bumpUi(); }
 
   private computarPanelAlmacenes(): any[] {
-    const now = this.tiempoActualMs;
-    const salen  = new Map<string, number>();
-    const entran = new Map<string, number>();
-    this.vuelos.forEach(v => {
-      if (now < v.horaSalida.getTime())  salen.set(v.origen,  (salen.get(v.origen)   ?? 0) + 1);
-      if (now < v.horaLlegada.getTime()) entran.set(v.destino, (entran.get(v.destino) ?? 0) + 1);
-    });
     let lista = this.aeropuertos.map(a => {
-      const ocupacion = this.maletasEnAeropuerto.get(a.codigoOaci) ?? 0;
-      const pct = a.capacidad > 0 ? (ocupacion / a.capacidad) * 100 : 0;
+      const snapshot = this.ocupacionesAeropuertos.get(a.codigoOaci);
+      const ocupacion = snapshot?.ocupacionActual ?? 0;
+      const capacidad = snapshot?.capacidadMaxima ?? a.capacidad;
+      const pct = snapshot?.porcentaje
+        ?? (capacidad > 0 ? ocupacion * 100 / capacidad : 0);
       const sem = pct >= this.UMBRAL_ROJO ? 'ROJO' : pct >= this.UMBRAL_AMBAR ? 'AMARILLO' : ocupacion > 0 ? 'VERDE' : 'VACIO';
       return {
-        codigo: a.codigoOaci, ciudad: a.ciudad, capacidad: a.capacidad,
+        codigo: a.codigoOaci, ciudad: a.ciudad, capacidad,
         ocupacion, pct, semaforo: sem,
-        salen: salen.get(a.codigoOaci) ?? 0, entran: entran.get(a.codigoOaci) ?? 0
+        salen: snapshot?.salidas ?? 0, entran: snapshot?.entradas ?? 0
       };
     });
     if (this.semaforoAlmacenFiltro) lista = lista.filter(a => a.semaforo === this.semaforoAlmacenFiltro);
@@ -2403,9 +2526,12 @@ private getAirportXOffset(codigoOaci: string): number {
     const pctFlota = total > 0 ? (enVuelo / total) * 100 : 0;
     const semFlota = pctFlota >= 20 ? 'VERDE' : pctFlota > 0 ? 'AMARILLO' : 'VACIO';
     const almList = this.cPanelAlmacenes;
-    const pctAlmacenes = almList.length > 0
-      ? almList.reduce((s: number, a: any) => s + (a.pct as number), 0) / almList.length
-      : 0;
+    const ocupacionAlmacenes = almList.reduce(
+      (s: number, a: any) => s + Number(a.ocupacion || 0), 0);
+    const capacidadAlmacenes = almList.reduce(
+      (s: number, a: any) => s + Number(a.capacidad || 0), 0);
+    const pctAlmacenes = capacidadAlmacenes > 0
+      ? ocupacionAlmacenes * 100 / capacidadAlmacenes : 0;
     const semAlmacenes = pctAlmacenes >= this.UMBRAL_ROJO ? 'ROJO' : pctAlmacenes >= this.UMBRAL_AMBAR ? 'AMARILLO' : pctAlmacenes > 0 ? 'VERDE' : 'VACIO';
 
     // Nivel de llenado de la flota (indicador del profesor): maletas que se
@@ -2460,6 +2586,8 @@ private getAirportXOffset(codigoOaci: string): number {
     this.vuelos = []; this.vueloMap.clear();
     this.arcosVuelo = []; this.planosEnMapa = [];
     this.maletasEnAeropuerto.clear();
+    this.ocupacionesAeropuertos.clear();
+    this.ultimoTiempoOcupacionesMs = 0;
     this.disponibleDesde.clear();
     this.resumen = null; this.vueloSeleccionado = null;
     this.diasRecibidos = 0; this.diasEsperados = 5;
@@ -2484,6 +2612,10 @@ private getAirportXOffset(codigoOaci: string): number {
     // Estado colapso
     this.modoColapso             = true;
     this.colapsoDetectado        = false;
+    this.simulacionColapsada     = false;
+    this.tipoColapso             = null;
+    this.mensajeColapso          = null;
+    this.datosColapso            = null;
     this.fechaColapsoMs          = 0;
     this.fechaColapsoEstimadaMs  = 0;
     this.duracionHastaColapsoMin = 0;

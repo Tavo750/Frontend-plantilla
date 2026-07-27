@@ -46,7 +46,7 @@
         <div class="si-item">
           <span class="si-label">Almacenes</span>
           <span class="si-dot" [class]="getSemaforoClass(simIndicadores.semAlmacenes)"></span>
-          <span class="si-val">{{ simIndicadores.pctAlmacenes | number:'1.0-0' }}%</span>
+          <span class="si-val">{{ simIndicadores.pctAlmacenes | number:'1.0-2' }}%</span>
         </div>
         <div class="si-sep"></div>
         <div class="si-item"
@@ -164,17 +164,22 @@
 
 
   <!-- ── VEREDICTO COLAPSO ─────────────────────────────────── -->
-  <div class="colapso-verdict-bar" *ngIf="modoColapso && colapsoDetectado">
-    <div class="cvb-icon">⚠️</div>
+  <div class="colapso-verdict-bar" *ngIf="simulacionColapsada">
+    <div class="cvb-icon"><i class="pi pi-exclamation-triangle"></i></div>
     <div class="cvb-content">
       <div class="cvb-title">COLAPSO LOGÍSTICO DETECTADO</div>
       <div class="cvb-detail">
-        El sistema colapsó el
-        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm':'UTC' }}</strong>
-        · Operó
-        <strong>{{ (duracionHastaColapsoMin / 60 / 24) | number:'1.1-1' }} días simulados</strong>
-        antes del colapso
-        · <strong class="cvb-pct">{{ colapsoMotivo || (pctNoAsignados + '% de maletas sin asignar') }}</strong>
+        <strong class="cvb-pct">{{ mensajeColapso }}</strong>
+        La simulación se detuvo en
+        <strong>{{ fechaColapsoMs | date:'dd/MM/yyyy HH:mm':'UTC' }}</strong>.
+      </div>
+      <div class="cvb-data" *ngIf="tipoColapso === 'CAPACIDAD_AEROPUERTO'">
+        <span>Aeropuerto <strong>{{ datosColapso?.aeropuerto }}</strong></span>
+        <span>Ocupación <strong>{{ datosColapso?.ocupacionActual }} / {{ datosColapso?.capacidadMaxima }}</strong></span>
+      </div>
+      <div class="cvb-data" *ngIf="tipoColapso === 'INCUMPLIMIENTO_SLA'">
+        <span>Envío <strong>{{ datosColapso?.idEnvio }}</strong></span>
+        <span>Fecha límite <strong>{{ datosColapso?.fechaLimiteEntrega | date:'dd/MM/yyyy HH:mm':'UTC' }}</strong></span>
       </div>
     </div>
     <div class="cvb-estimada" *ngIf="fechaColapsoEstimadaMs > 0">
@@ -642,7 +647,7 @@
                 <span class="sem-dot-sm" [class]="getSemaforoClass(a.semaforo)"></span>
                 <span class="pitem-code">{{ a.codigo }}</span>
                 <span class="pitem-city">{{ a.ciudad }}</span>
-                <span class="pitem-pct">{{ a.pct | number:'1.0-0' }}%</span>
+                <span class="pitem-pct">{{ a.pct | number:'1.0-2' }}%</span>
               </div>
               <div class="pitem-bar">
                 <div class="pitem-bar-fill" [class]="getSemaforoClass(a.semaforo)"

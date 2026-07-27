@@ -2041,6 +2041,17 @@
 .cvb-detail strong { color: #fff; }
 .cvb-pct { color: #fca5a5 !important; font-size: 0.88rem; }
 
+.cvb-data {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-top: 0.45rem;
+  color: #fecaca;
+  font-size: 0.82rem;
+}
+
+.cvb-data strong { color: #fff; }
+
 .cvb-estimada {
   display: flex;
   flex-direction: column;
