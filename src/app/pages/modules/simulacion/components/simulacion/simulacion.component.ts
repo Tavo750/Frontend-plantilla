@@ -763,13 +763,9 @@ private getAirportXOffset(codigoOaci: string): number {
       }
 
       case 'COLAPSO_DETECTADO':
-        this.actualizarOcupacionAeropuerto(
-          msg.aeropuerto,
-          msg.ocupacionActual,
-          msg.capacidadMaxima,
-          Number(msg.tiempoSimulacionMs ?? msg.tiempoColapsoMs),
-          true
-        );
+        // La saturacion aeroportuaria es solo informativa. Un backend antiguo
+        // no debe detener el reloj ni las animaciones por capacidad.
+        if (msg.tipoColapso !== 'INCUMPLIMIENTO_SLA') break;
         this.aplicarColapso(msg);
         break;
 
@@ -795,7 +791,14 @@ private getAirportXOffset(codigoOaci: string): number {
     this.tipoColapso = msg.tipoColapso ?? null;
     this.mensajeColapso = msg.mensaje ?? msg.motivo
       ?? 'La simulación alcanzó una condición de colapso.';
-    this.datosColapso = msg;
+    const fechaLimiteEntregaMs = Number(msg.fechaLimiteEntregaMs)
+      || (msg.fechaLimiteEntrega
+        ? new Date(`${msg.fechaLimiteEntrega}Z`).getTime()
+        : 0);
+    this.datosColapso = {
+      ...msg,
+      fechaLimiteEntrega: fechaLimiteEntregaMs || null
+    };
     this.fechaColapsoMs = Number(msg.tiempoColapsoMs)
       || (msg.fechaSimulada ? new Date(`${msg.fechaSimulada}Z`).getTime() : this.tiempoActualMs);
     this.duracionHastaColapsoMin = Number(msg.duracionSimMinutos) || 0;
@@ -866,9 +869,19 @@ private getAirportXOffset(codigoOaci: string): number {
   private onWsUpdate(msg: any): void {
     if (this.simulacionColapsada) return;
 
-    const finVentana = Number(msg.tiempoSimulacionMs) || 0;
+    const tiempoSimulacionMs = Number(msg.tiempoSimulacionMs) || 0;
+    const finVentana = Number(msg.finVentanaMs) || tiempoSimulacionMs;
     this.actualizarOcupacionesAeropuertos(
-      msg.ocupacionesAeropuertos, finVentana);
+      msg.ocupacionesAeropuertos, tiempoSimulacionMs);
+
+    // El UPDATE, el reloj visible y una eventual deteccion de SLA representan
+    // exactamente el mismo epoch. Reanclar conserva el avance continuo a K.
+    if (tiempoSimulacionMs) {
+      this.tiempoActualMs = tiempoSimulacionMs;
+      const simMsPorRealMs = (this.HORA_MS * this.AVANCE_H) / this.TICK_MS;
+      this.simInicioRealMs = Date.now()
+        - (tiempoSimulacionMs - this.tiempoInicioMs) / simMsPorRealMs;
+    }
 
     this.ciclosCompletados = msg.ciclo ?? this.ciclosCompletados + 1;
     this.diasRecibidos = this.ciclosCompletados;
