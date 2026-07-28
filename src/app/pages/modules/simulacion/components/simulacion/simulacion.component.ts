@@ -955,6 +955,45 @@ export class SimulacionComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
+  private registrarEnviosNoReasignados(enviosNoReasignados: any[] | null | undefined): void {
+    if (!enviosNoReasignados || enviosNoReasignados.length === 0) return;
+
+    const porVuelo = new Map<string, any[]>();
+    for (const e of enviosNoReasignados) {
+      const code = e.codigoVuelo || 'CANCELADO';
+      if (!porVuelo.has(code)) porVuelo.set(code, []);
+      porVuelo.get(code)!.push(e);
+    }
+
+    for (const [code, envios] of porVuelo.entries()) {
+      const e0 = envios[0];
+      const vueloSim: VueloSimulacion = {
+        codigoVuelo: code,
+        origen: e0.origen,
+        destino: e0.destino,
+        horaSalida: new Date(e0.horaSalidaMs || this.tiempoInicioMs),
+        horaLlegada: new Date(e0.horaLlegadaMs || this.tiempoInicioMs),
+        totalMaletas: envios.reduce((acc, curr) => acc + (curr.cantidad ?? 1), 0),
+        envios: envios.map(e => ({
+          idEnvio: e.idEnvio,
+          cantidad: e.cantidad ?? 1,
+          fechaRegistroMs: e.fechaRegistroMs,
+          fechaLimiteMs: e.fechaLimiteMs
+        }))
+      };
+
+      if (this.vueloMap.has(code)) {
+        const existing = this.vueloMap.get(code)!;
+        existing.envios = vueloSim.envios;
+        existing.totalMaletas = vueloSim.totalMaletas;
+      } else {
+        this.vueloMap.set(code, vueloSim);
+        this.vuelos.push(vueloSim);
+      }
+      this.vuelosCancelados.add(code);
+    }
+  }
+
   private actualizarOcupacionesAeropuertos(
     payload: Record<string, unknown> | null | undefined,
     tiempoSimulacionMs: number
